@@ -5,6 +5,7 @@ import { AppLayout } from '@/components/layout/AppLayout'
 
 // Auth pages
 import { LoginPage }          from '@/features/auth/pages/LoginPage'
+import { RegisterPage }       from '@/features/auth/pages/RegisterPage'
 import { ForgotPasswordPage } from '@/features/auth/pages/ForgotPasswordPage'
 import { ResetPasswordPage }  from '@/features/auth/pages/ResetPasswordPage'
 import { AcceptInvitePage }   from '@/features/auth/pages/AcceptInvitePage'
@@ -19,6 +20,7 @@ import { RevenuePage }    from '@/features/revenue/pages/RevenuePage'
 import { ReportsPage }    from '@/features/reports/pages/ReportsPage'
 import { MetaAdsPage }    from '@/features/integrations/pages/MetaAdsPage'
 import { UsersPage }      from '@/features/users/pages/UsersPage'
+import { SettingsPage }  from '@/features/settings/pages/SettingsPage'
 
 export function AppRouter() {
   return (
@@ -26,6 +28,7 @@ export function AppRouter() {
       <Routes>
         {/* Rotas públicas */}
         <Route path="/login"           element={<LoginPage />} />
+        <Route path="/registrar"       element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password"  element={<ResetPasswordPage />} />
         <Route path="/convite/:token"  element={<AcceptInvitePage />} />
@@ -50,7 +53,8 @@ export function AppRouter() {
 
           {/* Restrito a admin */}
           <Route element={<RoleRoute required="admin" />}>
-            <Route path="/users" element={<AppLayout><UsersPage /></AppLayout>} />
+            <Route path="/users"     element={<AppLayout><UsersPage /></AppLayout>} />
+            <Route path="/settings"  element={<AppLayout><SettingsPage /></AppLayout>} />
           </Route>
         </Route>
 

@@ -115,6 +115,15 @@ export function LoginPage() {
           Entrar
         </Button>
       </form>
+
+      {/* Link para cadastro */}
+      <p className="mt-5 text-center text-sm" style={{ color: '#555' }}>
+        Primeira vez?{' '}
+        <Link to="/registrar" className="font-medium transition-colors"
+          style={{ color: 'var(--tenant-primary)' }}>
+          Criar conta gratuitamente
+        </Link>
+      </p>
     </AuthLayout>
   )
 }

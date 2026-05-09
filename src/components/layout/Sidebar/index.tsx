@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, Users, Kanban, Zap, Target,
   UserCog, LogOut, ChevronLeft, ChevronRight,
-  DollarSign, BarChart2, Megaphone,
+  DollarSign, BarChart2, Megaphone, Settings,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
@@ -30,7 +30,8 @@ const MANAGER_ITEMS = [
 ]
 
 const ADMIN_ITEMS = [
-  { to: '/users', label: 'Usuários', icon: UserCog },
+  { to: '/users',    label: 'Usuários',       icon: UserCog  },
+  { to: '/settings', label: 'Configurações',  icon: Settings },
 ]
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {

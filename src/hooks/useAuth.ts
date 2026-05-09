@@ -16,7 +16,8 @@ export function useAuth() {
 
   async function resetPassword(email: string) {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      // HashRouter usa #/ — o Supabase redireciona para a origin e o hash lida com o resto
+      redirectTo: `${window.location.origin}${window.location.pathname}#/reset-password`,
     })
     if (error) throw error
   }
