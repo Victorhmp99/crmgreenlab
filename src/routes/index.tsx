@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { PrivateRoute } from './PrivateRoute'
 import { RoleRoute } from './RoleRoute'
 import { AppLayout } from '@/components/layout/AppLayout'
@@ -22,7 +22,7 @@ import { UsersPage }      from '@/features/users/pages/UsersPage'
 
 export function AppRouter() {
   return (
-    <BrowserRouter basename="/crmgreenlab">
+    <HashRouter>
       <Routes>
         {/* Rotas públicas */}
         <Route path="/login"           element={<LoginPage />} />
@@ -56,6 +56,6 @@ export function AppRouter() {
 
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
-    </BrowserRouter>
+    </HashRouter>
   )
 }
