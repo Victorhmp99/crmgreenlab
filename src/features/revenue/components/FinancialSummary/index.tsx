@@ -1,5 +1,4 @@
 import { TrendingUp, TrendingDown, DollarSign, Percent } from 'lucide-react'
-import { cn } from '@/lib/utils'
 import type { FinancialSummary } from '@/services/financial'
 
 function formatBRL(value: number): string {
@@ -10,27 +9,30 @@ interface SummaryCardProps {
   label:     string
   value:     string
   icon:      React.ElementType
-  color:     string
+  iconBg:    string
+  iconColor: string
   subLabel?: string
   isLoading: boolean
 }
 
-function SummaryCard({ label, value, icon: Icon, color, subLabel, isLoading }: SummaryCardProps) {
+function SummaryCard({ label, value, icon: Icon, iconBg, iconColor, subLabel, isLoading }: SummaryCardProps) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm flex items-start gap-4">
-      <div className={cn('h-11 w-11 rounded-xl flex items-center justify-center shrink-0', color)}>
-        <Icon size={20} className="text-white" />
+    <div className="rounded-xl p-5 flex items-start gap-4"
+      style={{ background: '#141414', border: '1px solid #1e1e1e' }}>
+      <div className="h-11 w-11 rounded-xl flex items-center justify-center shrink-0"
+        style={{ background: iconBg }}>
+        <Icon size={20} style={{ color: iconColor }} />
       </div>
       {isLoading ? (
         <div className="flex flex-col gap-2 flex-1">
-          <div className="h-7 w-28 rounded-lg bg-slate-100 animate-pulse" />
-          <div className="h-4 w-20 rounded bg-slate-100 animate-pulse" />
+          <div className="h-7 w-28 rounded-lg animate-pulse" style={{ background: '#1e1e1e' }} />
+          <div className="h-4 w-20 rounded animate-pulse" style={{ background: '#1e1e1e' }} />
         </div>
       ) : (
         <div>
-          <p className="text-2xl font-bold text-slate-900 tabular-nums">{value}</p>
-          <p className="text-sm font-medium text-slate-500 mt-0.5">{label}</p>
-          {subLabel && <p className="text-xs text-slate-400 mt-0.5">{subLabel}</p>}
+          <p className="text-2xl font-bold tabular-nums" style={{ color: '#e8e8e8' }}>{value}</p>
+          <p className="text-sm font-medium mt-0.5" style={{ color: '#555' }}>{label}</p>
+          {subLabel && <p className="text-xs mt-0.5" style={{ color: '#444' }}>{subLabel}</p>}
         </div>
       )}
     </div>
@@ -38,8 +40,8 @@ function SummaryCard({ label, value, icon: Icon, color, subLabel, isLoading }: S
 }
 
 interface FinancialSummaryProps {
-  data?:     FinancialSummary
-  isLoading: boolean
+  data?:       FinancialSummary
+  isLoading:   boolean
   periodLabel: string
 }
 
@@ -50,7 +52,8 @@ export function FinancialSummaryCards({ data, isLoading, periodLabel }: Financia
         label="Receita Total"
         value={data ? formatBRL(data.totalRevenue) : 'R$ —'}
         icon={TrendingUp}
-        color="bg-emerald-600"
+        iconBg="rgba(0,230,118,0.12)"
+        iconColor="#00e676"
         subLabel={periodLabel}
         isLoading={isLoading}
       />
@@ -58,7 +61,8 @@ export function FinancialSummaryCards({ data, isLoading, periodLabel }: Financia
         label="Despesas Total"
         value={data ? formatBRL(data.totalExpenses) : 'R$ —'}
         icon={TrendingDown}
-        color="bg-red-500"
+        iconBg="rgba(255,68,68,0.12)"
+        iconColor="#ff4444"
         subLabel={periodLabel}
         isLoading={isLoading}
       />
@@ -66,7 +70,8 @@ export function FinancialSummaryCards({ data, isLoading, periodLabel }: Financia
         label="Lucro Líquido"
         value={data ? formatBRL(data.netProfit) : 'R$ —'}
         icon={DollarSign}
-        color={data && data.netProfit >= 0 ? 'bg-blue-600' : 'bg-amber-500'}
+        iconBg={data && data.netProfit >= 0 ? 'rgba(64,160,255,0.12)' : 'rgba(251,191,36,0.12)'}
+        iconColor={data && data.netProfit >= 0 ? '#40a0ff' : '#fbbf24'}
         subLabel={periodLabel}
         isLoading={isLoading}
       />
@@ -74,7 +79,8 @@ export function FinancialSummaryCards({ data, isLoading, periodLabel }: Financia
         label="Margem de Lucro"
         value={data ? `${data.profitMargin}%` : '—%'}
         icon={Percent}
-        color={data && data.profitMargin >= 30 ? 'bg-violet-600' : 'bg-slate-500'}
+        iconBg={data && data.profitMargin >= 30 ? 'rgba(167,139,250,0.12)' : 'rgba(150,150,150,0.1)'}
+        iconColor={data && data.profitMargin >= 30 ? '#a78bfa' : '#666'}
         isLoading={isLoading}
       />
     </div>

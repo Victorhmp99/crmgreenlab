@@ -245,7 +245,7 @@ function AddStageButton({ pipelineId, nextPosition }: { pipelineId: string; next
   const { addStage }          = usePipelineManagement()
   const inputRef = useRef<HTMLInputElement | null>(null)
 
-  const COLORS = ['#6366F1','#3B82F6','#10B981','#F59E0B','#EC4899','#EF4444','#94a3b8']
+  const COLORS = ['#00e676','#40a0ff','#a78bfa','#fbbf24','#ec4899','#ff4444','#555']
 
   async function handleAdd() {
     if (!name.trim()) return
@@ -259,7 +259,16 @@ function AddStageButton({ pipelineId, nextPosition }: { pipelineId: string; next
     return (
       <button
         onClick={() => setAdding(true)}
-        className="shrink-0 flex flex-col items-center justify-center w-52 rounded-xl border-2 border-dashed border-slate-200 text-slate-400 hover:text-blue-500 hover:border-blue-300 hover:bg-blue-50 transition-colors gap-1.5 py-6"
+        className="shrink-0 flex flex-col items-center justify-center w-52 rounded-xl gap-1.5 py-6 transition-all"
+        style={{ border: '2px dashed #1e1e1e', color: '#444' }}
+        onMouseEnter={(e) => {
+          (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(0,230,118,0.3)'
+          ;(e.currentTarget as HTMLButtonElement).style.color = '#00e676'
+        }}
+        onMouseLeave={(e) => {
+          (e.currentTarget as HTMLButtonElement).style.borderColor = '#1e1e1e'
+          ;(e.currentTarget as HTMLButtonElement).style.color = '#444'
+        }}
       >
         <Plus size={18} />
         <span className="text-xs font-medium">Nova etapa</span>
@@ -268,28 +277,35 @@ function AddStageButton({ pipelineId, nextPosition }: { pipelineId: string; next
   }
 
   return (
-    <div className="shrink-0 w-52 rounded-xl border-2 border-blue-300 bg-blue-50 p-3 flex flex-col gap-2">
+    <div className="shrink-0 w-52 rounded-xl p-3 flex flex-col gap-2"
+      style={{ border: '1px solid rgba(0,230,118,0.3)', background: 'rgba(0,230,118,0.04)' }}>
       <input
         ref={(el) => { (inputRef as React.MutableRefObject<HTMLInputElement | null>).current = el; el?.focus() }}
         value={name}
         onChange={(e) => setName(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') setAdding(false) }}
         placeholder="Nome da etapa..."
-        className="h-8 w-full rounded-lg border border-slate-200 px-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+        className="h-8 w-full rounded-lg px-2 text-sm focus:outline-none"
+        style={{ background: '#1a1a1a', border: '1px solid var(--tenant-primary)', color: '#e8e8e8' }}
       />
       <div className="flex gap-1.5 flex-wrap">
         {COLORS.map((c) => (
           <button key={c} onClick={() => setColor(c)}
-            className={`h-4 w-4 rounded-full border-2 transition-transform ${color === c ? 'border-slate-600 scale-125' : 'border-transparent'}`}
-            style={{ backgroundColor: c }} />
+            className="h-4 w-4 rounded-full border-2 transition-transform"
+            style={{ backgroundColor: c, borderColor: color === c ? '#e8e8e8' : 'transparent', transform: color === c ? 'scale(1.25)' : undefined }} />
         ))}
       </div>
       <div className="flex gap-1.5">
-        <button onClick={() => setAdding(false)} className="flex-1 h-7 rounded-lg text-xs border border-slate-200 bg-white text-slate-500 hover:bg-slate-50">
+        <button onClick={() => setAdding(false)}
+          className="flex-1 h-7 rounded-lg text-xs transition-colors"
+          style={{ border: '1px solid #2a2a2a', color: '#666' }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = '#1a1a1a')}
+          onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
           Cancelar
         </button>
         <button onClick={handleAdd} disabled={!name.trim() || addStage.isPending}
-          className="flex-1 h-7 rounded-lg text-xs bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
+          className="flex-1 h-7 rounded-lg text-xs text-black disabled:opacity-50"
+          style={{ background: 'var(--tenant-primary)' }}>
           Adicionar
         </button>
       </div>

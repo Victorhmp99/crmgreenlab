@@ -7,7 +7,7 @@ export function PrivateRoute() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#0d0d0d' }}>
         <Spinner size="lg" />
       </div>
     )

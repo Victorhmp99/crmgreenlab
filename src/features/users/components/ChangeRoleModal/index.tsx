@@ -36,13 +36,15 @@ export function ChangeRoleModal({ user, onClose }: ChangeRoleModalProps) {
       }
     >
       <div className="flex flex-col gap-4">
-        <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100">
-          <div className="h-9 w-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-semibold text-sm shrink-0">
+        <div className="flex items-center gap-3 p-3 rounded-xl"
+          style={{ background: '#1a1a1a', border: '1px solid #2a2a2a' }}>
+          <div className="h-9 w-9 rounded-full flex items-center justify-center text-black font-semibold text-sm shrink-0"
+            style={{ background: 'var(--tenant-primary)' }}>
             {(user?.email?.[0] ?? '?').toUpperCase()}
           </div>
           <div>
-            <p className="text-sm font-medium text-slate-800">{user?.email}</p>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-sm font-medium" style={{ color: '#e8e8e8' }}>{user?.email}</p>
+            <p className="text-xs mt-0.5 flex items-center gap-1.5" style={{ color: '#555' }}>
               Papel atual: <RoleBadge role={user?.role ?? 'seller'} />
             </p>
           </div>
@@ -55,7 +57,8 @@ export function ChangeRoleModal({ user, onClose }: ChangeRoleModalProps) {
           options={ROLE_OPTIONS}
         />
 
-        <div className="rounded-xl bg-amber-50 border border-amber-100 px-3 py-2.5 text-xs text-amber-700">
+        <div className="rounded-xl px-3 py-2.5 text-xs"
+          style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)', color: '#fbbf24' }}>
           <strong>Atenção:</strong> Alterar para Admin concede acesso total, incluindo gestão de usuários e configurações do tenant.
         </div>
       </div>

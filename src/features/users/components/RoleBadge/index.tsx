@@ -1,16 +1,19 @@
 import type { UserRole } from '@/types'
 
-const ROLE_CONFIG: Record<UserRole, { label: string; className: string }> = {
-  admin:   { label: 'Admin',   className: 'bg-violet-100 text-violet-700' },
-  manager: { label: 'Gestor',  className: 'bg-blue-100   text-blue-700'   },
-  seller:  { label: 'Vendedor',className: 'bg-slate-100  text-slate-600'  },
+const ROLE_CONFIG: Record<UserRole, { label: string; bg: string; color: string }> = {
+  admin:   { label: 'Admin',   bg: 'rgba(167,139,250,0.15)', color: '#a78bfa' },
+  manager: { label: 'Gestor',  bg: 'rgba(64,160,255,0.12)',  color: '#40a0ff' },
+  seller:  { label: 'Vendedor',bg: 'rgba(150,150,150,0.1)',  color: '#888'    },
 }
 
 export function RoleBadge({ role }: { role: UserRole }) {
-  const { label, className } = ROLE_CONFIG[role] ?? ROLE_CONFIG.seller
+  const cfg = ROLE_CONFIG[role] ?? ROLE_CONFIG.seller
   return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${className}`}>
-      {label}
+    <span
+      className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
+      style={{ background: cfg.bg, color: cfg.color }}
+    >
+      {cfg.label}
     </span>
   )
 }

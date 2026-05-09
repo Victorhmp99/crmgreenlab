@@ -5,7 +5,7 @@ import { useLeadMutations } from '../../hooks/useLeadMutations'
 import type { Lead } from '@/types'
 
 interface DeleteConfirmModalProps {
-  lead: Lead | null
+  lead:    Lead | null
   onClose: () => void
 }
 
@@ -26,25 +26,22 @@ export function DeleteConfirmModal({ lead, onClose }: DeleteConfirmModalProps) {
       size="sm"
       footer={
         <>
-          <Button variant="ghost" onClick={onClose} disabled={remove.isPending}>
-            Cancelar
-          </Button>
-          <Button variant="danger" loading={remove.isPending} onClick={handleDelete}>
-            Excluir
-          </Button>
+          <Button variant="ghost" onClick={onClose} disabled={remove.isPending}>Cancelar</Button>
+          <Button variant="danger" loading={remove.isPending} onClick={handleDelete}>Excluir</Button>
         </>
       }
     >
       <div className="flex flex-col items-center text-center gap-4 py-2">
-        <div className="h-12 w-12 rounded-full bg-red-100 flex items-center justify-center">
-          <AlertTriangle size={22} className="text-red-500" />
+        <div className="h-12 w-12 rounded-full flex items-center justify-center"
+          style={{ background: 'rgba(255,68,68,0.1)', border: '1px solid rgba(255,68,68,0.2)' }}>
+          <AlertTriangle size={22} style={{ color: '#ff4444' }} />
         </div>
         <div>
-          <p className="text-sm text-slate-700">
+          <p className="text-sm" style={{ color: '#aaa' }}>
             Você está prestes a excluir permanentemente o lead{' '}
-            <strong className="text-slate-900">{lead?.name}</strong>.
+            <strong style={{ color: '#e8e8e8' }}>{lead?.name}</strong>.
           </p>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-sm mt-1" style={{ color: '#555' }}>
             Todo o histórico de atividades também será removido.
           </p>
         </div>

@@ -106,7 +106,7 @@ export function PipelinePage() {
         <div className="flex-1 min-w-0">
           {pipelinesLoading ? (
             <div className="flex gap-2">
-              {[1,2].map((i) => <div key={i} className="h-9 w-24 rounded-xl bg-slate-100 animate-pulse" />)}
+              {[1,2].map((i) => <div key={i} className="h-9 w-24 rounded-xl animate-pulse" style={{ background: '#1e1e1e' }} />)}
             </div>
           ) : (
             <PipelineSelector
@@ -121,14 +121,26 @@ export function PipelinePage() {
           {stages.length > 0 && (
             <button
               onClick={handleAddLeadHeader}
-              className="flex items-center gap-1.5 h-9 px-3 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
+              className="flex items-center gap-1.5 h-9 px-3 rounded-lg text-black text-sm font-medium transition-colors"
+              style={{ background: 'var(--tenant-primary)' }}
+              onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.85')}
+              onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
             >
               + Novo Lead
             </button>
           )}
           <button
             onClick={handleRefresh}
-            className="h-9 w-9 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 transition-colors"
+            className="h-9 w-9 rounded-lg flex items-center justify-center transition-colors"
+            style={{ border: '1px solid #2a2a2a', color: '#555' }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = '#1a1a1a'
+              ;(e.currentTarget as HTMLButtonElement).style.color = '#aaa'
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = 'transparent'
+              ;(e.currentTarget as HTMLButtonElement).style.color = '#555'
+            }}
             title="Atualizar"
           >
             <RefreshCw size={15} />
@@ -138,10 +150,10 @@ export function PipelinePage() {
 
       {/* Subtítulo */}
       {selectedPipelineId && !pipelinesLoading && (
-        <p className="text-xs text-slate-400 -mt-2 shrink-0">
+        <p className="text-xs -mt-2 shrink-0" style={{ color: '#444' }}>
           {cards.length} lead{cards.length !== 1 ? 's' : ''} no funil ·{' '}
           {stages.length} etapa{stages.length !== 1 ? 's' : ''} ·{' '}
-          <span className="text-slate-500">arraste para reorganizar · clique para editar</span>
+          <span style={{ color: '#555' }}>arraste para reorganizar · clique para editar</span>
         </p>
       )}
 
@@ -151,8 +163,8 @@ export function PipelinePage() {
           <Spinner size="lg" />
         </div>
       ) : !selectedPipelineId ? (
-        <div className="flex flex-col items-center gap-3 py-20 text-center text-slate-400">
-          <p className="text-sm">Selecione ou crie um pipeline acima para começar</p>
+        <div className="flex flex-col items-center gap-3 py-20 text-center">
+          <p className="text-sm" style={{ color: '#444' }}>Selecione ou crie um pipeline acima para começar</p>
         </div>
       ) : (
         <div className="flex-1 min-h-0 overflow-x-auto">

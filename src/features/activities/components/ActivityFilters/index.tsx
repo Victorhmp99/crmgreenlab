@@ -33,7 +33,7 @@ export function ActivityFiltersBar({ filters, onChange }: ActivityFiltersBarProp
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium text-slate-700">De</label>
+        <label className="text-xs font-medium uppercase tracking-wide" style={{ color: '#888' }}>De</label>
         <Input
           type="date"
           value={filters.dateFrom ?? ''}
@@ -43,7 +43,7 @@ export function ActivityFiltersBar({ filters, onChange }: ActivityFiltersBarProp
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium text-slate-700">Até</label>
+        <label className="text-xs font-medium uppercase tracking-wide" style={{ color: '#888' }}>Até</label>
         <Input
           type="date"
           value={filters.dateTo ?? ''}
@@ -55,7 +55,10 @@ export function ActivityFiltersBar({ filters, onChange }: ActivityFiltersBarProp
       {hasActive && (
         <button
           onClick={() => onChange({ page: 1, pageSize: filters.pageSize })}
-          className="flex items-center gap-1.5 h-10 text-sm text-slate-500 hover:text-slate-700 transition-colors"
+          className="flex items-center gap-1.5 h-10 text-sm transition-colors"
+          style={{ color: '#555' }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = '#aaa')}
+          onMouseLeave={(e) => (e.currentTarget.style.color = '#555')}
         >
           <X size={14} /> Limpar
         </button>

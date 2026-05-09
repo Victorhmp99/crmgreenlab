@@ -19,15 +19,15 @@ const schema = z.object({
   source:          z.enum(['manual', 'import', 'meta_ads', 'google', 'referral', 'other']),
   source_campaign: z.string().optional(),
   notes:           z.string().optional(),
-  tagsRaw:         z.string().optional(),   // tags como string separada por vírgula
+  tagsRaw:         z.string().optional(),
 })
 
 type FormData = z.infer<typeof schema>
 
 interface LeadFormProps {
-  open: boolean
+  open:    boolean
   onClose: () => void
-  lead?: Lead | null   // null = criar, Lead = editar
+  lead?:   Lead | null
 }
 
 export function LeadForm({ open, onClose, lead }: LeadFormProps) {
@@ -35,19 +35,13 @@ export function LeadForm({ open, onClose, lead }: LeadFormProps) {
   const { create, update } = useLeadMutations()
 
   const {
-    register,
-    handleSubmit,
-    reset,
+    register, handleSubmit, reset,
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: {
-      status: 'active',
-      source: 'manual',
-    },
+    defaultValues: { status: 'active', source: 'manual' },
   })
 
-  // Preenche o formulário ao abrir em modo edição
   useEffect(() => {
     if (open && lead) {
       reset({
@@ -86,7 +80,6 @@ export function LeadForm({ open, onClose, lead }: LeadFormProps) {
     } else {
       await create.mutateAsync(payload)
     }
-
     onClose()
   }
 
@@ -99,14 +92,8 @@ export function LeadForm({ open, onClose, lead }: LeadFormProps) {
       size="md"
       footer={
         <>
-          <Button variant="ghost" onClick={onClose} disabled={isSubmitting}>
-            Cancelar
-          </Button>
-          <Button
-            form="lead-form"
-            type="submit"
-            loading={isSubmitting}
-          >
+          <Button variant="ghost" onClick={onClose} disabled={isSubmitting}>Cancelar</Button>
+          <Button form="lead-form" type="submit" loading={isSubmitting}>
             {isEditing ? 'Salvar alterações' : 'Criar lead'}
           </Button>
         </>
@@ -121,34 +108,14 @@ export function LeadForm({ open, onClose, lead }: LeadFormProps) {
         />
 
         <div className="grid grid-cols-2 gap-4">
-          <Input
-            label="Telefone"
-            placeholder="(11) 99999-9999"
-            type="tel"
-            {...register('phone')}
-          />
-          <Input
-            label="E-mail"
-            placeholder="lead@email.com"
-            type="email"
-            error={errors.email?.message}
-            {...register('email')}
-          />
+          <Input label="Telefone" placeholder="(11) 99999-9999" type="tel" {...register('phone')} />
+          <Input label="E-mail" placeholder="lead@email.com" type="email"
+            error={errors.email?.message} {...register('email')} />
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-          <Select
-            label="Status"
-            options={STATUS_OPTIONS}
-            error={errors.status?.message}
-            {...register('status')}
-          />
-          <Select
-            label="Origem"
-            options={SOURCE_OPTIONS}
-            error={errors.source?.message}
-            {...register('source')}
-          />
+          <Select label="Status" options={STATUS_OPTIONS} error={errors.status?.message} {...register('status')} />
+          <Select label="Origem" options={SOURCE_OPTIONS} error={errors.source?.message} {...register('source')} />
         </div>
 
         <Input
@@ -165,17 +132,22 @@ export function LeadForm({ open, onClose, lead }: LeadFormProps) {
         />
 
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-slate-700">Observações</label>
+          <label className="text-xs font-medium uppercase tracking-wide" style={{ color: '#888' }}>
+            Observações
+          </label>
           <textarea
             rows={3}
             placeholder="Anotações sobre o lead..."
-            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-slate-300 resize-none transition-colors"
+            className="w-full rounded-lg px-3 py-2 text-sm resize-none transition-all focus:outline-none"
+            style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', color: '#e8e8e8' }}
+            onFocus={(e) => (e.currentTarget.style.border = '1px solid var(--tenant-primary)')}
             {...register('notes')}
           />
         </div>
 
         {(create.error || update.error) && (
-          <p className="text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">
+          <p className="text-sm rounded-lg px-3 py-2"
+            style={{ color: '#ff4444', background: 'rgba(255,68,68,0.1)' }}>
             Erro ao salvar lead. Tente novamente.
           </p>
         )}

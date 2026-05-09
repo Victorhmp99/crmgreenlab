@@ -22,10 +22,10 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>
 
 interface ActivityFormProps {
-  open:         boolean
-  onClose:      () => void
-  presetLeadId?: string    // se aberto a partir do drawer de um lead específico
-  presetLeadName?: string
+  open:             boolean
+  onClose:          () => void
+  presetLeadId?:    string
+  presetLeadName?:  string
 }
 
 const TYPE_OPTIONS = MANUAL_ACTIVITY_TYPES.map((t) => ({
@@ -37,17 +37,13 @@ export function ActivityForm({ open, onClose, presetLeadId, presetLeadName }: Ac
   const tenantId = useAuthStore((s) => s.tenant?.id)
   const { create } = useActivityMutations()
 
-  const [leads, setLeads]     = useState<Lead[]>([])
-  const [search, setSearch]   = useState('')
-  const [filtered, setFiltered] = useState<Lead[]>([])
+  const [leads, setLeads]         = useState<Lead[]>([])
+  const [search, setSearch]       = useState('')
+  const [filtered, setFiltered]   = useState<Lead[]>([])
   const [loadingLeads, setLoadingLeads] = useState(false)
 
   const {
-    register,
-    handleSubmit,
-    reset,
-    setValue,
-    watch,
+    register, handleSubmit, reset, setValue, watch,
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -57,7 +53,6 @@ export function ActivityForm({ open, onClose, presetLeadId, presetLeadName }: Ac
   const selectedLeadId = watch('lead_id')
   const selectedLead   = leads.find((l) => l.id === selectedLeadId)
 
-  // Busca leads ao abrir (só se não há lead pré-definido)
   useEffect(() => {
     if (!open || !tenantId || presetLeadId) return
     setLoadingLeads(true)
@@ -77,7 +72,6 @@ export function ActivityForm({ open, onClose, presetLeadId, presetLeadName }: Ac
     })()
   }, [open, tenantId, presetLeadId])
 
-  // Filtra localmente
   useEffect(() => {
     const q = search.toLowerCase()
     setFiltered(
@@ -85,18 +79,12 @@ export function ActivityForm({ open, onClose, presetLeadId, presetLeadName }: Ac
     )
   }, [search, leads])
 
-  // Pré-define lead quando vem do drawer
   useEffect(() => {
-    if (open && presetLeadId) {
-      setValue('lead_id', presetLeadId)
-    }
+    if (open && presetLeadId) setValue('lead_id', presetLeadId)
   }, [open, presetLeadId, setValue])
 
   useEffect(() => {
-    if (!open) {
-      reset({ type: 'call' })
-      setSearch('')
-    }
+    if (!open) { reset({ type: 'call' }); setSearch('') }
   }, [open, reset])
 
   async function onSubmit(data: FormData) {
@@ -126,98 +114,106 @@ export function ActivityForm({ open, onClose, presetLeadId, presetLeadName }: Ac
       }
     >
       <form id="activity-form" onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-        {/* Seleção de lead (oculta se há lead pré-definido) */}
+        {/* Lead pré-definido ou seleção */}
         {presetLeadId ? (
-          <div className="rounded-xl bg-slate-50 border border-slate-200 px-4 py-3 flex items-center gap-2">
-            <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-semibold text-sm shrink-0">
+          <div className="rounded-xl px-4 py-3 flex items-center gap-2"
+            style={{ background: '#1a1a1a', border: '1px solid #2a2a2a' }}>
+            <div className="h-8 w-8 rounded-full flex items-center justify-center text-black font-semibold text-sm shrink-0"
+              style={{ background: 'var(--tenant-primary)' }}>
               {(presetLeadName ?? '?')[0].toUpperCase()}
             </div>
             <div>
-              <p className="text-sm font-medium text-slate-800">{presetLeadName}</p>
-              <p className="text-xs text-slate-400">Lead selecionado</p>
+              <p className="text-sm font-medium" style={{ color: '#e8e8e8' }}>{presetLeadName}</p>
+              <p className="text-xs" style={{ color: '#555' }}>Lead selecionado</p>
             </div>
             <input type="hidden" {...register('lead_id')} />
           </div>
         ) : (
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-slate-700">Lead *</label>
+            <label className="text-xs font-medium uppercase tracking-wide" style={{ color: '#888' }}>Lead *</label>
 
-            {/* Busca de lead */}
             <div className="relative">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                style={{ color: '#444' }} />
               <input
                 type="text"
                 placeholder="Buscar lead por nome ou telefone..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="h-10 w-full rounded-lg border border-slate-200 pl-8 pr-3 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 hover:border-slate-300 transition-colors"
+                className="h-10 w-full rounded-lg pl-8 pr-3 text-sm transition-all focus:outline-none"
+                style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', color: '#e8e8e8' }}
+                onFocus={(e) => (e.currentTarget.style.border = '1px solid var(--tenant-primary)')}
+                onBlur={(e) => (e.currentTarget.style.border = '1px solid #2a2a2a')}
               />
             </div>
 
-            {/* Lista de leads */}
-            <div className="rounded-xl border border-slate-200 max-h-44 overflow-y-auto">
+            <div className="rounded-xl max-h-44 overflow-y-auto"
+              style={{ border: '1px solid #2a2a2a' }}>
               {loadingLeads ? (
-                <div className="py-6 text-center text-sm text-slate-400">Carregando leads...</div>
+                <div className="py-6 text-center text-sm" style={{ color: '#444' }}>Carregando leads...</div>
               ) : filtered.length === 0 ? (
-                <div className="py-6 text-center text-sm text-slate-400">Nenhum lead encontrado</div>
+                <div className="py-6 text-center text-sm" style={{ color: '#444' }}>Nenhum lead encontrado</div>
               ) : (
                 filtered.map((lead) => (
                   <button
                     key={lead.id}
                     type="button"
                     onClick={() => { setValue('lead_id', lead.id, { shouldValidate: true }); setSearch('') }}
-                    className={`w-full text-left px-3 py-2.5 text-sm flex items-center gap-2 hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0 ${
-                      selectedLeadId === lead.id ? 'bg-blue-50' : ''
-                    }`}
+                    className="w-full text-left px-3 py-2.5 text-sm flex items-center gap-2 transition-colors"
+                    style={{
+                      borderBottom: '1px solid #191919',
+                      background: selectedLeadId === lead.id ? 'rgba(0,230,118,0.06)' : 'transparent',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (selectedLeadId !== lead.id) (e.currentTarget as HTMLButtonElement).style.background = '#1a1a1a'
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.background = selectedLeadId === lead.id ? 'rgba(0,230,118,0.06)' : 'transparent'
+                    }}
                   >
-                    <div className="h-7 w-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 text-xs font-semibold shrink-0">
+                    <div className="h-7 w-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0"
+                      style={{ background: '#1e1e1e', color: '#666' }}>
                       {lead.name[0].toUpperCase()}
                     </div>
                     <div className="min-w-0">
-                      <p className="font-medium text-slate-800 truncate">{lead.name}</p>
-                      {lead.phone && <p className="text-xs text-slate-400">{lead.phone}</p>}
+                      <p className="font-medium truncate" style={{ color: '#e8e8e8' }}>{lead.name}</p>
+                      {lead.phone && <p className="text-xs" style={{ color: '#555' }}>{lead.phone}</p>}
                     </div>
                     {selectedLeadId === lead.id && (
-                      <span className="ml-auto text-blue-600 text-xs font-medium shrink-0">✓</span>
+                      <span className="ml-auto text-xs font-medium shrink-0" style={{ color: 'var(--tenant-primary)' }}>✓</span>
                     )}
                   </button>
                 ))
               )}
             </div>
 
-            {/* Campo oculto para validação */}
             <input type="hidden" {...register('lead_id')} />
-            {errors.lead_id && <p className="text-xs text-red-500">{errors.lead_id.message}</p>}
+            {errors.lead_id && <p className="text-xs" style={{ color: '#ff4444' }}>{errors.lead_id.message}</p>}
 
-            {/* Lead selecionado */}
             {selectedLead && !search && (
-              <p className="text-xs text-blue-600 font-medium">
+              <p className="text-xs font-medium" style={{ color: 'var(--tenant-primary)' }}>
                 ✓ {selectedLead.name} selecionado
               </p>
             )}
           </div>
         )}
 
-        {/* Tipo */}
-        <Select
-          label="Tipo de contato *"
-          options={TYPE_OPTIONS}
-          error={errors.type?.message}
-          {...register('type')}
-        />
+        <Select label="Tipo de contato *" options={TYPE_OPTIONS} error={errors.type?.message} {...register('type')} />
 
-        {/* Descrição */}
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-slate-700">O que foi abordado?</label>
+          <label className="text-xs font-medium uppercase tracking-wide" style={{ color: '#888' }}>
+            O que foi abordado?
+          </label>
           <textarea
             rows={3}
             placeholder="Descreva o que foi conversado ou acordado..."
-            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 hover:border-slate-300 resize-none transition-colors"
+            className="w-full rounded-lg px-3 py-2 text-sm resize-none transition-all focus:outline-none"
+            style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', color: '#e8e8e8' }}
+            onFocus={(e) => (e.currentTarget.style.border = '1px solid var(--tenant-primary)')}
             {...register('description')}
           />
         </div>
 
-        {/* Próximo follow-up */}
         <Input
           label="Próximo follow-up (opcional)"
           type="date"
@@ -226,7 +222,8 @@ export function ActivityForm({ open, onClose, presetLeadId, presetLeadName }: Ac
         />
 
         {create.error && (
-          <p className="text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">
+          <p className="text-sm rounded-lg px-3 py-2"
+            style={{ color: '#ff4444', background: 'rgba(255,68,68,0.1)' }}>
             Erro ao salvar. Tente novamente.
           </p>
         )}

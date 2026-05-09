@@ -91,8 +91,8 @@ export function MetaAdsPage() {
       {/* Cabeçalho */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-xl font-semibold text-slate-900">Meta Ads</h2>
-          <p className="text-sm text-slate-500 mt-0.5">Métricas de campanhas do Facebook e Instagram</p>
+          <h2 className="text-xl font-semibold" style={{ color: '#e8e8e8' }}>Meta Ads</h2>
+          <p className="text-sm mt-0.5" style={{ color: '#555' }}>Métricas de campanhas do Facebook e Instagram</p>
         </div>
         {isConnected && (
           <Button
@@ -108,25 +108,27 @@ export function MetaAdsPage() {
 
       {/* Status de sincronização */}
       {syncOk && (
-        <div className="flex items-center gap-2 rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700">
+        <div className="flex items-center gap-2 rounded-xl px-4 py-3 text-sm"
+          style={{ background: 'rgba(0,230,118,0.08)', border: '1px solid rgba(0,230,118,0.2)', color: '#00e676' }}>
           <CheckCircle size={16} /> Campanhas sincronizadas com sucesso!
         </div>
       )}
       {syncError && (
-        <div className="flex items-center gap-2 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">
+        <div className="flex items-center gap-2 rounded-xl px-4 py-3 text-sm"
+          style={{ background: 'rgba(255,68,68,0.1)', border: '1px solid rgba(255,68,68,0.2)', color: '#ff4444' }}>
           <AlertTriangle size={16} /> {syncError}
         </div>
       )}
 
       {/* Configuração da API */}
-      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="rounded-xl p-5" style={{ background: '#141414', border: '1px solid #1e1e1e' }}>
         <div className="flex items-center gap-2 mb-4">
-          <Link2 size={16} className={isConnected ? 'text-green-600' : 'text-slate-400'} />
-          <h3 className="text-sm font-semibold text-slate-700">
+          <Link2 size={16} style={{ color: isConnected ? '#00e676' : '#555' }} />
+          <h3 className="text-sm font-semibold" style={{ color: '#e8e8e8' }}>
             {isConnected ? 'Conta conectada' : 'Conectar conta Meta Ads'}
           </h3>
           {isConnected && credentials.syncedAt && (
-            <span className="text-xs text-slate-400 ml-auto">
+            <span className="text-xs ml-auto" style={{ color: '#555' }}>
               Última sync: {formatDate(credentials.syncedAt)}
             </span>
           )}
@@ -136,7 +138,8 @@ export function MetaAdsPage() {
           <div className="flex justify-center py-6"><Spinner /></div>
         ) : (
           <>
-            <div className="rounded-xl bg-blue-50 border border-blue-100 px-4 py-3 text-xs text-blue-700 mb-5">
+            <div className="rounded-xl px-4 py-3 text-xs mb-5"
+              style={{ background: 'rgba(64,160,255,0.08)', border: '1px solid rgba(64,160,255,0.15)', color: '#40a0ff' }}>
               <p className="font-semibold mb-1 flex items-center gap-1.5">
                 <ExternalLink size={12} /> Como obter as credenciais
               </p>
@@ -165,7 +168,10 @@ export function MetaAdsPage() {
                     onClick={() => {
                       if (confirm('Desconectar a conta Meta Ads?')) deleteMutation.mutate()
                     }}
-                    className="flex items-center gap-1.5 text-sm text-red-500 hover:text-red-700 transition-colors"
+                    className="flex items-center gap-1.5 text-sm transition-colors"
+                    style={{ color: '#ff4444' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.8')}
+                    onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
                   >
                     <Trash2 size={14} /> Desconectar
                   </button>
@@ -177,10 +183,10 @@ export function MetaAdsPage() {
       </div>
 
       {/* Tabela de campanhas */}
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-100">
-          <p className="text-sm font-semibold text-slate-700">Campanhas Sincronizadas</p>
-          <p className="text-xs text-slate-400 mt-0.5">
+      <div className="rounded-xl overflow-hidden" style={{ background: '#141414', border: '1px solid #1e1e1e' }}>
+        <div className="px-5 py-4" style={{ borderBottom: '1px solid #1a1a1a' }}>
+          <p className="text-sm font-semibold" style={{ color: '#e8e8e8' }}>Campanhas Sincronizadas</p>
+          <p className="text-xs mt-0.5" style={{ color: '#555' }}>
             {campaigns.length > 0 ? `${campaigns.length} campanhas` : 'Nenhuma campanha ainda'}
           </p>
         </div>
@@ -188,12 +194,12 @@ export function MetaAdsPage() {
         {campLoading ? (
           <div className="flex justify-center py-12"><Spinner size="lg" /></div>
         ) : campaigns.length === 0 ? (
-          <div className="flex flex-col items-center gap-3 py-14 text-center text-slate-400">
-            <div className="h-12 w-12 rounded-2xl bg-slate-100 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-3 py-14 text-center">
+            <div className="h-12 w-12 rounded-2xl flex items-center justify-center" style={{ background: '#1a1a1a' }}>
               <span className="text-2xl">📘</span>
             </div>
-            <p className="text-sm font-medium">Nenhuma campanha sincronizada</p>
-            <p className="text-xs">
+            <p className="text-sm font-medium" style={{ color: '#666' }}>Nenhuma campanha sincronizada</p>
+            <p className="text-xs" style={{ color: '#444' }}>
               {isConnected
                 ? 'Clique em "Sincronizar" para importar as campanhas'
                 : 'Conecte sua conta Meta Ads para começar'}
@@ -203,46 +209,45 @@ export function MetaAdsPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-100 bg-slate-50">
-                  <th className="px-4 py-3 text-left font-medium text-slate-500">Campanha</th>
-                  <th className="px-4 py-3 text-left font-medium text-slate-500">Status</th>
-                  <th className="px-4 py-3 text-right font-medium text-slate-500">Gasto</th>
-                  <th className="px-4 py-3 text-right font-medium text-slate-500">Impressões</th>
-                  <th className="px-4 py-3 text-right font-medium text-slate-500">Cliques</th>
-                  <th className="px-4 py-3 text-right font-medium text-slate-500">Leads</th>
-                  <th className="px-4 py-3 text-right font-medium text-slate-500">CPL</th>
+                <tr style={{ background: '#111', borderBottom: '1px solid #1a1a1a' }}>
+                  {['Campanha','Status','Gasto','Impressões','Cliques','Leads','CPL'].map((h, i) => (
+                    <th key={h} className={`px-4 py-3 text-xs font-medium uppercase tracking-wide ${i > 1 ? 'text-right' : 'text-left'}`}
+                      style={{ color: '#444' }}>{h}</th>
+                  ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-50">
+              <tbody>
                 {campaigns.map((c) => (
-                  <tr key={c.id} className="hover:bg-slate-50/50">
+                  <tr key={c.id} style={{ borderBottom: '1px solid #191919' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = '#191919')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
                     <td className="px-4 py-3">
-                      <p className="font-medium text-slate-800 truncate max-w-[200px]">{c.name}</p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">{formatDate(c.synced_at)}</p>
+                      <p className="font-medium truncate max-w-[200px]" style={{ color: '#e8e8e8' }}>{c.name}</p>
+                      <p className="text-[10px] mt-0.5" style={{ color: '#444' }}>{formatDate(c.synced_at)}</p>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`text-xs font-medium rounded-full px-2.5 py-1 ${
-                        c.status === 'ACTIVE'
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-slate-100 text-slate-500'
-                      }`}>
+                      <span className="text-xs font-medium rounded-full px-2.5 py-1"
+                        style={c.status === 'ACTIVE'
+                          ? { background: 'rgba(0,230,118,0.1)', color: '#00e676' }
+                          : { background: '#1e1e1e', color: '#555' }}>
                         {c.status ?? '—'}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right text-slate-700 tabular-nums">
-                      {c.spend != null ? formatBRL(c.spend) : '—'}
+                    <td className="px-4 py-3 text-right tabular-nums" style={{ color: '#e8e8e8' }}>
+                      {c.spend != null ? formatBRL(c.spend) : <span style={{ color: '#333' }}>—</span>}
                     </td>
-                    <td className="px-4 py-3 text-right text-slate-600 tabular-nums">
-                      {c.impressions?.toLocaleString('pt-BR') ?? '—'}
+                    <td className="px-4 py-3 text-right tabular-nums" style={{ color: '#888' }}>
+                      {c.impressions?.toLocaleString('pt-BR') ?? <span style={{ color: '#333' }}>—</span>}
                     </td>
-                    <td className="px-4 py-3 text-right text-slate-600 tabular-nums">
-                      {c.clicks?.toLocaleString('pt-BR') ?? '—'}
+                    <td className="px-4 py-3 text-right tabular-nums" style={{ color: '#888' }}>
+                      {c.clicks?.toLocaleString('pt-BR') ?? <span style={{ color: '#333' }}>—</span>}
                     </td>
-                    <td className="px-4 py-3 text-right font-semibold text-blue-600 tabular-nums">
+                    <td className="px-4 py-3 text-right font-semibold tabular-nums" style={{ color: 'var(--tenant-primary)' }}>
                       {c.leads_generated ?? '—'}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <span className={c.cpl ? 'font-semibold text-amber-600 tabular-nums' : 'text-slate-300'}>
+                      <span className="tabular-nums"
+                        style={{ color: c.cpl ? '#fbbf24' : '#333', fontWeight: c.cpl ? 600 : undefined }}>
                         {c.cpl ? formatBRL(c.cpl) : '—'}
                       </span>
                     </td>
@@ -255,7 +260,8 @@ export function MetaAdsPage() {
       </div>
 
       {/* Nota sobre Edge Function */}
-      <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-xs text-amber-700">
+      <div className="rounded-xl px-4 py-3 text-xs"
+        style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)', color: '#fbbf24' }}>
         <strong>⚠️ Edge Function necessária:</strong> A sincronização real requer o deploy de{' '}
         <code>supabase/functions/sync-meta-ads</code>. O código da função está em{' '}
         <code>src/services/metaAds.ts</code> → <code>EDGE_FUNCTION_STUB</code>.
