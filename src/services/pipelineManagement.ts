@@ -26,17 +26,18 @@ export async function fetchPipelines(tenantId: string): Promise<Pipeline[]> {
   if (error) throw error
 
   if (!data || data.length === 0) {
-    await supabase
+    const { error: rpcError } = await supabase
       .rpc('create_pipeline_with_defaults', { p_tenant_id: tenantId, p_name: 'Principal' })
 
-    // Retorna o pipeline recém criado
-    const { data: fresh } = await supabase
+    if (rpcError) throw rpcError
+
+    const { data: fresh, error: freshError } = await supabase
       .from('pipelines')
       .select('*')
       .eq('tenant_id', tenantId)
       .order('position')
 
-    // Invalida as etapas também (foram criadas pelo RPC)
+    if (freshError) throw freshError
     return (fresh ?? []) as Pipeline[]
   }
 
