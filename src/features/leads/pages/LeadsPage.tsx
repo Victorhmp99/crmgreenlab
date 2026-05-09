@@ -34,8 +34,8 @@ export function LeadsPage() {
       {/* Cabeçalho */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-xl font-semibold text-slate-900">Leads</h2>
-          <p className="text-sm text-slate-500 mt-0.5">
+          <h2 className="text-xl font-semibold" style={{ color: '#e8e8e8' }}>Leads</h2>
+          <p className="text-sm mt-0.5" style={{ color: '#555' }}>
             {data
               ? `${data.count} lead${data.count !== 1 ? 's' : ''} cadastrado${data.count !== 1 ? 's' : ''}`
               : 'Carregando...'}

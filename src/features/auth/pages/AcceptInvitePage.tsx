@@ -34,12 +34,12 @@ export function AcceptInvitePage() {
   const { token } = useParams<{ token: string }>()
   const navigate   = useNavigate()
 
-  const [pageState, setPageState]     = useState<PageState>('loading')
-  const [inviteData, setInviteData]   = useState<{
+  const [pageState, setPageState]   = useState<PageState>('loading')
+  const [inviteData, setInviteData] = useState<{
     email: string; role: UserRole; tenantName: string
   } | null>(null)
-  const [showPw, setShowPw]           = useState(false)
-  const [error, setError]             = useState<string | null>(null)
+  const [showPw, setShowPw] = useState(false)
+  const [error, setError]   = useState<string | null>(null)
 
   const {
     register,
@@ -54,10 +54,8 @@ export function AcceptInvitePage() {
       if (!data) { setPageState('invalid'); return }
       setInviteData(data)
 
-      // Verifica se o usuário já está autenticado
       supabase.auth.getSession().then(({ data: { session } }) => {
         if (session) {
-          // Já logado: aceita direto
           acceptInvite(token)
             .then(() => { setPageState('success') })
             .catch(() => setPageState('invalid'))
@@ -94,7 +92,7 @@ export function AcceptInvitePage() {
       <AuthLayout>
         <div className="flex flex-col items-center gap-4 py-8">
           <Spinner size="lg" />
-          <p className="text-sm text-slate-500">Verificando convite...</p>
+          <p className="text-sm" style={{ color: '#666' }}>Verificando convite...</p>
         </div>
       </AuthLayout>
     )
@@ -104,12 +102,13 @@ export function AcceptInvitePage() {
     return (
       <AuthLayout>
         <div className="flex flex-col items-center text-center gap-4 py-6">
-          <div className="h-12 w-12 rounded-full bg-red-100 flex items-center justify-center">
-            <AlertTriangle size={22} className="text-red-500" />
+          <div className="h-12 w-12 rounded-full flex items-center justify-center"
+            style={{ background: 'rgba(255,68,68,0.1)', border: '1px solid rgba(255,68,68,0.2)' }}>
+            <AlertTriangle size={22} style={{ color: '#ff4444' }} />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-slate-900">Convite inválido</h2>
-            <p className="text-sm text-slate-500 mt-1">
+            <h2 className="text-lg font-bold" style={{ color: '#e8e8e8' }}>Convite inválido</h2>
+            <p className="text-sm mt-1" style={{ color: '#666' }}>
               Este link de convite expirou ou já foi utilizado.
             </p>
           </div>
@@ -125,12 +124,15 @@ export function AcceptInvitePage() {
     return (
       <AuthLayout>
         <div className="flex flex-col items-center text-center gap-4 py-6">
-          <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
-            <CheckCircle size={22} className="text-green-600" />
+          <div className="h-12 w-12 rounded-full flex items-center justify-center"
+            style={{ background: 'rgba(0,230,118,0.15)', border: '1px solid rgba(0,230,118,0.3)' }}>
+            <CheckCircle size={22} style={{ color: 'var(--tenant-primary)' }} />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-slate-900">Bem-vindo ao sistema!</h2>
-            <p className="text-sm text-slate-500 mt-1">
+            <h2 className="text-lg font-bold" style={{ color: '#e8e8e8' }}>
+              Bem-vindo ao Green Hub!
+            </h2>
+            <p className="text-sm mt-1" style={{ color: '#666' }}>
               Sua conta foi criada. Redirecionando para o dashboard...
             </p>
           </div>
@@ -144,23 +146,26 @@ export function AcceptInvitePage() {
   return (
     <AuthLayout>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">Você foi convidado!</h1>
+        <h1 className="text-2xl font-bold" style={{ color: '#e8e8e8' }}>Você foi convidado!</h1>
         {inviteData && (
-          <div className="mt-3 rounded-xl bg-slate-50 border border-slate-200 px-4 py-3">
-            <p className="text-sm text-slate-600">
-              Você foi convidado para <strong>{inviteData.tenantName}</strong> como{' '}
-              <strong>{ROLE_LABELS[inviteData.role]}</strong>.
+          <div className="mt-3 rounded-xl px-4 py-3"
+            style={{ background: '#1a1a1a', border: '1px solid #2a2a2a' }}>
+            <p className="text-sm" style={{ color: '#aaa' }}>
+              Você foi convidado para{' '}
+              <strong style={{ color: '#e8e8e8' }}>{inviteData.tenantName}</strong> como{' '}
+              <strong style={{ color: 'var(--tenant-primary)' }}>{ROLE_LABELS[inviteData.role]}</strong>.
             </p>
-            <p className="text-sm text-slate-500 mt-1">
-              Conta: <strong>{inviteData.email}</strong>
+            <p className="text-sm mt-1" style={{ color: '#666' }}>
+              Conta: <strong style={{ color: '#aaa' }}>{inviteData.email}</strong>
             </p>
           </div>
         )}
-        <p className="text-slate-500 text-sm mt-3">Crie sua senha para continuar.</p>
+        <p className="text-sm mt-3" style={{ color: '#666' }}>Crie sua senha para continuar.</p>
       </div>
 
       {error && (
-        <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">
+        <div className="mb-4 rounded-lg px-4 py-3 text-sm"
+          style={{ background: 'rgba(255,68,68,0.1)', border: '1px solid rgba(255,68,68,0.2)', color: '#ff4444' }}>
           {error}
         </div>
       )}
@@ -168,30 +173,39 @@ export function AcceptInvitePage() {
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
         {(['password', 'confirm'] as const).map((field) => (
           <div key={field} className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-slate-700">
+            <label className="text-xs font-medium uppercase tracking-wide" style={{ color: '#888' }}>
               {field === 'password' ? 'Criar senha' : 'Confirmar senha'}
             </label>
             <div className="relative">
               <input
                 type={showPw ? 'text' : 'password'}
                 placeholder="••••••••"
-                className={`h-10 w-full rounded-lg border px-3 pr-10 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
-                  errors[field] ? 'border-red-400' : 'border-slate-200 hover:border-slate-300'
-                }`}
+                className="h-10 w-full rounded-lg px-3 pr-10 text-sm transition-all duration-150 focus:outline-none"
+                style={{
+                  background: '#1a1a1a',
+                  border:     `1px solid ${errors[field] ? '#ff4444' : '#2a2a2a'}`,
+                  color:      '#e8e8e8',
+                }}
+                onFocus={(e) => {
+                  if (!errors[field]) e.currentTarget.style.border = '1px solid var(--tenant-primary)'
+                }}
                 {...register(field)}
               />
               {field === 'password' && (
                 <button
                   type="button"
                   onClick={() => setShowPw((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
+                  style={{ color: '#555' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = '#aaa')}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = '#555')}
                 >
                   {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               )}
             </div>
             {errors[field] && (
-              <p className="text-xs text-red-500">{errors[field]?.message}</p>
+              <p className="text-xs" style={{ color: '#ff4444' }}>{errors[field]?.message}</p>
             )}
           </div>
         ))}

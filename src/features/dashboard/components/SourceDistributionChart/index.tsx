@@ -8,22 +8,21 @@ interface SourceDistributionChartProps {
 }
 
 const SOURCE_LABELS: Record<LeadSource, string> = {
-  manual:    'Manual',
-  import:    'Importado',
-  meta_ads:  'Meta Ads',
-  google:    'Google',
-  referral:  'Indicação',
-  other:     'Outro',
+  manual:   'Manual',
+  import:   'Importado',
+  meta_ads: 'Meta Ads',
+  google:   'Google',
+  referral: 'Indicação',
+  other:    'Outro',
 }
 
-// Paleta consistente por origem
 const SOURCE_COLORS: Record<LeadSource, string> = {
-  meta_ads:  '#1877f2',
-  google:    '#ea4335',
-  referral:  '#10b981',
-  manual:    '#6366f1',
-  import:    '#f59e0b',
-  other:     '#94a3b8',
+  meta_ads: '#1877f2',
+  google:   '#ea4335',
+  referral: '#00e676',
+  manual:   '#a78bfa',
+  import:   '#fbbf24',
+  other:    '#555',
 }
 
 interface TooltipPayload {
@@ -34,16 +33,17 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Toolti
   if (!active || !payload?.length) return null
   const d = payload[0].payload
   return (
-    <div className="rounded-lg bg-slate-900 px-3 py-2 text-xs shadow-xl">
-      <p className="text-slate-400">{SOURCE_LABELS[d.source] ?? d.source}</p>
-      <p className="text-white font-semibold mt-0.5">{d.count} leads ({d.pct}%)</p>
+    <div className="rounded-lg px-3 py-2 text-xs"
+      style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', boxShadow: '0 4px 20px rgba(0,0,0,0.5)' }}>
+      <p style={{ color: '#666' }}>{SOURCE_LABELS[d.source] ?? d.source}</p>
+      <p className="font-semibold mt-0.5" style={{ color: '#e8e8e8' }}>{d.count} leads ({d.pct}%)</p>
     </div>
   )
 }
 
 export function SourceDistributionChart({ data, isLoading }: SourceDistributionChartProps) {
   if (isLoading) {
-    return <div className="h-full rounded-xl bg-slate-100 animate-pulse" />
+    return <div className="h-full rounded-xl animate-pulse" style={{ background: '#141414', border: '1px solid #1e1e1e' }} />
   }
 
   const total = data.reduce((s, d) => s + d.count, 0)
@@ -53,14 +53,14 @@ export function SourceDistributionChart({ data, isLoading }: SourceDistributionC
   }))
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm h-full">
+    <div className="rounded-xl p-5 h-full" style={{ background: '#141414', border: '1px solid #1e1e1e' }}>
       <div className="mb-4">
-        <p className="text-sm font-semibold text-slate-700">Leads por Origem</p>
-        <p className="text-xs text-slate-400 mt-0.5">{total} leads no total</p>
+        <p className="text-sm font-semibold" style={{ color: '#e8e8e8' }}>Leads por Origem</p>
+        <p className="text-xs mt-0.5" style={{ color: '#444' }}>{total} leads no total</p>
       </div>
 
       {total === 0 ? (
-        <div className="flex items-center justify-center h-40 text-sm text-slate-400">
+        <div className="flex items-center justify-center h-40 text-sm" style={{ color: '#444' }}>
           Nenhum lead cadastrado ainda
         </div>
       ) : (
@@ -77,12 +77,12 @@ export function SourceDistributionChart({ data, isLoading }: SourceDistributionC
                   outerRadius={54}
                   dataKey="count"
                   strokeWidth={2}
-                  stroke="#fff"
+                  stroke="#141414"
                 >
                   {chartData.map((entry) => (
                     <Cell
                       key={entry.source}
-                      fill={SOURCE_COLORS[entry.source] ?? '#94a3b8'}
+                      fill={SOURCE_COLORS[entry.source] ?? '#555'}
                     />
                   ))}
                 </Pie>
@@ -98,17 +98,17 @@ export function SourceDistributionChart({ data, isLoading }: SourceDistributionC
                 <div className="flex items-center gap-2 min-w-0">
                   <div
                     className="h-2.5 w-2.5 rounded-full shrink-0"
-                    style={{ backgroundColor: SOURCE_COLORS[entry.source] ?? '#94a3b8' }}
+                    style={{ backgroundColor: SOURCE_COLORS[entry.source] ?? '#555' }}
                   />
-                  <span className="text-xs text-slate-600 truncate">
+                  <span className="text-xs truncate" style={{ color: '#888' }}>
                     {SOURCE_LABELS[entry.source] ?? entry.source}
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="text-xs font-semibold text-slate-900 tabular-nums">
+                  <span className="text-xs font-semibold tabular-nums" style={{ color: '#e8e8e8' }}>
                     {entry.count}
                   </span>
-                  <span className="text-[10px] text-slate-400 tabular-nums w-8 text-right">
+                  <span className="text-[10px] tabular-nums w-8 text-right" style={{ color: '#444' }}>
                     {entry.pct}%
                   </span>
                 </div>

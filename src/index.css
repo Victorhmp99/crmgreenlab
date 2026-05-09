@@ -1,52 +1,95 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary-50: #eff6ff;
-  --color-primary-100: #dbeafe;
-  --color-primary-200: #bfdbfe;
-  --color-primary-300: #93c5fd;
-  --color-primary-400: #60a5fa;
-  --color-primary-500: #3b82f6;
-  --color-primary-600: #2563eb;
-  --color-primary-700: #1d4ed8;
-  --color-primary-800: #1e40af;
-  --color-primary-900: #1e3a8a;
+  /* ── Neon verde ─────────────────────────────────────────────────────── */
+  --color-neon-50:  #e6fff2;
+  --color-neon-100: #b3ffe0;
+  --color-neon-200: #66ffb8;
+  --color-neon-300: #00ff88;
+  --color-neon-400: #00e676;
+  --color-neon-500: #00c853;
+  --color-neon-600: #00a843;
+  --color-neon-700: #008533;
 
-  --color-sidebar-bg: #0f172a;
-  --color-sidebar-hover: #1e293b;
-  --color-sidebar-active: #1e40af;
-  --color-sidebar-text: #94a3b8;
-  --color-sidebar-text-active: #ffffff;
+  /* ── Superfícies dark ───────────────────────────────────────────────── */
+  --color-surface-50:  #f0f0f0;
+  --color-surface-100: #d0d0d0;
+  --color-surface-200: #a0a0a0;
+  --color-surface-300: #707070;
+  --color-surface-400: #505050;
+  --color-surface-500: #383838;
+  --color-surface-600: #2a2a2a;
+  --color-surface-700: #1e1e1e;
+  --color-surface-800: #141414;
+  --color-surface-900: #0d0d0d;
+  --color-surface-950: #080808;
 }
 
-/* CSS Variables para white label — sobrescritas pelo ThemeProvider */
+/* ── Variáveis semânticas ─────────────────────────────────────────────────── */
 :root {
-  --tenant-primary: #2563eb;
-  --tenant-primary-dark: #1e40af;
+  --bg:          #0d0d0d;
+  --bg-surface:  #141414;
+  --bg-surface2: #1c1c1c;
+  --bg-surface3: #252525;
+  --border:      #2a2a2a;
+  --border-dim:  #1e1e1e;
+  --text:        #e8e8e8;
+  --text-muted:  #888888;
+  --text-dim:    #555555;
+
+  /* Cores primárias — sobrescritas pelo ThemeProvider para white-label */
+  --tenant-primary:      #00e676;
+  --tenant-primary-dark: #00c853;
+  --tenant-primary-glow: rgba(0, 230, 118, 0.25);
+  --tenant-primary-bg:   rgba(0, 230, 118, 0.08);
 }
 
-* {
-  box-sizing: border-box;
-}
-
+/* ── Reset ─────────────────────────────────────────────────────────────────── */
+* { box-sizing: border-box; }
+html { color-scheme: dark; }
 body {
   margin: 0;
+  background: var(--bg);
+  color: var(--text);
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
-/* Scrollbar fina e elegante */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+/* ── Neon effects ──────────────────────────────────────────────────────────── */
+.neon-text {
+  color: var(--tenant-primary);
+  text-shadow: 0 0 8px var(--tenant-primary-glow), 0 0 20px rgba(0, 230, 118, 0.3);
 }
-::-webkit-scrollbar-track {
-  background: transparent;
+
+.neon-border {
+  border-color: rgba(0, 230, 118, 0.35) !important;
+  box-shadow: 0 0 12px var(--tenant-primary-glow);
 }
-::-webkit-scrollbar-thumb {
-  background: #334155;
-  border-radius: 3px;
+
+.neon-glow {
+  box-shadow: 0 0 20px var(--tenant-primary-glow), 0 0 40px rgba(0, 230, 118, 0.1);
 }
-::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+
+.neon-button {
+  box-shadow: 0 0 15px rgba(0, 230, 118, 0.35), 0 0 30px rgba(0, 230, 118, 0.1);
 }
+
+/* Grid tecnológico de fundo */
+.tech-grid {
+  background-image:
+    linear-gradient(rgba(0, 230, 118, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 230, 118, 0.025) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+@keyframes neonPulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(0, 230, 118, 0.25); }
+  50%       { box-shadow: 0 0 22px rgba(0, 230, 118, 0.55), 0 0 45px rgba(0, 230, 118, 0.2); }
+}
+.neon-pulse { animation: neonPulse 2.5s ease-in-out infinite; }
+
+/* ── Scrollbar ──────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--tenant-primary); }

@@ -12,10 +12,9 @@ import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell,
 } from 'recharts'
 
-// ── Cores por posição ─────────────────────────────────────────────────────────
-const SOURCE_COLORS = ['#2563eb', '#10b981', '#f59e0b', '#ec4899', '#6366f1', '#94a3b8']
+// Cores por posição para origens
+const SOURCE_COLORS = ['#00e676', '#a78bfa', '#fbbf24', '#ec4899', '#40a0ff', '#555']
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 function currentMonthRange() {
   const now = new Date()
   return {
@@ -24,54 +23,53 @@ function currentMonthRange() {
   }
 }
 
-// ── Componentes internos ──────────────────────────────────────────────────────
-
 function SectionTitle({ icon: Icon, title }: { icon: React.ElementType; title: string }) {
   return (
     <div className="flex items-center gap-2 mb-4">
-      <Icon size={16} className="text-blue-600" />
-      <h3 className="text-sm font-semibold text-slate-700">{title}</h3>
+      <Icon size={16} style={{ color: 'var(--tenant-primary)' }} />
+      <h3 className="text-sm font-semibold" style={{ color: '#e8e8e8' }}>{title}</h3>
     </div>
   )
 }
 
-function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+function DarkCard({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`rounded-xl border border-slate-200 bg-white p-5 shadow-sm ${className}`}>
+    <div className={`rounded-xl p-5 ${className}`}
+      style={{ background: '#141414', border: '1px solid #1e1e1e' }}>
       {children}
     </div>
   )
 }
 
-// ── Page ──────────────────────────────────────────────────────────────────────
+// ── Page ─────────────────────────────────────────────────────────────────────
 export function ReportsPage() {
   const { from, to } = currentMonthRange()
   const [dateFrom, setDateFrom] = useState(from)
   const [dateTo,   setDateTo]   = useState(to)
 
-  const { data: sellers    = [], isLoading: sellersLoading }   = useSellerPerformance(dateFrom, dateTo)
-  const { data: funnel     = [], isLoading: funnelLoading }    = useFunnelBreakdown()
-  const { data: campaigns  = [], isLoading: campaignsLoading } = useCampaignPerformance()
-  const { data: sources    = [], isLoading: sourcesLoading }   = useSourceBreakdown()
+  const { data: sellers   = [], isLoading: sellersLoading }   = useSellerPerformance(dateFrom, dateTo)
+  const { data: funnel    = [], isLoading: funnelLoading }    = useFunnelBreakdown()
+  const { data: campaigns = [], isLoading: campaignsLoading } = useCampaignPerformance()
+  const { data: sources   = [], isLoading: sourcesLoading }   = useSourceBreakdown()
 
   return (
     <div className="flex flex-col gap-6">
       {/* Cabeçalho */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-xl font-semibold text-slate-900">Relatórios</h2>
-          <p className="text-sm text-slate-500 mt-0.5">Performance por vendedor e canal</p>
+          <h2 className="text-xl font-semibold" style={{ color: '#e8e8e8' }}>Relatórios</h2>
+          <p className="text-sm mt-0.5" style={{ color: '#555' }}>Performance por vendedor e canal</p>
         </div>
 
-        {/* Filtro de período (afeta a seção de vendedores) */}
+        {/* Filtro de período */}
         <div className="flex items-end gap-2">
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-slate-500">De</label>
+            <label className="text-xs uppercase tracking-wide" style={{ color: '#666' }}>De</label>
             <Input type="date" value={dateFrom} className="w-32"
               onChange={(e) => setDateFrom(e.target.value)} />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-slate-500">Até</label>
+            <label className="text-xs uppercase tracking-wide" style={{ color: '#666' }}>Até</label>
             <Input type="date" value={dateTo} className="w-32"
               onChange={(e) => setDateTo(e.target.value)} />
           </div>
@@ -79,47 +77,54 @@ export function ReportsPage() {
       </div>
 
       {/* Performance por vendedor */}
-      <Card>
+      <DarkCard>
         <SectionTitle icon={Users} title="Performance por Vendedor" />
         {sellersLoading ? (
           <div className="flex justify-center py-8"><Spinner /></div>
         ) : sellers.length === 0 ? (
-          <p className="text-sm text-slate-400 text-center py-6">Nenhum dado para este período</p>
+          <p className="text-sm text-center py-6" style={{ color: '#444' }}>Nenhum dado para este período</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-100">
-                  <th className="pb-2 text-left font-medium text-slate-500 text-xs">Vendedor</th>
-                  <th className="pb-2 text-right font-medium text-slate-500 text-xs">Leads</th>
-                  <th className="pb-2 text-right font-medium text-slate-500 text-xs">Disparos</th>
-                  <th className="pb-2 text-right font-medium text-slate-500 text-xs">Fechamentos</th>
-                  <th className="pb-2 text-right font-medium text-slate-500 text-xs">Conv. %</th>
+                <tr style={{ borderBottom: '1px solid #1a1a1a' }}>
+                  {['Vendedor', 'Leads', 'Disparos', 'Fechamentos', 'Conv. %'].map((h, i) => (
+                    <th key={h} className={`pb-2 text-xs font-medium uppercase tracking-wide ${i > 0 ? 'text-right' : 'text-left'}`}
+                      style={{ color: '#444' }}>
+                      {h}
+                    </th>
+                  ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-50">
+              <tbody>
                 {sellers.map((s, i) => (
-                  <tr key={s.userId} className="hover:bg-slate-50/50">
+                  <tr key={s.userId} style={{ borderBottom: '1px solid #191919' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = '#191919')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
                     <td className="py-3">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-slate-400 w-5">#{i + 1}</span>
-                        <div className="h-7 w-7 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white text-[10px] font-bold shrink-0">
+                        <span className="text-xs w-5 tabular-nums" style={{ color: '#444' }}>#{i + 1}</span>
+                        <div className="h-7 w-7 rounded-full flex items-center justify-center text-black text-[10px] font-bold shrink-0"
+                          style={{ background: 'var(--tenant-primary)' }}>
                           {(s.fullName ?? s.email)[0].toUpperCase()}
                         </div>
-                        <span className="font-medium text-slate-700 truncate max-w-[160px]">
+                        <span className="font-medium truncate max-w-[160px]" style={{ color: '#e8e8e8' }}>
                           {s.fullName ?? s.email}
                         </span>
                       </div>
                     </td>
-                    <td className="py-3 text-right font-semibold text-slate-800 tabular-nums">{s.leads}</td>
-                    <td className="py-3 text-right text-slate-600 tabular-nums">{s.activities}</td>
-                    <td className="py-3 text-right text-emerald-600 font-semibold tabular-nums">{s.conversions}</td>
+                    <td className="py-3 text-right font-semibold tabular-nums" style={{ color: '#e8e8e8' }}>{s.leads}</td>
+                    <td className="py-3 text-right tabular-nums" style={{ color: '#888' }}>{s.activities}</td>
+                    <td className="py-3 text-right font-semibold tabular-nums" style={{ color: 'var(--tenant-primary)' }}>{s.conversions}</td>
                     <td className="py-3 text-right">
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                        s.convRate >= 20 ? 'bg-green-100 text-green-700'
-                        : s.convRate >= 10 ? 'bg-amber-100 text-amber-700'
-                        : 'bg-slate-100 text-slate-500'
-                      }`}>
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
+                        style={
+                          s.convRate >= 20
+                            ? { background: 'rgba(0,230,118,0.1)', color: '#00e676' }
+                            : s.convRate >= 10
+                            ? { background: 'rgba(251,191,36,0.1)', color: '#fbbf24' }
+                            : { background: 'rgba(255,255,255,0.05)', color: '#555' }
+                        }>
                         {s.convRate}%
                       </span>
                     </td>
@@ -129,29 +134,31 @@ export function ReportsPage() {
             </table>
           </div>
         )}
-      </Card>
+      </DarkCard>
 
       {/* Funil + Campanhas */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Funil por etapa */}
-        <Card>
+        {/* Funil */}
+        <DarkCard>
           <SectionTitle icon={Kanban} title="Distribuição do Funil" />
           {funnelLoading ? (
             <div className="flex justify-center py-8"><Spinner /></div>
           ) : funnel.length === 0 ? (
-            <p className="text-sm text-slate-400 text-center py-6">Pipeline vazio</p>
+            <p className="text-sm text-center py-6" style={{ color: '#444' }}>Pipeline vazio</p>
           ) : (
             <>
               <ResponsiveContainer width="100%" height={180}>
                 <BarChart data={funnel} margin={{ top: 4, right: 0, left: -24, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                  <XAxis dataKey="stageName" tick={{ fontSize: 9, fill: '#94a3b8' }}
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" vertical={false} />
+                  <XAxis dataKey="stageName" tick={{ fontSize: 9, fill: '#444' }}
                     axisLine={false} tickLine={false}
                     tickFormatter={(v: string) => v.length > 8 ? v.slice(0, 7) + '…' : v} />
-                  <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} allowDecimals={false} />
-                  <Tooltip formatter={(v) => [`${v} leads`, '']}
-                    contentStyle={{ fontSize: 12, borderRadius: 8, border: 'none', background: '#1e293b', color: '#fff' }} />
-                  <Bar dataKey="count" radius={[6,6,0,0]} maxBarSize={36}>
+                  <YAxis tick={{ fontSize: 10, fill: '#444' }} axisLine={false} tickLine={false} allowDecimals={false} />
+                  <Tooltip
+                    formatter={(v) => [`${v} leads`, '']}
+                    contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #2a2a2a', background: '#1a1a1a', color: '#e8e8e8' }}
+                  />
+                  <Bar dataKey="count" radius={[6, 6, 0, 0]} maxBarSize={36}>
                     {funnel.map((entry) => (
                       <Cell key={entry.stageId} fill={entry.color} />
                     ))}
@@ -160,7 +167,7 @@ export function ReportsPage() {
               </ResponsiveContainer>
               <div className="flex flex-wrap gap-x-3 gap-y-1 mt-3">
                 {funnel.map((s) => (
-                  <span key={s.stageId} className="text-xs text-slate-500 flex items-center gap-1">
+                  <span key={s.stageId} className="text-xs flex items-center gap-1" style={{ color: '#666' }}>
                     <span className="h-2 w-2 rounded-full" style={{ backgroundColor: s.color }} />
                     {s.stageName} ({s.count}) · {s.pct}%
                   </span>
@@ -168,42 +175,45 @@ export function ReportsPage() {
               </div>
             </>
           )}
-        </Card>
+        </DarkCard>
 
         {/* Campanhas */}
-        <Card>
+        <DarkCard>
           <SectionTitle icon={Megaphone} title="Performance por Campanha" />
           {campaignsLoading ? (
             <div className="flex justify-center py-8"><Spinner /></div>
           ) : campaigns.length === 0 ? (
-            <p className="text-sm text-slate-400 text-center py-6">Nenhuma campanha registrada</p>
+            <p className="text-sm text-center py-6" style={{ color: '#444' }}>Nenhuma campanha registrada</p>
           ) : (
             <div className="flex flex-col gap-2 max-h-52 overflow-y-auto">
               {campaigns.slice(0, 10).map((c, i) => (
                 <div key={c.campaign} className="flex items-center gap-3">
-                  <span className="text-xs text-slate-400 w-4 tabular-nums">{i + 1}</span>
+                  <span className="text-xs w-4 tabular-nums" style={{ color: '#444' }}>{i + 1}</span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-slate-700 truncate">{c.campaign}</p>
-                    <div className="h-1.5 w-full rounded-full bg-slate-100 mt-1">
+                    <p className="text-xs font-medium truncate" style={{ color: '#e8e8e8' }}>{c.campaign}</p>
+                    <div className="h-1.5 w-full rounded-full mt-1" style={{ background: '#1a1a1a' }}>
                       <div
-                        className="h-full rounded-full bg-blue-500"
-                        style={{ width: `${Math.max((c.leads / (campaigns[0]?.leads || 1)) * 100, 4)}%` }}
+                        className="h-full rounded-full"
+                        style={{
+                          width: `${Math.max((c.leads / (campaigns[0]?.leads || 1)) * 100, 4)}%`,
+                          background: 'var(--tenant-primary)',
+                        }}
                       />
                     </div>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="text-xs font-semibold text-slate-800 tabular-nums">{c.leads}</p>
-                    <p className="text-[10px] text-emerald-600">{c.convRate}% conv</p>
+                    <p className="text-xs font-semibold tabular-nums" style={{ color: '#e8e8e8' }}>{c.leads}</p>
+                    <p className="text-[10px]" style={{ color: 'var(--tenant-primary)' }}>{c.convRate}% conv</p>
                   </div>
                 </div>
               ))}
             </div>
           )}
-        </Card>
+        </DarkCard>
       </div>
 
       {/* Breakdown por origem */}
-      <Card>
+      <DarkCard>
         <SectionTitle icon={ArrowUpRight} title="Leads por Origem" />
         {sourcesLoading ? (
           <div className="flex justify-center py-6"><Spinner /></div>
@@ -211,16 +221,22 @@ export function ReportsPage() {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             {sources.map((s, i) => (
               <div key={s.source}
-                className="rounded-xl border border-slate-100 bg-slate-50 p-3 flex flex-col gap-1 text-center">
-                <div className="h-2 w-2 rounded-full mx-auto" style={{ backgroundColor: SOURCE_COLORS[i % SOURCE_COLORS.length] }} />
-                <p className="text-xs font-medium text-slate-600 capitalize">{s.source.replace('_', ' ')}</p>
-                <p className="text-xl font-bold text-slate-900 tabular-nums">{s.leads}</p>
-                <p className="text-[10px] text-emerald-600 font-medium">{s.convRate}% conv</p>
+                className="rounded-xl p-3 flex flex-col gap-1 text-center"
+                style={{ background: '#111', border: '1px solid #1e1e1e' }}>
+                <div className="h-2 w-2 rounded-full mx-auto"
+                  style={{ backgroundColor: SOURCE_COLORS[i % SOURCE_COLORS.length] }} />
+                <p className="text-xs font-medium capitalize" style={{ color: '#888' }}>
+                  {s.source.replace('_', ' ')}
+                </p>
+                <p className="text-xl font-bold tabular-nums" style={{ color: '#e8e8e8' }}>{s.leads}</p>
+                <p className="text-[10px] font-medium" style={{ color: 'var(--tenant-primary)' }}>
+                  {s.convRate}% conv
+                </p>
               </div>
             ))}
           </div>
         )}
-      </Card>
+      </DarkCard>
     </div>
   )
 }

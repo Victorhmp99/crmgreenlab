@@ -4,34 +4,25 @@ import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface ModalProps {
-  open: boolean
-  onClose: () => void
-  title: string
+  open:         boolean
+  onClose:      () => void
+  title:        string
   description?: string
-  size?: 'sm' | 'md' | 'lg' | 'xl'
-  children: ReactNode
-  footer?: ReactNode
+  size?:        'sm' | 'md' | 'lg' | 'xl'
+  children:     ReactNode
+  footer?:      ReactNode
 }
 
-const sizes = {
-  sm: 'max-w-sm',
-  md: 'max-w-lg',
-  lg: 'max-w-2xl',
-  xl: 'max-w-4xl',
-}
+const sizes = { sm: 'max-w-sm', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl' }
 
 export function Modal({ open, onClose, title, description, size = 'md', children, footer }: ModalProps) {
-  // Fecha com Escape
   useEffect(() => {
     if (!open) return
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose()
-    }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [open, onClose])
 
-  // Bloqueia scroll do body enquanto o modal está aberto
   useEffect(() => {
     document.body.style.overflow = open ? 'hidden' : ''
     return () => { document.body.style.overflow = '' }
@@ -42,43 +33,39 @@ export function Modal({ open, onClose, title, description, size = 'md', children
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
-        aria-hidden
-      />
+      <div className="absolute inset-0 backdrop-blur-sm" style={{ background: 'rgba(0,0,0,0.7)' }}
+        onClick={onClose} aria-hidden />
 
       {/* Painel */}
       <div
-        className={cn(
-          'relative z-10 w-full rounded-2xl bg-white shadow-2xl flex flex-col',
-          'max-h-[90vh]',
-          sizes[size],
-        )}
-        role="dialog"
-        aria-modal
-        aria-label={title}
+        className={cn('relative z-10 w-full rounded-2xl flex flex-col max-h-[90vh]', sizes[size])}
+        style={{ background: '#111111', border: '1px solid #2a2a2a', boxShadow: '0 0 40px rgba(0,0,0,0.6)' }}
+        role="dialog" aria-modal aria-label={title}
       >
         {/* Header */}
-        <div className="flex items-start justify-between px-6 py-5 border-b border-slate-100 shrink-0">
+        <div className="flex items-start justify-between px-6 py-5 shrink-0"
+          style={{ borderBottom: '1px solid #1e1e1e' }}>
           <div>
-            <h2 className="text-base font-semibold text-slate-900">{title}</h2>
-            {description && <p className="text-sm text-slate-500 mt-0.5">{description}</p>}
+            <h2 className="text-sm font-semibold tracking-wide" style={{ color: '#e8e8e8' }}>{title}</h2>
+            {description && <p className="text-xs mt-0.5" style={{ color: '#666' }}>{description}</p>}
           </div>
-          <button
-            onClick={onClose}
-            className="ml-4 text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-lg hover:bg-slate-100"
+          <button onClick={onClose}
+            className="ml-4 p-1.5 rounded-lg transition-colors"
+            style={{ color: '#555' }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = '#1e1e1e'; e.currentTarget.style.color = '#ccc' }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#555' }}
           >
-            <X size={18} />
+            <X size={16} />
           </button>
         </div>
 
-        {/* Conteúdo com scroll */}
+        {/* Conteúdo */}
         <div className="flex-1 overflow-y-auto px-6 py-5">{children}</div>
 
-        {/* Footer opcional */}
+        {/* Footer */}
         {footer && (
-          <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-3 shrink-0 bg-slate-50 rounded-b-2xl">
+          <div className="px-6 py-4 flex items-center justify-end gap-3 shrink-0 rounded-b-2xl"
+            style={{ borderTop: '1px solid #1e1e1e', background: '#0d0d0d' }}>
             {footer}
           </div>
         )}

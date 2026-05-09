@@ -2,15 +2,11 @@ import { forwardRef, type SelectHTMLAttributes } from 'react'
 import { cn } from '@/lib/utils'
 import { ChevronDown } from 'lucide-react'
 
-interface SelectOption {
-  value: string
-  label: string
-}
-
+interface SelectOption { value: string; label: string }
 interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
-  label?: string
-  error?: string
-  options: SelectOption[]
+  label?:       string
+  error?:       string
+  options:      SelectOption[]
   placeholder?: string
 }
 
@@ -21,7 +17,8 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     return (
       <div className="flex flex-col gap-1.5">
         {label && (
-          <label htmlFor={selectId} className="text-sm font-medium text-slate-700">
+          <label htmlFor={selectId} className="text-xs font-medium uppercase tracking-wide"
+            style={{ color: '#888888' }}>
             {label}
           </label>
         )}
@@ -29,32 +26,27 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           <select
             ref={ref}
             id={selectId}
-            className={cn(
-              'h-10 w-full appearance-none rounded-lg border px-3 pr-8 text-sm text-slate-900',
-              'bg-white transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500',
-              error ? 'border-red-400' : 'border-slate-200 hover:border-slate-300',
-              className,
-            )}
+            className={cn('h-10 w-full appearance-none rounded-lg px-3 pr-8 text-sm transition-all duration-150 focus:outline-none', className)}
+            style={{
+              background:   '#1a1a1a',
+              border:       `1px solid ${error ? '#ff4444' : '#2a2a2a'}`,
+              color:        '#e8e8e8',
+            }}
             {...props}
           >
-            {placeholder && (
-              <option value="">{placeholder}</option>
-            )}
+            {placeholder && <option value="">{placeholder}</option>}
             {options.map((opt) => (
-              <option key={opt.value} value={opt.value}>
+              <option key={opt.value} value={opt.value} style={{ background: '#1a1a1a', color: '#e8e8e8' }}>
                 {opt.label}
               </option>
             ))}
           </select>
-          <ChevronDown
-            size={14}
-            className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
-          />
+          <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2"
+            style={{ color: '#555' }} />
         </div>
-        {error && <p className="text-xs text-red-500">{error}</p>}
+        {error && <p className="text-xs" style={{ color: '#ff4444' }}>{error}</p>}
       </div>
     )
   },
 )
-
 Select.displayName = 'Select'

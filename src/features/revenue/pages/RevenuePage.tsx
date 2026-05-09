@@ -49,8 +49,8 @@ export function RevenuePage() {
       {/* Cabeçalho */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-xl font-semibold text-slate-900">Revenue Center</h2>
-          <p className="text-sm text-slate-500 mt-0.5">Financeiro e projeções</p>
+          <h2 className="text-xl font-semibold" style={{ color: '#e8e8e8' }}>Revenue Center</h2>
+          <p className="text-sm mt-0.5" style={{ color: '#555' }}>Financeiro e projeções</p>
         </div>
         <Button onClick={() => setEditingRecord(null)}>
           <Plus size={15} />
@@ -76,19 +76,22 @@ export function RevenuePage() {
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-slate-700">De</label>
+          <label className="text-xs font-medium uppercase tracking-wide" style={{ color: '#888' }}>De</label>
           <Input type="date" value={filters.dateFrom ?? ''} className="w-36"
             onChange={(e) => setFilters((f) => ({ ...f, dateFrom: e.target.value, page: 1 }))} />
         </div>
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-slate-700">Até</label>
+          <label className="text-xs font-medium uppercase tracking-wide" style={{ color: '#888' }}>Até</label>
           <Input type="date" value={filters.dateTo ?? ''} className="w-36"
             onChange={(e) => setFilters((f) => ({ ...f, dateTo: e.target.value, page: 1 }))} />
         </div>
         {hasFilters && (
           <button
             onClick={() => setFilters({ page: 1, pageSize: 25 })}
-            className="flex items-center gap-1.5 h-10 text-sm text-slate-500 hover:text-slate-700 transition-colors"
+            className="flex items-center gap-1.5 h-10 text-sm transition-colors"
+            style={{ color: '#555' }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = '#aaa')}
+            onMouseLeave={(e) => (e.currentTarget.style.color = '#555')}
           >
             <X size={14} /> Limpar
           </button>
@@ -115,9 +118,10 @@ export function RevenuePage() {
       {deletingRecord && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/40" onClick={() => setDeletingRecord(null)} />
-          <div className="relative z-10 bg-white rounded-2xl p-6 shadow-2xl max-w-sm w-full text-center">
-            <p className="font-semibold text-slate-800 mb-2">Excluir lançamento?</p>
-            <p className="text-sm text-slate-500 mb-5">Esta ação não pode ser desfeita.</p>
+          <div className="relative z-10 rounded-2xl p-6 max-w-sm w-full text-center"
+            style={{ background: '#111111', border: '1px solid #2a2a2a', boxShadow: '0 0 40px rgba(0,0,0,0.6)' }}>
+            <p className="font-semibold mb-2" style={{ color: '#e8e8e8' }}>Excluir lançamento?</p>
+            <p className="text-sm mb-5" style={{ color: '#666' }}>Esta ação não pode ser desfeita.</p>
             <div className="flex gap-3 justify-center">
               <Button variant="ghost" onClick={() => setDeletingRecord(null)}>Cancelar</Button>
               <Button variant="danger" onClick={() => { handleDelete(deletingRecord); setDeletingRecord(null) }}>

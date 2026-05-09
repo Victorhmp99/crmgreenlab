@@ -20,13 +20,13 @@ export function UsersPage() {
       {/* Cabeçalho */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-xl font-semibold text-slate-900">Usuários</h2>
+          <h2 className="text-xl font-semibold" style={{ color: '#e8e8e8' }}>Usuários</h2>
           <div className="flex items-center gap-3 mt-1">
-            <span className="text-sm text-slate-500">
-              <span className="font-semibold text-green-600">{activeCount}</span> ativos
+            <span className="text-sm" style={{ color: '#555' }}>
+              <span className="font-semibold" style={{ color: 'var(--tenant-primary)' }}>{activeCount}</span> ativos
             </span>
             {inactiveCount > 0 && (
-              <span className="text-sm text-slate-400">
+              <span className="text-sm" style={{ color: '#444' }}>
                 · <span className="font-semibold">{inactiveCount}</span> inativos
               </span>
             )}
@@ -38,14 +38,16 @@ export function UsersPage() {
         </Button>
       </div>
 
-      {/* Tabela */}
+      {/* Tabela ou estado vazio */}
       {!isLoading && users.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-slate-200 bg-white flex flex-col items-center gap-3 py-16 text-center">
-          <div className="h-14 w-14 rounded-2xl bg-slate-100 flex items-center justify-center">
-            <Users size={26} className="text-slate-300" />
+        <div className="rounded-xl flex flex-col items-center gap-3 py-16 text-center"
+          style={{ border: '1px dashed #2a2a2a', background: '#111' }}>
+          <div className="h-14 w-14 rounded-2xl flex items-center justify-center"
+            style={{ background: '#1a1a1a' }}>
+            <Users size={26} style={{ color: '#333' }} />
           </div>
-          <p className="text-slate-500 font-medium">Nenhum usuário encontrado</p>
-          <p className="text-sm text-slate-400">Convide membros da sua equipe para começar</p>
+          <p className="font-medium" style={{ color: '#666' }}>Nenhum usuário encontrado</p>
+          <p className="text-sm" style={{ color: '#444' }}>Convide membros da sua equipe para começar</p>
           <Button size="sm" onClick={() => setShowInvite(true)}>
             <UserPlus size={14} />
             Convidar agora
@@ -60,11 +62,12 @@ export function UsersPage() {
       )}
 
       {/* Aviso de permissões */}
-      <div className="rounded-xl bg-slate-50 border border-slate-200 px-4 py-3 text-xs text-slate-500">
-        <strong>Sobre os níveis de acesso:</strong>{' '}
-        <span className="font-medium text-violet-600">Admin</span> — acesso total, incluindo esta página ·{' '}
-        <span className="font-medium text-blue-600">Gestor</span> — vê métricas e gerencia leads de todos ·{' '}
-        <span className="font-medium text-slate-600">Vendedor</span> — gerencia apenas seus próprios leads
+      <div className="rounded-xl px-4 py-3 text-xs"
+        style={{ background: '#111', border: '1px solid #1e1e1e', color: '#555' }}>
+        <strong style={{ color: '#888' }}>Sobre os níveis de acesso:</strong>{' '}
+        <span style={{ color: '#ff4444', fontWeight: 600 }}>Admin</span> — acesso total, incluindo esta página ·{' '}
+        <span style={{ color: '#a78bfa', fontWeight: 600 }}>Gestor</span> — vê métricas e gerencia leads de todos ·{' '}
+        <span style={{ color: '#888', fontWeight: 600 }}>Vendedor</span> — gerencia apenas seus próprios leads
       </div>
 
       {/* Modais */}

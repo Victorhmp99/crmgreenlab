@@ -16,7 +16,7 @@ type ForgotForm = z.infer<typeof schema>
 
 export function ForgotPasswordPage() {
   const { resetPassword } = useAuth()
-  const [sent, setSent] = useState(false)
+  const [sent, setSent]   = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const {
@@ -39,16 +39,21 @@ export function ForgotPasswordPage() {
     return (
       <AuthLayout>
         <div className="flex flex-col items-center text-center gap-4 py-4">
-          <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
-            <CheckCircle className="text-green-600" size={24} />
+          <div className="h-12 w-12 rounded-full flex items-center justify-center"
+            style={{ background: 'rgba(0,230,118,0.15)', border: '1px solid rgba(0,230,118,0.3)' }}>
+            <CheckCircle style={{ color: 'var(--tenant-primary)' }} size={24} />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-slate-900">E-mail enviado!</h2>
-            <p className="text-slate-500 text-sm mt-1">
+            <h2 className="text-xl font-bold" style={{ color: '#e8e8e8' }}>E-mail enviado!</h2>
+            <p className="text-sm mt-1" style={{ color: '#666' }}>
               Verifique sua caixa de entrada e clique no link para redefinir sua senha.
             </p>
           </div>
-          <Link to="/login" className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1">
+          <Link
+            to="/login"
+            className="text-sm flex items-center gap-1 transition-colors"
+            style={{ color: 'var(--tenant-primary)' }}
+          >
             <ArrowLeft size={14} /> Voltar ao login
           </Link>
         </div>
@@ -59,14 +64,15 @@ export function ForgotPasswordPage() {
   return (
     <AuthLayout>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">Recuperar senha</h1>
-        <p className="text-slate-500 text-sm mt-1">
+        <h1 className="text-2xl font-bold" style={{ color: '#e8e8e8' }}>Recuperar senha</h1>
+        <p className="text-sm mt-1" style={{ color: '#666' }}>
           Informe seu e-mail e enviaremos um link de redefinição.
         </p>
       </div>
 
       {error && (
-        <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">
+        <div className="mb-4 rounded-lg px-4 py-3 text-sm"
+          style={{ background: 'rgba(255,68,68,0.1)', border: '1px solid rgba(255,68,68,0.2)', color: '#ff4444' }}>
           {error}
         </div>
       )}
@@ -87,7 +93,10 @@ export function ForgotPasswordPage() {
 
       <Link
         to="/login"
-        className="mt-4 flex items-center justify-center gap-1 text-sm text-slate-500 hover:text-slate-700"
+        className="mt-4 flex items-center justify-center gap-1 text-sm transition-colors"
+        style={{ color: '#555' }}
+        onMouseEnter={(e) => (e.currentTarget.style.color = '#aaa')}
+        onMouseLeave={(e) => (e.currentTarget.style.color = '#555')}
       >
         <ArrowLeft size={14} /> Voltar ao login
       </Link>

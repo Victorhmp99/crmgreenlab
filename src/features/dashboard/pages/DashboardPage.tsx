@@ -27,18 +27,21 @@ export function DashboardPage() {
       {/* Saudação */}
       <div className="flex items-start justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-slate-900">
+          <h2 className="text-xl font-semibold" style={{ color: '#e8e8e8' }}>
             {greeting()}, {name} 👋
           </h2>
-          <p className="text-sm text-slate-500 mt-0.5">
-            {tenant?.name} · Resumo geral
+          <p className="text-sm mt-0.5" style={{ color: '#555' }}>
+            {tenant?.name ?? 'Green Hub'} · Resumo geral
           </p>
         </div>
 
         <button
           onClick={() => refetch()}
           disabled={isLoading}
-          className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 transition-colors disabled:opacity-50"
+          className="flex items-center gap-1.5 text-xs transition-colors disabled:opacity-50"
+          style={{ color: '#555' }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = '#aaa')}
+          onMouseLeave={(e) => (e.currentTarget.style.color = '#555')}
           title="Atualizar dados"
         >
           <RefreshCw size={13} className={isLoading ? 'animate-spin' : ''} />
@@ -52,7 +55,8 @@ export function DashboardPage() {
           label="Leads Ativos"
           value={data?.totalLeads ?? 0}
           icon={Users}
-          color="bg-blue-600"
+          iconColor="rgba(0,230,118,0.15)"
+          iconTextColor="var(--tenant-primary)"
           current={data?.totalLeads}
           previous={data?.totalLeadsPrev}
           deltaLabel="vs 30 dias anteriores"
@@ -62,14 +66,16 @@ export function DashboardPage() {
           label="No Pipeline"
           value={data?.leadsInPipeline ?? 0}
           icon={Kanban}
-          color="bg-violet-600"
+          iconColor="rgba(139,92,246,0.15)"
+          iconTextColor="#a78bfa"
           isLoading={isLoading}
         />
         <MetricCard
           label="Disparos Hoje"
           value={data?.activitiesToday ?? 0}
           icon={Zap}
-          color="bg-amber-500"
+          iconColor="rgba(251,191,36,0.15)"
+          iconTextColor="#fbbf24"
           current={data?.activitiesToday}
           previous={data?.activitiesYesterday}
           deltaLabel="vs ontem"
@@ -79,7 +85,8 @@ export function DashboardPage() {
           label="Fechamentos"
           value={data?.conversionsThisMonth ?? 0}
           icon={CheckCircle}
-          color="bg-emerald-600"
+          iconColor="rgba(0,230,118,0.15)"
+          iconTextColor="var(--tenant-primary)"
           current={data?.conversionsThisMonth}
           previous={data?.conversionsPrevMonth}
           deltaLabel="vs mês anterior"

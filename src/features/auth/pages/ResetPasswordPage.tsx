@@ -11,11 +11,11 @@ import { useAuth } from '@/hooks/useAuth'
 const schema = z
   .object({
     password: z.string().min(8, 'Senha deve ter ao menos 8 caracteres'),
-    confirm: z.string(),
+    confirm:  z.string(),
   })
   .refine((d) => d.password === d.confirm, {
     message: 'As senhas não coincidem',
-    path: ['confirm'],
+    path:    ['confirm'],
   })
 
 type ResetForm = z.infer<typeof schema>
@@ -24,7 +24,7 @@ export function ResetPasswordPage() {
   const navigate = useNavigate()
   const { updatePassword } = useAuth()
   const [showPw, setShowPw] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError]   = useState<string | null>(null)
 
   const {
     register,
@@ -45,12 +45,13 @@ export function ResetPasswordPage() {
   return (
     <AuthLayout>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">Nova senha</h1>
-        <p className="text-slate-500 text-sm mt-1">Crie uma senha forte para sua conta.</p>
+        <h1 className="text-2xl font-bold" style={{ color: '#e8e8e8' }}>Nova senha</h1>
+        <p className="text-sm mt-1" style={{ color: '#666' }}>Crie uma senha forte para sua conta.</p>
       </div>
 
       {error && (
-        <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">
+        <div className="mb-4 rounded-lg px-4 py-3 text-sm"
+          style={{ background: 'rgba(255,68,68,0.1)', border: '1px solid rgba(255,68,68,0.2)', color: '#ff4444' }}>
           {error}
         </div>
       )}
@@ -58,30 +59,39 @@ export function ResetPasswordPage() {
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
         {(['password', 'confirm'] as const).map((field) => (
           <div key={field} className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-slate-700">
+            <label className="text-xs font-medium uppercase tracking-wide" style={{ color: '#888' }}>
               {field === 'password' ? 'Nova senha' : 'Confirmar senha'}
             </label>
             <div className="relative">
               <input
                 type={showPw ? 'text' : 'password'}
                 placeholder="••••••••"
-                className={`h-10 w-full rounded-lg border px-3 pr-10 text-sm text-slate-900 placeholder:text-slate-400 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  errors[field] ? 'border-red-400' : 'border-slate-200 hover:border-slate-300'
-                }`}
+                className="h-10 w-full rounded-lg px-3 pr-10 text-sm transition-all duration-150 focus:outline-none"
+                style={{
+                  background: '#1a1a1a',
+                  border:     `1px solid ${errors[field] ? '#ff4444' : '#2a2a2a'}`,
+                  color:      '#e8e8e8',
+                }}
+                onFocus={(e) => {
+                  if (!errors[field]) e.currentTarget.style.border = '1px solid var(--tenant-primary)'
+                }}
                 {...register(field)}
               />
               {field === 'password' && (
                 <button
                   type="button"
                   onClick={() => setShowPw((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
+                  style={{ color: '#555' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = '#aaa')}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = '#555')}
                 >
                   {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               )}
             </div>
             {errors[field] && (
-              <p className="text-xs text-red-500">{errors[field]?.message}</p>
+              <p className="text-xs" style={{ color: '#ff4444' }}>{errors[field]?.message}</p>
             )}
           </div>
         ))}
