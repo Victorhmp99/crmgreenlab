@@ -22,7 +22,7 @@ import { UsersPage }      from '@/features/users/pages/UsersPage'
 
 export function AppRouter() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/crmgreenlab">
       <Routes>
         {/* Rotas públicas */}
         <Route path="/login"           element={<LoginPage />} />
