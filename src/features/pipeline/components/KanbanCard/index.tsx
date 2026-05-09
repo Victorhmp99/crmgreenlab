@@ -5,10 +5,12 @@ import { cn } from '@/lib/utils'
 import { formatPhone } from '@/lib/utils'
 import { LeadSourceBadge } from '@/features/leads/components/LeadSourceBadge'
 import type { KanbanCardData } from '@/services/pipeline'
+import type { Lead } from '@/types'
 
 interface KanbanCardProps {
-  data: KanbanCardData
-  onRemove: (cardId: string) => void
+  data:               KanbanCardData
+  onRemove:           (cardId: string) => void
+  onSelect:           (lead: Lead) => void
   isDraggingOverlay?: boolean
 }
 
@@ -17,7 +19,7 @@ function daysAgo(dateStr: string): number {
   return Math.floor(diff / (1000 * 60 * 60 * 24))
 }
 
-export function KanbanCard({ data, onRemove, isDraggingOverlay = false }: KanbanCardProps) {
+export function KanbanCard({ data, onRemove, onSelect, isDraggingOverlay = false }: KanbanCardProps) {
   const { card, lead } = data
 
   const {
@@ -41,31 +43,32 @@ export function KanbanCard({ data, onRemove, isDraggingOverlay = false }: Kanban
       ref={setNodeRef}
       style={style}
       className={cn(
-        'group relative rounded-xl border bg-white p-3.5 shadow-sm',
-        'select-none transition-shadow',
+        'group relative rounded-xl border bg-white shadow-sm',
+        'select-none transition-shadow cursor-pointer',
         isDragging && !isDraggingOverlay
           ? 'opacity-40 shadow-none border-dashed border-slate-300'
-          : 'border-slate-200 hover:shadow-md hover:border-slate-300',
+          : 'border-slate-200 hover:shadow-md hover:border-blue-300',
         isDraggingOverlay && 'shadow-xl rotate-1 border-blue-200 ring-2 ring-blue-200',
       )}
+      onClick={() => !isDragging && onSelect(lead)}
     >
-      {/* Drag handle */}
+      {/* Drag handle — impede que o click do card abra o drawer ao arrastar */}
       <div
         {...attributes}
         {...listeners}
-        className="absolute left-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500"
+        onClick={(e) => e.stopPropagation()}
+        className="absolute left-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500 z-10"
+        title="Arrastar"
       >
         <GripVertical size={14} />
       </div>
 
-      {/* Conteúdo do card */}
-      <div className="pl-3">
-        {/* Nome */}
-        <p className="font-semibold text-slate-900 text-sm leading-tight truncate pr-5">
+      {/* Conteúdo */}
+      <div className="p-3.5 pl-6">
+        <p className="font-semibold text-slate-900 text-sm leading-tight truncate pr-4">
           {lead.name}
         </p>
 
-        {/* Telefone */}
         {lead.phone && (
           <div className="flex items-center gap-1 mt-1.5">
             <Phone size={11} className="text-slate-400 shrink-0" />
@@ -73,22 +76,18 @@ export function KanbanCard({ data, onRemove, isDraggingOverlay = false }: Kanban
           </div>
         )}
 
-        {/* Origem + tempo na etapa */}
         <div className="flex items-center justify-between mt-2.5">
           <LeadSourceBadge source={lead.source} />
           <span className={cn(
             'text-[10px] font-medium rounded-full px-1.5 py-0.5',
-            days > 7
-              ? 'bg-red-50 text-red-500'
-              : days > 3
-              ? 'bg-amber-50 text-amber-600'
-              : 'bg-slate-100 text-slate-500',
+            days > 7  ? 'bg-red-50   text-red-500'   :
+            days > 3  ? 'bg-amber-50 text-amber-600' :
+                        'bg-slate-100 text-slate-500',
           )}>
             {days === 0 ? 'hoje' : `${days}d`}
           </span>
         </div>
 
-        {/* Tags */}
         {lead.tags.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-2">
             {lead.tags.slice(0, 3).map((tag) => (
@@ -115,7 +114,6 @@ export function KanbanCard({ data, onRemove, isDraggingOverlay = false }: Kanban
   )
 }
 
-// Versão estática usada no DragOverlay (sem hooks de sortable)
 export function KanbanCardOverlay({ data }: { data: KanbanCardData }) {
-  return <KanbanCard data={data} onRemove={() => {}} isDraggingOverlay />
+  return <KanbanCard data={data} onRemove={() => {}} onSelect={() => {}} isDraggingOverlay />
 }
