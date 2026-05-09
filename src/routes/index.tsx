@@ -1,7 +1,8 @@
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { PrivateRoute } from './PrivateRoute'
-import { RoleRoute } from './RoleRoute'
-import { AppLayout } from '@/components/layout/AppLayout'
+import { PrivateRoute }    from './PrivateRoute'
+import { RoleRoute }       from './RoleRoute'
+import { SuperAdminRoute } from './SuperAdminRoute'
+import { AppLayout }       from '@/components/layout/AppLayout'
 
 // Auth pages
 import { LoginPage }          from '@/features/auth/pages/LoginPage'
@@ -20,7 +21,8 @@ import { RevenuePage }    from '@/features/revenue/pages/RevenuePage'
 import { ReportsPage }    from '@/features/reports/pages/ReportsPage'
 import { MetaAdsPage }    from '@/features/integrations/pages/MetaAdsPage'
 import { UsersPage }      from '@/features/users/pages/UsersPage'
-import { SettingsPage }  from '@/features/settings/pages/SettingsPage'
+import { SettingsPage }   from '@/features/settings/pages/SettingsPage'
+import { PlatformPage }   from '@/features/platform/pages/PlatformPage'
 
 export function AppRouter() {
   return (
@@ -44,17 +46,22 @@ export function AppRouter() {
           <Route path="/activities" element={<AppLayout><ActivitiesPage /></AppLayout>} />
           <Route path="/goals"      element={<AppLayout><GoalsPage /></AppLayout>} />
 
-          {/* Restritos a manager/admin */}
+          {/* Restritos a manager/admin do tenant */}
           <Route element={<RoleRoute required="manager" />}>
             <Route path="/revenue"  element={<AppLayout><RevenuePage /></AppLayout>} />
             <Route path="/reports"  element={<AppLayout><ReportsPage /></AppLayout>} />
             <Route path="/meta-ads" element={<AppLayout><MetaAdsPage /></AppLayout>} />
           </Route>
 
-          {/* Restrito a admin */}
+          {/* Restrito a admin do tenant */}
           <Route element={<RoleRoute required="admin" />}>
-            <Route path="/users"     element={<AppLayout><UsersPage /></AppLayout>} />
-            <Route path="/settings"  element={<AppLayout><SettingsPage /></AppLayout>} />
+            <Route path="/users"    element={<AppLayout><UsersPage /></AppLayout>} />
+            <Route path="/settings" element={<AppLayout><SettingsPage /></AppLayout>} />
+          </Route>
+
+          {/* Plataforma — super admin only */}
+          <Route element={<SuperAdminRoute />}>
+            <Route path="/platform" element={<AppLayout><PlatformPage /></AppLayout>} />
           </Route>
         </Route>
 

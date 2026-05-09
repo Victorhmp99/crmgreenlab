@@ -1,29 +1,21 @@
 import { supabase } from '@/lib/supabase'
 
-// Converte nome da clínica em slug URL-safe
 function toSlug(name: string): string {
   return name
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')   // remove acentos
+    .replace(/[̀-ͯ]/g, '')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '')
-    || 'clinica'
+    || 'empresa'
 }
 
 interface RegisterResult {
   needsEmailConfirmation: boolean
 }
 
-/**
- * Cria conta do primeiro admin + tenant em uma única transação.
- * Requer as seguintes políticas RLS no Supabase:
- *   - tenants: INSERT permitido para authenticated
- *   - user_memberships: INSERT permitido para authenticated
- * (ver migration 012_register_policies.sql)
- */
 export async function registerTenant(
-  clinicName: string,
+  companyName: string,
   email: string,
   password: string,
 ): Promise<RegisterResult> {
@@ -32,48 +24,42 @@ export async function registerTenant(
   if (authError) throw authError
   if (!authData.user) throw new Error('Não foi possível criar o usuário.')
 
-  const userId = authData.user.id
-
-  // Se Supabase exige confirmação de e-mail, a session será null
-  // Nesse caso não conseguimos criar o tenant ainda (sem sessão = sem auth para RLS)
-  // → retornamos needsEmailConfirmation: true e o usuário completa após confirmar
   if (!authData.session) {
     return { needsEmailConfirmation: true }
   }
 
+  const userId = authData.user.id
+
   // 2. Cria o tenant
-  const slug = toSlug(clinicName)
   const { data: tenant, error: tenantError } = await supabase
     .from('tenants')
-    .insert({ name: clinicName, slug, plan: 'trial', active: true })
+    .insert({ name: companyName, slug: toSlug(companyName), plan: 'trial', active: true })
     .select()
     .single()
-
   if (tenantError) throw tenantError
 
   // 3. Cria membership de admin
   const { error: membershipError } = await supabase
     .from('user_memberships')
-    .insert({
-      user_id:   userId,
-      tenant_id: tenant.id,
-      role:      'admin',
-      active:    true,
-    })
-
+    .insert({ user_id: userId, tenant_id: tenant.id, role: 'admin', active: true })
   if (membershipError) throw membershipError
 
-  // 4. Cria configurações padrão do tenant (white-label)
+  // 4. Cria configurações padrão do tenant
   await supabase
     .from('tenant_settings')
     .insert({
-      tenant_id:     tenant.id,
-      primary_color: '#00e676',
+      tenant_id:       tenant.id,
+      primary_color:   '#00e676',
       secondary_color: '#00c853',
-      logo_url:      null,
-      custom_domain: null,
+      logo_url:        null,
+      custom_domain:   null,
     })
-    .maybeSingle()   // ignora erro se já existir
+    .maybeSingle()
+
+  // 5. CRÍTICO: força novo ciclo de auth para o AuthProvider encontrar a membership
+  //    O onAuthStateChange disparou no signUp ANTES da membership existir.
+  //    O refreshSession faz ele disparar novamente — agora com a membership no banco.
+  await supabase.auth.refreshSession()
 
   return { needsEmailConfirmation: false }
 }

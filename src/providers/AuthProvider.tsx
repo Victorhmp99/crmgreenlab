@@ -2,24 +2,20 @@ import { useEffect, type ReactNode } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
 
-interface AuthProviderProps {
-  children: ReactNode
-}
+interface AuthProviderProps { children: ReactNode }
 
-// Dados fictícios para o modo demo (VITE_DEMO_MODE=true)
 const DEMO_USER = {
   id: 'demo-user-id',
-  email: 'demo@dentalcrm.com',
-  app_metadata: {},
-  user_metadata: {},
+  email: 'demo@greenhub.com',
+  app_metadata: {}, user_metadata: {},
   aud: 'authenticated',
   created_at: new Date().toISOString(),
 } as ReturnType<typeof useAuthStore.getState>['user']
 
 const DEMO_TENANT = {
   id: 'demo-tenant-id',
-  name: 'Clínica Demo',
-  slug: 'clinica-demo',
+  name: 'Empresa Demo',
+  slug: 'empresa-demo',
   plan: 'trial',
   active: true,
   created_at: new Date().toISOString(),
@@ -35,14 +31,17 @@ const DEMO_MEMBERSHIP = {
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const { setUser, setSession, setMembership, setTenant, setLoading, clear } = useAuthStore()
+  const {
+    setUser, setSession, setMembership, setTenant,
+    setIsSuperAdmin, setLoading, clear,
+  } = useAuthStore()
 
   useEffect(() => {
-    // Modo demo: injeta estado simulado sem chamar o Supabase
     if (import.meta.env.VITE_DEMO_MODE === 'true') {
       setUser(DEMO_USER)
       setMembership(DEMO_MEMBERSHIP)
       setTenant(DEMO_TENANT)
+      setIsSuperAdmin(false)
       setLoading(false)
       return
     }
@@ -57,7 +56,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           setLoading(false)
         }
       })
-      .catch(() => setLoading(false))  // fallback para erros de rede
+      .catch(() => setLoading(false))
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
@@ -73,16 +72,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [])
 
   async function loadUserContext(userId: string) {
-    const { data: membership } = await supabase
-      .from('user_memberships')
-      .select('*, tenants(*)')
-      .eq('user_id', userId)
-      .eq('active', true)
-      .single()
+    // Verifica super admin em paralelo com a membership
+    const [membershipRes, superAdminRes] = await Promise.all([
+      supabase
+        .from('user_memberships')
+        .select('*, tenants(*)')
+        .eq('user_id', userId)
+        .eq('active', true)
+        .maybeSingle(),
+      supabase
+        .from('super_admins')
+        .select('user_id')
+        .eq('user_id', userId)
+        .maybeSingle(),
+    ])
 
-    if (membership) {
-      setMembership(membership)
-      const tenant = (membership as unknown as { tenants: unknown }).tenants
+    setIsSuperAdmin(!!superAdminRes.data)
+
+    if (membershipRes.data) {
+      setMembership(membershipRes.data)
+      const tenant = (membershipRes.data as unknown as { tenants: unknown }).tenants
       setTenant(tenant as Parameters<typeof setTenant>[0])
     }
 
