@@ -1,8 +1,9 @@
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Phone, X, GripVertical } from 'lucide-react'
-import { formatPhone } from '@/lib/utils'
+import { Phone, X, GripVertical, DollarSign, Building2 } from 'lucide-react'
+import { formatPhone, formatCurrency } from '@/lib/utils'
 import { LeadSourceBadge } from '@/features/leads/components/LeadSourceBadge'
+import { useTagDefinitions } from '@/features/leads/hooks/useLeadTags'
 import type { KanbanCardData } from '@/services/pipeline'
 import type { Lead } from '@/types'
 
@@ -20,6 +21,11 @@ function daysAgo(dateStr: string): number {
 
 export function KanbanCard({ data, onRemove, onSelect, isDraggingOverlay = false }: KanbanCardProps) {
   const { card, lead } = data
+  const { data: tagDefs = [] } = useTagDefinitions()
+
+  // Mapa nome → cor pra colorir os chips de tags do lead
+  const colorByName = new Map<string, string>()
+  for (const t of tagDefs) colorByName.set(t.name, t.color)
 
   const {
     attributes, listeners, setNodeRef,
@@ -71,10 +77,26 @@ export function KanbanCard({ data, onRemove, onSelect, isDraggingOverlay = false
           {lead.name}
         </p>
 
+        {lead.company_name && (
+          <div className="flex items-center gap-1 mt-0.5">
+            <Building2 size={11} className="shrink-0" style={{ color: '#555' }} />
+            <span className="text-xs truncate" style={{ color: '#888' }}>{lead.company_name}</span>
+          </div>
+        )}
+
         {lead.phone && (
           <div className="flex items-center gap-1 mt-1.5">
             <Phone size={11} className="shrink-0" style={{ color: '#444' }} />
             <span className="text-xs" style={{ color: '#666' }}>{formatPhone(lead.phone)}</span>
+          </div>
+        )}
+
+        {lead.value != null && Number(lead.value) > 0 && (
+          <div className="flex items-center gap-1 mt-1.5">
+            <DollarSign size={11} className="shrink-0" style={{ color: '#00e676' }} />
+            <span className="text-xs font-semibold tabular-nums" style={{ color: '#00e676' }}>
+              {formatCurrency(Number(lead.value))}
+            </span>
           </div>
         )}
 
@@ -92,12 +114,19 @@ export function KanbanCard({ data, onRemove, onSelect, isDraggingOverlay = false
 
         {lead.tags.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-2">
-            {lead.tags.slice(0, 3).map((tag) => (
-              <span key={tag} className="text-[10px] rounded px-1.5 py-0.5"
-                style={{ background: '#222', color: '#666' }}>
-                {tag}
-              </span>
-            ))}
+            {lead.tags.slice(0, 3).map((tag) => {
+              const color = colorByName.get(tag) ?? '#666'
+              return (
+                <span key={tag} className="text-[10px] rounded-full px-2 py-0.5"
+                  style={{
+                    background: `${color}22`,
+                    color,
+                    border: `1px solid ${color}55`,
+                  }}>
+                  {tag}
+                </span>
+              )
+            })}
             {lead.tags.length > 3 && (
               <span className="text-[10px]" style={{ color: '#444' }}>+{lead.tags.length - 3}</span>
             )}

@@ -7,9 +7,10 @@ import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
-import { RoleBadge, ROLE_OPTIONS } from '../RoleBadge'
+import { RoleBadge, getAssignableRoles } from '../RoleBadge'
 import { useUserMutations } from '../../hooks/useUserMutations'
 import { useInvites } from '../../hooks/useUsers'
+import { usePermissions } from '@/hooks/usePermissions'
 import { formatDate } from '@/lib/utils'
 import type { UserRole } from '@/types'
 
@@ -25,13 +26,18 @@ interface InviteModalProps {
 }
 
 function buildInviteUrl(token: string): string {
-  return `${window.location.origin}/convite/${token}`
+  // HashRouter: a URL precisa ter o # para funcionar em GitHub Pages
+  return `${window.location.origin}${window.location.pathname}#/convite/${token}`
 }
 
 export function InviteModal({ open, onClose }: InviteModalProps) {
   const { invite, revoke } = useUserMutations()
   const { data: invites = [] } = useInvites()
+  const { role: myRole, isSuperAdmin } = usePermissions()
   const [copiedId, setCopiedId] = useState<string | null>(null)
+
+  // Opções de role disponíveis baseado no role do usuário logado
+  const availableRoles = getAssignableRoles(myRole, isSuperAdmin)
 
   const {
     register, handleSubmit, reset,
@@ -75,7 +81,7 @@ export function InviteModal({ open, onClose }: InviteModalProps) {
           />
         </div>
         <div className="w-36">
-          <Select label="Papel" options={ROLE_OPTIONS} error={errors.role?.message} {...register('role')} />
+          <Select label="Papel" options={availableRoles} error={errors.role?.message} {...register('role')} />
         </div>
         <Button type="submit" loading={isSubmitting} className="shrink-0 mb-[1px]">
           <Send size={14} />

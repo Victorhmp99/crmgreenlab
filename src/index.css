@@ -25,56 +25,303 @@
   --color-surface-950: #080808;
 }
 
-/* ── Variáveis semânticas ─────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════════
+   DARK MODE (default)
+   ═══════════════════════════════════════════════════════════════════════════ */
 :root {
-  --bg:          #0d0d0d;
-  --bg-surface:  #141414;
-  --bg-surface2: #1c1c1c;
-  --bg-surface3: #252525;
-  --border:      #2a2a2a;
-  --border-dim:  #1e1e1e;
-  --text:        #e8e8e8;
-  --text-muted:  #888888;
-  --text-dim:    #555555;
+  --bg:           #0d0d0d;
+  --bg-elevated:  #0a0a0a;
+  --bg-surface:   #141414;
+  --bg-surface2:  #1a1a1a;
+  --bg-surface3:  #1e1e1e;
+  --bg-input:     #1a1a1a;
+  --bg-hover:     #1a1a1a;
+  --border:       #2a2a2a;
+  --border-dim:   #1e1e1e;
+  --border-soft:  #191919;
+  --text:         #e8e8e8;
+  --text-strong:  #ffffff;
+  --text-muted:   #888888;
+  --text-dim:     #555555;
+  --text-faint:   #444444;
 
-  /* Cores primárias — sobrescritas pelo ThemeProvider para white-label */
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.4);
+
   --tenant-primary:      #00e676;
   --tenant-primary-dark: #00c853;
   --tenant-primary-glow: rgba(0, 230, 118, 0.25);
   --tenant-primary-bg:   rgba(0, 230, 118, 0.08);
 }
 
-/* ── Reset ─────────────────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════════
+   LIGHT MODE — clean, tech, modern
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root.light {
+  color-scheme: light;
+  --bg:           #f6f8fa;       /* Cinza muito claro (não branco puro) */
+  --bg-elevated:  #ffffff;
+  --bg-surface:   #ffffff;
+  --bg-surface2:  #f6f8fa;
+  --bg-surface3:  #eef1f5;
+  --bg-input:     #f6f8fa;
+  --bg-hover:     #eef1f5;
+  --border:       #e1e5ea;
+  --border-dim:   #eef1f5;
+  --border-soft:  #f0f3f7;
+  --text:         #0d1117;        /* Quase preto, ótimo contraste */
+  --text-strong:  #000000;
+  --text-muted:   #57606a;
+  --text-dim:     #8b949e;
+  --text-faint:   #b6bdc6;
+
+  --shadow-card: 0 1px 3px rgba(15,20,30,0.05), 0 1px 2px rgba(15,20,30,0.04);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Reset + base
+   ═══════════════════════════════════════════════════════════════════════════ */
 * { box-sizing: border-box; }
-html { color-scheme: dark; }
 body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
+  transition: background-color 200ms ease, color 200ms ease;
 }
 
-/* ── Neon effects ──────────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════════
+   OVERRIDES inline styles — light mode
+   Cobre `style={{ background: '#xxx' }}` em React (que pode virar rgb() ou hex)
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root.light [style*="rgb(13, 13, 13)"],
+:root.light [style*="#0d0d0d"] { background-color: var(--bg) !important; }
+
+:root.light [style*="rgb(20, 20, 20)"],
+:root.light [style*="#141414"] { background-color: var(--bg-surface) !important; }
+
+:root.light [style*="rgb(26, 26, 26)"],
+:root.light [style*="#1a1a1a"] { background-color: var(--bg-surface2) !important; }
+
+:root.light [style*="rgb(17, 17, 17)"],
+:root.light [style*="#111111"],
+:root.light [style*=":#111"] { background-color: var(--bg-surface2) !important; }
+
+:root.light [style*="rgb(8, 8, 8)"],
+:root.light [style*="#080808"] { background-color: var(--bg-elevated) !important; }
+
+:root.light [style*="rgb(30, 30, 30)"],
+:root.light [style*="#1e1e1e"] {
+  background-color: var(--bg-surface3) !important;
+  border-color: var(--border-dim) !important;
+}
+
+:root.light [style*="rgb(42, 42, 42)"],
+:root.light [style*="#2a2a2a"] {
+  background-color: var(--bg-surface2) !important;
+  border-color: var(--border) !important;
+}
+
+:root.light [style*="rgb(25, 25, 25)"],
+:root.light [style*="#191919"] {
+  background-color: var(--bg-surface2) !important;
+  border-color: var(--border-soft) !important;
+}
+
+:root.light [style*="rgb(34, 34, 34)"],
+:root.light [style*="#222"] {
+  background-color: var(--bg-surface2) !important;
+}
+
+/* Texto comum */
+:root.light [style*="rgb(232, 232, 232)"],
+:root.light [style*="#e8e8e8"] { color: var(--text) !important; }
+:root.light [style*="rgb(204, 204, 204)"],
+:root.light [style*="#cccccc"] { color: var(--text) !important; }
+:root.light [style*="rgb(170, 170, 170)"],
+:root.light [style*="#aaaaaa"],
+:root.light [style*="#aaa"] { color: var(--text-muted) !important; }
+:root.light [style*="rgb(136, 136, 136)"],
+:root.light [style*="#888888"],
+:root.light [style*="#888"] { color: var(--text-muted) !important; }
+:root.light [style*="rgb(102, 102, 102)"],
+:root.light [style*="#666666"],
+:root.light [style*="#666"] { color: var(--text-dim) !important; }
+:root.light [style*="rgb(85, 85, 85)"],
+:root.light [style*="#555555"],
+:root.light [style*="#555"] { color: var(--text-dim) !important; }
+:root.light [style*="rgb(68, 68, 68)"],
+:root.light [style*="#444444"],
+:root.light [style*="#444"] { color: var(--text-faint) !important; }
+:root.light [style*="rgb(51, 51, 51)"],
+:root.light [style*="#333333"],
+:root.light [style*="#333"] { color: var(--text-faint) !important; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   OVERRIDES Tailwind classNames (bg-[#xxx], border-[#xxx], text-[#xxx])
+   Esses são usados no Sidebar e em vários layouts
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root.light .bg-\[\#080808\] { background-color: var(--bg-elevated) !important; }
+:root.light .bg-\[\#0d0d0d\] { background-color: var(--bg) !important; }
+:root.light .bg-\[\#141414\] { background-color: var(--bg-surface) !important; }
+:root.light .bg-\[\#1a0a0a\] { background-color: #ffe5e5 !important; }
+:root.light .bg-\[\#1a1a1a\] { background-color: var(--bg-surface2) !important; }
+:root.light .bg-\[\#1e1e1e\] { background-color: var(--bg-surface3) !important; }
+:root.light .bg-\[\#111\]    { background-color: var(--bg-surface2) !important; }
+:root.light .border-\[\#1e1e1e\] { border-color: var(--border-dim) !important; }
+:root.light .border-\[\#2a2a2a\] { border-color: var(--border) !important; }
+:root.light .text-\[\#666666\] { color: var(--text-dim) !important; }
+:root.light .text-\[\#666\]    { color: var(--text-dim) !important; }
+:root.light .text-\[\#cccccc\] { color: var(--text) !important; }
+:root.light .text-\[\#555\]    { color: var(--text-dim) !important; }
+:root.light .text-\[\#888\]    { color: var(--text-muted) !important; }
+:root.light .text-\[\#aaa\]    { color: var(--text-muted) !important; }
+:root.light .text-\[\#e8e8e8\] { color: var(--text) !important; }
+:root.light .text-white        { color: var(--text) !important; }
+
+/* Hover states ─ corrige texto invisível ao passar o mouse */
+:root.light .hover\:bg-\[\#141414\]:hover { background-color: var(--bg-hover) !important; }
+:root.light .hover\:bg-\[\#1a1a1a\]:hover { background-color: var(--bg-hover) !important; }
+:root.light .hover\:bg-\[\#1e1e1e\]:hover { background-color: var(--bg-hover) !important; }
+:root.light .hover\:bg-\[\#1a0a0a\]:hover { background-color: #fee2e2 !important; }
+:root.light .hover\:text-\[\#cccccc\]:hover { color: var(--text-strong) !important; }
+:root.light .hover\:text-\[\#aaa\]:hover    { color: var(--text-strong) !important; }
+:root.light .hover\:text-white:hover        { color: var(--text-strong) !important; }
+
+/* NavLink ativo no Sidebar — texto preto em fundo verde, mantém legibilidade */
+:root.light .text-black { color: #000000 !important; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Dropdown nativos (select option) — alguns browsers ignoram CSS de option
+   mas configurando color-scheme do root o navegador adapta sozinho
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root.light select { color-scheme: light; }
+:root.light option { background-color: #ffffff !important; color: #0d1117 !important; }
+
+/* Dropdowns customizados (RoleDropdown, etc) que usam portal */
+:root.light [class*="z-\\[101\\]"],
+:root.light [class*="z-\\[70\\]"],
+:root.light .rounded-lg[style*="background: rgb(26, 26, 26)"],
+:root.light .rounded-lg[style*="background: rgb(20, 20, 20)"] {
+  background-color: var(--bg-surface) !important;
+  border-color: var(--border) !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08) !important;
+}
+
+/* Botões com hover dinâmico via onMouseEnter — quando setam style.background = '#1a1a1a' */
+:root.light button[style*="background: rgb(26, 26, 26)"] {
+  background-color: var(--bg-hover) !important;
+}
+
+/* Tabs ativas / pílulas selecionadas — mantém legibilidade */
+:root.light [style*="background: rgba(0,230,118,0.08)"] { background-color: rgba(0,230,118,0.12) !important; }
+:root.light [style*="background: rgba(0,230,118,0.06)"] { background-color: rgba(0,230,118,0.10) !important; }
+:root.light [style*="background: rgba(0,230,118,0.05)"] { background-color: rgba(0,230,118,0.08) !important; }
+
+/* Modal backdrop mais leve em light */
+:root.light [style*="background: rgba(0,0,0,0.7)"] { background-color: rgba(0,0,0,0.35) !important; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Texto selecionado pelo usuário (Ctrl+A, clique e arraste) — ::selection
+   No dark: verde claro no fundo verde-translúcido
+   No light: cinza-escuro no fundo verde-translúcido
+   ═══════════════════════════════════════════════════════════════════════════ */
+::selection {
+  background-color: rgba(0, 230, 118, 0.3);
+  color: #ffffff;
+}
+:root.light ::selection {
+  background-color: rgba(0, 230, 118, 0.25);
+  color: #0d1117;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Native <option> em <select> — alguns browsers ignoram, mas usamos
+   color-scheme + cor explícita pra forçar
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root.light select,
+:root.light select option {
+  color-scheme: light !important;
+}
+:root.light select option {
+  background-color: #ffffff !important;
+  color: #0d1117 !important;
+}
+
+/* Tabs/pílulas com bg #1e1e1e ou #222 (Reports, Goals tabs ativas) */
+:root.light [style*="#1e1e1e"][style*="color: #e8e8e8"],
+:root.light [style*="rgb(30, 30, 30)"][style*="rgb(232, 232, 232)"] {
+  background-color: var(--bg-surface3) !important;
+  color: var(--text) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Sombras nos cards em light mode (visual mais clean)
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root.light .rounded-xl[style*="background"] {
+  box-shadow: var(--shadow-card);
+}
+:root.light .rounded-2xl[style*="background"] {
+  box-shadow: var(--shadow-card);
+}
+
+/* Sidebar borda mais sutil no light */
+:root.light aside {
+  background: var(--bg-elevated) !important;
+  border-right: 1px solid var(--border) !important;
+}
+
+/* Inputs em light */
+:root.light input[type="text"],
+:root.light input[type="email"],
+:root.light input[type="password"],
+:root.light input[type="number"],
+:root.light input[type="date"],
+:root.light input[type="tel"],
+:root.light input[type="search"],
+:root.light textarea,
+:root.light select {
+  background-color: var(--bg-input) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+:root.light input::placeholder,
+:root.light textarea::placeholder {
+  color: var(--text-dim) !important;
+}
+
+/* Modal backdrop mais claro no light */
+:root.light [aria-modal] + div,
+:root.light [role="dialog"] {
+  background-color: var(--bg-surface) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Scrollbar
+   ═══════════════════════════════════════════════════════════════════════════ */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--tenant-primary); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Neon effects (preservados)
+   ═══════════════════════════════════════════════════════════════════════════ */
 .neon-text {
   color: var(--tenant-primary);
   text-shadow: 0 0 8px var(--tenant-primary-glow), 0 0 20px rgba(0, 230, 118, 0.3);
 }
-
 .neon-border {
   border-color: rgba(0, 230, 118, 0.35) !important;
   box-shadow: 0 0 12px var(--tenant-primary-glow);
 }
-
 .neon-glow {
   box-shadow: 0 0 20px var(--tenant-primary-glow), 0 0 40px rgba(0, 230, 118, 0.1);
 }
-
 .neon-button {
   box-shadow: 0 0 15px rgba(0, 230, 118, 0.35), 0 0 30px rgba(0, 230, 118, 0.1);
 }
 
-/* Grid tecnológico de fundo */
 .tech-grid {
   background-image:
     linear-gradient(rgba(0, 230, 118, 0.025) 1px, transparent 1px),
@@ -84,12 +331,97 @@ body {
 
 @keyframes neonPulse {
   0%, 100% { box-shadow: 0 0 8px rgba(0, 230, 118, 0.25); }
-  50%       { box-shadow: 0 0 22px rgba(0, 230, 118, 0.55), 0 0 45px rgba(0, 230, 118, 0.2); }
+  50%      { box-shadow: 0 0 22px rgba(0, 230, 118, 0.55), 0 0 45px rgba(0, 230, 118, 0.2); }
 }
 .neon-pulse { animation: neonPulse 2.5s ease-in-out infinite; }
 
-/* ── Scrollbar ──────────────────────────────────────────────────────────────── */
-::-webkit-scrollbar { width: 4px; height: 4px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 2px; }
-::-webkit-scrollbar-thumb:hover { background: var(--tenant-primary); }
+/* ═══════════════════════════════════════════════════════════════════════════
+   Login cyberpunk — efeitos exclusivos da tela de login
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Gradiente de fundo verde-escuro pra preto */
+.login-bg {
+  background:
+    radial-gradient(ellipse at top left,    rgba(0, 200, 80, 0.18) 0%, transparent 50%),
+    radial-gradient(ellipse at bottom right, rgba(0, 230, 118, 0.10) 0%, transparent 60%),
+    radial-gradient(ellipse at center,      rgba(0, 80, 40, 0.25) 0%, transparent 70%),
+    linear-gradient(135deg, #020a05 0%, #000000 50%, #001a0a 100%);
+}
+
+/* Grid técnico mais sutil sobre o fundo do login */
+.login-grid {
+  background-image:
+    linear-gradient(rgba(0, 230, 118, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 230, 118, 0.04) 1px, transparent 1px);
+  background-size: 60px 60px;
+  background-position: center;
+}
+
+/* Orbes neon flutuantes que pulsam */
+@keyframes orbFloat1 {
+  0%, 100% { transform: translate(0, 0)   scale(1);   opacity: 0.18; }
+  50%      { transform: translate(40px, -30px) scale(1.15); opacity: 0.35; }
+}
+@keyframes orbFloat2 {
+  0%, 100% { transform: translate(0, 0)   scale(1);   opacity: 0.12; }
+  50%      { transform: translate(-50px, 40px) scale(1.2); opacity: 0.28; }
+}
+@keyframes orbFloat3 {
+  0%, 100% { transform: translate(0, 0) scale(0.9);   opacity: 0.10; }
+  50%      { transform: translate(20px, -20px) scale(1);  opacity: 0.22; }
+}
+.login-orb-1 { animation: orbFloat1 8s ease-in-out infinite;  }
+.login-orb-2 { animation: orbFloat2 11s ease-in-out infinite; }
+.login-orb-3 { animation: orbFloat3 7s  ease-in-out infinite; }
+
+/* Linhas de scan diagonais (efeito retro cyber) */
+@keyframes scanLine {
+  0%   { transform: translateY(-100vh); }
+  100% { transform: translateY(100vh); }
+}
+.login-scan {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg,
+    transparent 0%,
+    rgba(0, 230, 118, 0.05) 50%,
+    transparent 100%);
+  height: 200px;
+  animation: scanLine 8s linear infinite;
+}
+
+/* Glow piscante no logo / título */
+@keyframes flicker {
+  0%, 18%, 22%, 25%, 53%, 57%, 100% {
+    opacity: 1;
+    text-shadow: 0 0 8px rgba(0, 230, 118, 0.6), 0 0 20px rgba(0, 230, 118, 0.4), 0 0 40px rgba(0, 230, 118, 0.2);
+  }
+  20%, 24%, 55% {
+    opacity: 0.85;
+    text-shadow: none;
+  }
+}
+.neon-flicker { animation: flicker 4s infinite; }
+
+/* Pequenas partículas piscando */
+@keyframes blink {
+  0%, 100% { opacity: 0; }
+  50%      { opacity: 1; }
+}
+.particle {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #00ff88;
+  box-shadow: 0 0 8px #00ff88;
+  animation: blink 3s ease-in-out infinite;
+}
+
+/* Borda animada no card de formulário */
+@keyframes borderRotate {
+  0%, 100% { border-color: rgba(0, 230, 118, 0.2); box-shadow: 0 0 30px rgba(0, 230, 118, 0.08); }
+  50%      { border-color: rgba(0, 230, 118, 0.45); box-shadow: 0 0 50px rgba(0, 230, 118, 0.18); }
+}
+.login-card { animation: borderRotate 4s ease-in-out infinite; }

@@ -143,6 +143,28 @@ export async function createActivity(
   return created as LeadActivity
 }
 
+// ── Excluir disparo ───────────────────────────────────────────────────────────
+
+export async function deleteActivity(activityId: string): Promise<void> {
+  const { error } = await supabase
+    .from('lead_activities')
+    .delete()
+    .eq('id', activityId)
+
+  if (error) throw error
+}
+
+// Bulk delete — RLS aplica linha a linha (autor, admin/manager, super admin).
+export async function deleteActivitiesBulk(ids: string[]): Promise<number> {
+  if (ids.length === 0) return 0
+  const { error, count } = await supabase
+    .from('lead_activities')
+    .delete({ count: 'exact' })
+    .in('id', ids)
+  if (error) throw error
+  return count ?? 0
+}
+
 // ── Estatísticas rápidas ──────────────────────────────────────────────────────
 
 export async function fetchActivityStats(tenantId: string): Promise<ActivityStats> {

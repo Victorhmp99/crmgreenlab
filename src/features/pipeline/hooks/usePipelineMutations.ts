@@ -14,7 +14,20 @@ export function usePipelineMutations() {
   const user    = useAuthStore((s) => s.user)
 
   function invalidate() {
-    queryClient.invalidateQueries({ queryKey: ['pipeline-cards', tenant?.id] })
+    // Card movido → lead.status pode ter sido alterado pela trigger
+    queryClient.invalidateQueries({ queryKey: ['pipeline-cards',          tenant?.id] })
+    queryClient.invalidateQueries({ queryKey: ['leads',                   tenant?.id] })
+    queryClient.invalidateQueries({ queryKey: ['dashboard-metrics',       tenant?.id] })
+    queryClient.invalidateQueries({ queryKey: ['report-sellers',          tenant?.id] })
+    queryClient.invalidateQueries({ queryKey: ['report-funnel',           tenant?.id] })
+    queryClient.invalidateQueries({ queryKey: ['report-channels',         tenant?.id] })
+    queryClient.invalidateQueries({ queryKey: ['report-conversion-funnel',tenant?.id] })
+    queryClient.invalidateQueries({ queryKey: ['goals',                   tenant?.id] })
+    queryClient.invalidateQueries({ queryKey: ['goals-mine',              tenant?.id] })
+    queryClient.invalidateQueries({ queryKey: ['financial-summary',       tenant?.id] })
+    queryClient.invalidateQueries({ queryKey: ['financial-trend',         tenant?.id] })
+    queryClient.invalidateQueries({ queryKey: ['financial-transactions',  tenant?.id] })
+    queryClient.invalidateQueries({ queryKey: ['funnel-metrics',          tenant?.id] })
   }
 
   const move = useMutation({

@@ -22,8 +22,15 @@ function Avatar({ email }: { email: string }) {
 }
 
 export function UserTable({ users, isLoading, onChangeRole }: UserTableProps) {
-  const currentUserId  = useAuthStore((s) => s.user?.id)
+  const currentUserId    = useAuthStore((s) => s.user?.id)
+  const isSuperAdmin     = useAuthStore((s) => s.isSuperAdmin)
   const { toggleActive } = useUserMutations()
+
+  // Super admin vê coluna Empresa porque enxerga todos os tenants
+  const headers = isSuperAdmin
+    ? ['Usuário', 'Empresa', 'Papel', 'Status', 'Membro desde', 'Ações']
+    : ['Usuário', 'Papel', 'Status', 'Membro desde', 'Ações']
+  const actionsIdx = headers.length - 1
 
   if (isLoading) {
     return (
@@ -38,9 +45,9 @@ export function UserTable({ users, isLoading, onChangeRole }: UserTableProps) {
       <table className="w-full text-sm">
         <thead>
           <tr style={{ background: '#111', borderBottom: '1px solid #1a1a1a' }}>
-            {['Usuário', 'Papel', 'Status', 'Membro desde', 'Ações'].map((h, i) => (
+            {headers.map((h, i) => (
               <th key={h}
-                className={`px-4 py-3 text-xs font-medium uppercase tracking-wide ${i === 4 ? 'text-right' : 'text-left'}`}
+                className={`px-4 py-3 text-xs font-medium uppercase tracking-wide ${i === actionsIdx ? 'text-right' : 'text-left'}`}
                 style={{ color: '#444' }}>
                 {h}
               </th>
@@ -74,6 +81,15 @@ export function UserTable({ users, isLoading, onChangeRole }: UserTableProps) {
                     </div>
                   </div>
                 </td>
+
+                {isSuperAdmin && (
+                  <td className="px-4 py-3">
+                    <span className="text-xs font-medium rounded-full px-2.5 py-1"
+                      style={{ background: 'rgba(167,139,250,0.08)', color: '#a78bfa' }}>
+                      {u.tenantName}
+                    </span>
+                  </td>
+                )}
 
                 <td className="px-4 py-3">
                   <RoleBadge role={u.role} />

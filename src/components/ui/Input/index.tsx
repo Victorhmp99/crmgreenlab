@@ -15,7 +15,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
       <div className="flex flex-col gap-1.5">
         {label && (
           <label htmlFor={inputId} className="text-xs font-medium uppercase tracking-wide"
-            style={{ color: '#888888' }}>
+            style={{ color: 'var(--text-muted)' }}>
             {label}
           </label>
         )}
@@ -24,13 +24,13 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           id={inputId}
           className={cn(
             'h-10 w-full rounded-lg px-3 text-sm transition-all duration-150',
-            'placeholder:text-[#444] focus:outline-none',
+            'focus:outline-none',
             className,
           )}
           style={{
-            background:   '#1a1a1a',
-            border:       `1px solid ${error ? '#ff4444' : '#2a2a2a'}`,
-            color:        '#e8e8e8',
+            background:   'var(--bg-input)',
+            border:       `1px solid ${error ? '#ff4444' : 'var(--border)'}`,
+            color:        'var(--text)',
             boxShadow:    error ? '0 0 8px rgba(255,68,68,0.2)' : undefined,
           }}
           onFocus={(e) => {
@@ -42,7 +42,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           }}
           onBlur={(e) => {
             if (!error) {
-              e.currentTarget.style.borderColor = '#2a2a2a'
+              e.currentTarget.style.borderColor = 'var(--border)'
               e.currentTarget.style.boxShadow = ''
             }
             props.onBlur?.(e)
@@ -50,7 +50,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           {...props}
         />
         {error && <p className="text-xs" style={{ color: '#ff4444' }}>{error}</p>}
-        {hint && !error && <p className="text-xs" style={{ color: '#555' }}>{hint}</p>}
+        {hint && !error && <p className="text-xs" style={{ color: 'var(--text-dim)' }}>{hint}</p>}
       </div>
     )
   },

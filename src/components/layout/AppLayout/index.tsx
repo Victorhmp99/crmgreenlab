@@ -27,14 +27,14 @@ export function AppLayout({ children }: AppLayoutProps) {
   const title = PAGE_TITLES[pathname] ?? 'CRM'
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ background: '#0d0d0d' }}>
+    <div className="flex h-screen overflow-hidden" style={{ background: 'var(--bg)' }}>
       <Sidebar collapsed={collapsed} onToggle={() => setCollapsed((v) => !v)} />
 
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         <Header title={title} />
         <main
           className={`flex-1 overflow-hidden p-6 ${pathname === '/pipeline' ? 'flex flex-col' : 'overflow-y-auto'}`}
-          style={{ background: '#0d0d0d' }}
+          style={{ background: 'var(--bg)' }}
         >
           {children}
         </main>

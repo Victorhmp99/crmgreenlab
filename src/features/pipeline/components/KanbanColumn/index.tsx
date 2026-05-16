@@ -2,12 +2,20 @@ import { useState, useRef, useEffect } from 'react'
 import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Plus, GripVertical, Trash2, Check, X } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { Plus, GripVertical, Trash2, Check, X, Trophy, XCircle, Activity } from 'lucide-react'
+import { cn, formatCurrencyCompact } from '@/lib/utils'
 import { KanbanCard } from '../KanbanCard'
 import { usePipelineManagement } from '../../hooks/usePipelineManagement'
+import { useFunnelSteps } from '@/features/funnel/hooks/useFunnelSteps'
+import { Select } from '@/components/ui/Select'
 import type { ColumnData } from '@/services/pipeline'
-import type { Lead } from '@/types'
+import type { Lead, StageType } from '@/types'
+
+const STAGE_TYPE_CONFIG: Record<StageType, { label: string; icon: React.ElementType; color: string }> = {
+  in_progress: { label: 'Em andamento', icon: Activity, color: '#666'    },
+  won:         { label: 'Ganho',        icon: Trophy,   color: '#00e676' },
+  lost:        { label: 'Perdido',      icon: XCircle,  color: '#ff4444' },
+}
 
 const PRESET_COLORS = [
   '#00e676','#40a0ff','#a78bfa','#fbbf24',
@@ -33,7 +41,15 @@ export function KanbanColumn({
   const [editing,    setEditing]    = useState(false)
   const [stageName,  setStageName]  = useState(stage.name)
   const [stageColor, setStageColor] = useState(stage.color)
+  const [stageType,  setStageType]  = useState<StageType>(stage.stage_type ?? 'in_progress')
+  const [funnelStepId, setFunnelStepId] = useState<string>(stage.funnel_step_id ?? '')
   const inputRef = useRef<HTMLInputElement>(null)
+
+  const { data: funnelSteps = [] } = useFunnelSteps()
+
+  // Soma dos valores dos leads na coluna
+  const columnValue = cards.reduce((sum, c) => sum + Number(c.lead.value ?? 0), 0)
+  const typeConfig  = STAGE_TYPE_CONFIG[stage.stage_type ?? 'in_progress']
 
   useEffect(() => { if (editing) inputRef.current?.focus() }, [editing])
 
@@ -56,7 +72,12 @@ export function KanbanColumn({
     if (!stageName.trim()) return
     await editStage.mutateAsync({
       id: stage.id, pipelineId,
-      data: { name: stageName.trim(), color: stageColor },
+      data: {
+        name:           stageName.trim(),
+        color:          stageColor,
+        stage_type:     stageType,
+        funnel_step_id: funnelStepId || null,
+      },
     })
     setEditing(false)
   }
@@ -115,7 +136,7 @@ export function KanbanColumn({
                 ))}
               </div>
               <div className="ml-auto flex gap-1">
-                <button onClick={() => { setStageName(stage.name); setStageColor(stage.color); setEditing(false) }}
+                <button onClick={() => { setStageName(stage.name); setStageColor(stage.color); setStageType(stage.stage_type ?? 'in_progress'); setEditing(false) }}
                   className="h-6 w-6 rounded flex items-center justify-center transition-colors"
                   style={{ color: '#555' }}
                   onMouseEnter={(e) => (e.currentTarget.style.background = '#1e1e1e')}
@@ -131,20 +152,66 @@ export function KanbanColumn({
                 </button>
               </div>
             </div>
+
+            {/* Seletor de tipo de etapa */}
+            <div className="flex gap-1 mt-1">
+              {(['in_progress', 'won', 'lost'] as StageType[]).map((t) => {
+                const cfg = STAGE_TYPE_CONFIG[t]
+                const Icon = cfg.icon
+                return (
+                  <button
+                    key={t}
+                    onClick={() => setStageType(t)}
+                    className="flex-1 flex items-center justify-center gap-1 h-6 rounded text-[10px] font-medium transition-all"
+                    style={{
+                      background: stageType === t ? `${cfg.color}22` : 'transparent',
+                      border:     stageType === t ? `1px solid ${cfg.color}` : '1px solid #2a2a2a',
+                      color:      stageType === t ? cfg.color : '#666',
+                    }}
+                  >
+                    <Icon size={10} />
+                    {cfg.label}
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Mapeamento para passo do funil */}
+            {funnelSteps.length > 0 && (
+              <div className="mt-1">
+                <Select
+                  value={funnelStepId}
+                  onChange={(e) => setFunnelStepId(e.target.value)}
+                  options={[
+                    { value: '', label: '— sem passo do funil —' },
+                    ...funnelSteps.map((fs) => ({ value: fs.id, label: `${fs.position + 1}. ${fs.name}` })),
+                  ]}
+                />
+              </div>
+            )}
           </div>
         ) : (
           <>
             <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: stage.color }} />
             <button
               onClick={() => setEditing(true)}
-              className="flex-1 text-left text-sm font-semibold truncate transition-colors"
+              className="flex-1 text-left text-sm font-semibold truncate transition-colors flex items-center gap-1.5"
               style={{ color: '#e8e8e8' }}
               onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--tenant-primary)')}
               onMouseLeave={(e) => (e.currentTarget.style.color = '#e8e8e8')}
-              title="Clique para renomear"
+              title={`Tipo: ${typeConfig.label} · Clique para editar`}
             >
-              {stage.name}
+              <span className="truncate">{stage.name}</span>
+              {stage.stage_type && stage.stage_type !== 'in_progress' && (
+                <typeConfig.icon size={11} className="shrink-0" style={{ color: typeConfig.color }} />
+              )}
             </button>
+            {columnValue > 0 && (
+              <span className="text-[10px] font-semibold tabular-nums shrink-0"
+                style={{ color: typeConfig.color }}>
+                {formatCurrencyCompact(columnValue)}
+              </span>
+            )}
             <span className="text-xs font-medium rounded-full px-2 py-0.5 tabular-nums"
               style={{ background: '#1e1e1e', color: '#666' }}>
               {cards.length}

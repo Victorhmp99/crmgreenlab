@@ -25,9 +25,10 @@ export function GoalsPage() {
   const [tab, setTab]             = useState<Tab>('mine')
   const [editingGoal, setEditingGoal] = useState<GoalWithProgress | null | undefined>(undefined)
 
-  const { data: myGoals  = [], isLoading: myLoading,  refetch: refetchMine } = useMyGoals()
-  const { data: allGoals = [], isLoading: allLoading, refetch: refetchAll  } = useAllGoals()
+  const { data: myGoals  = [], isLoading: myLoading,  refetch: refetchMine, error: myError }  = useMyGoals()
+  const { data: allGoals = [], isLoading: allLoading, refetch: refetchAll, error: allError }  = useAllGoals()
   const { remove } = useGoalMutations()
+  const queryError = tab === 'mine' ? myError : allError
 
   const { start, end } = currentMonthRange()
 
@@ -111,6 +112,23 @@ export function GoalsPage() {
           </button>
         ))}
       </div>
+
+      {/* Erro real (debug) */}
+      {queryError && tab !== 'leaderboard' && (
+        <div className="rounded-xl p-4 flex flex-col gap-2"
+          style={{ background: '#141414', border: '1px solid rgba(255,68,68,0.2)' }}>
+          <p className="text-sm font-medium" style={{ color: '#ff4444' }}>
+            Erro ao carregar metas
+          </p>
+          <p className="text-xs font-mono rounded px-2 py-1 break-all"
+            style={{ background: '#0d0d0d', color: '#ff6666' }}>
+            {(queryError as Error).message}
+          </p>
+          <p className="text-xs" style={{ color: '#555' }}>
+            Execute o SQL <strong style={{ color: '#888' }}>get_tenant_goals</strong> no Supabase.
+          </p>
+        </div>
+      )}
 
       {/* Conteúdo por aba */}
       {tab === 'leaderboard' ? (

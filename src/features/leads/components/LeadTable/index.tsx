@@ -1,8 +1,8 @@
-import { Pencil, Trash2, ChevronLeft, ChevronRight, UserX } from 'lucide-react'
+import { Pencil, Trash2, ChevronLeft, ChevronRight, UserX, CheckSquare, Square } from 'lucide-react'
 import { LeadStatusBadge } from '../LeadStatusBadge'
 import { LeadSourceBadge } from '../LeadSourceBadge'
 import { Spinner } from '@/components/ui/Spinner'
-import { formatDate, formatPhone } from '@/lib/utils'
+import { formatDate, formatPhone, formatCurrency } from '@/lib/utils'
 import type { Lead } from '@/types'
 import type { PaginatedLeads } from '@/services/leads'
 
@@ -13,12 +13,18 @@ interface LeadTableProps {
   onDelete:     (lead: Lead) => void
   onSelect:     (lead: Lead) => void
   onPageChange: (page: number) => void
+  /** Quando true, mostra checkboxes pra seleção em massa */
+  selectionMode?: boolean
+  selectedIds?:   Set<string>
+  onToggleSelect?:    (id: string) => void
+  onToggleSelectAll?: (allIds: string[]) => void
 }
 
-function SkeletonRow() {
+function SkeletonRow({ extraColumn = false }: { extraColumn?: boolean }) {
+  const cols = (extraColumn ? 1 : 0) + 6
   return (
     <tr>
-      {Array.from({ length: 6 }).map((_, i) => (
+      {Array.from({ length: cols }).map((_, i) => (
         <td key={i} className="px-4 py-3">
           <div className="h-4 rounded animate-pulse" style={{ width: `${60 + (i * 13) % 40}%`, background: '#1e1e1e' }} />
         </td>
@@ -73,8 +79,13 @@ function Pagination({ page, totalPages, count, pageSize, onPage }: PaginationPro
   )
 }
 
-export function LeadTable({ result, isLoading, onEdit, onDelete, onSelect, onPageChange }: LeadTableProps) {
+export function LeadTable({
+  result, isLoading, onEdit, onDelete, onSelect, onPageChange,
+  selectionMode = false, selectedIds, onToggleSelect, onToggleSelectAll,
+}: LeadTableProps) {
   const leads = result?.data ?? []
+  const allSelectedOnPage = leads.length > 0 && leads.every((l) => selectedIds?.has(l.id))
+  const totalCols = selectionMode ? 9 : 8
 
   return (
     <div className="rounded-xl overflow-hidden" style={{ background: '#141414', border: '1px solid #1e1e1e' }}>
@@ -82,9 +93,19 @@ export function LeadTable({ result, isLoading, onEdit, onDelete, onSelect, onPag
         <table className="w-full text-sm">
           <thead>
             <tr style={{ borderBottom: '1px solid #1a1a1a', background: '#111' }}>
-              {['Nome', 'Telefone', 'E-mail', 'Status', 'Origem', 'Cadastro', 'Ações'].map((h, i) => (
+              {selectionMode && (
+                <th className="px-3 py-3 w-8">
+                  <button onClick={() => onToggleSelectAll?.(leads.map((l) => l.id))}
+                    title={allSelectedOnPage ? 'Desmarcar todos' : 'Selecionar todos desta página'}
+                    className="h-5 w-5 rounded flex items-center justify-center transition-colors"
+                    style={{ color: allSelectedOnPage ? '#00e676' : '#555' }}>
+                    {allSelectedOnPage ? <CheckSquare size={15} /> : <Square size={15} />}
+                  </button>
+                </th>
+              )}
+              {['Nome', 'Telefone', 'E-mail', 'Valor', 'Status', 'Origem', 'Cadastro', 'Ações'].map((h, i) => (
                 <th key={h}
-                  className={`px-4 py-3 text-xs font-medium uppercase tracking-wide ${i === 6 ? 'text-right' : 'text-left'}`}
+                  className={`px-4 py-3 text-xs font-medium uppercase tracking-wide ${i === 7 ? 'text-right' : 'text-left'}`}
                   style={{ color: '#444' }}>
                   {h}
                 </th>
@@ -93,11 +114,11 @@ export function LeadTable({ result, isLoading, onEdit, onDelete, onSelect, onPag
           </thead>
           <tbody>
             {isLoading
-              ? Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)
+              ? Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} extraColumn={selectionMode} />)
               : leads.length === 0
               ? (
                 <tr>
-                  <td colSpan={7} className="py-16 text-center">
+                  <td colSpan={totalCols} className="py-16 text-center">
                     <div className="flex flex-col items-center gap-2">
                       <UserX size={32} style={{ color: '#333' }} />
                       <p className="font-medium" style={{ color: '#555' }}>Nenhum lead encontrado</p>
@@ -106,22 +127,41 @@ export function LeadTable({ result, isLoading, onEdit, onDelete, onSelect, onPag
                   </td>
                 </tr>
               )
-              : leads.map((lead) => (
+              : leads.map((lead) => {
+                const isSelected = selectedIds?.has(lead.id) ?? false
+                return (
                 <tr key={lead.id}
                   className="transition-colors"
-                  style={{ borderBottom: '1px solid #191919' }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = '#191919')}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
+                  style={{
+                    borderBottom: '1px solid #191919',
+                    background: isSelected ? 'rgba(0,230,118,0.04)' : 'transparent',
+                  }}
+                  onMouseEnter={(e) => { if (!isSelected) (e.currentTarget as HTMLTableRowElement).style.background = '#191919' }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLTableRowElement).style.background = isSelected ? 'rgba(0,230,118,0.04)' : 'transparent' }}>
+                  {selectionMode && (
+                    <td className="px-3 py-3">
+                      <button onClick={() => onToggleSelect?.(lead.id)}
+                        className="h-5 w-5 rounded flex items-center justify-center transition-colors"
+                        style={{ color: isSelected ? '#00e676' : '#555' }}>
+                        {isSelected ? <CheckSquare size={15} /> : <Square size={15} />}
+                      </button>
+                    </td>
+                  )}
                   <td className="px-4 py-3">
                     <button
-                      onClick={() => onSelect(lead)}
-                      className="font-medium text-left transition-colors"
+                      onClick={() => selectionMode ? onToggleSelect?.(lead.id) : onSelect(lead)}
+                      className="font-medium text-left transition-colors block"
                       style={{ color: '#e8e8e8' }}
                       onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--tenant-primary)')}
                       onMouseLeave={(e) => (e.currentTarget.style.color = '#e8e8e8')}
                     >
                       {lead.name}
                     </button>
+                    {lead.company_name && (
+                      <p className="text-xs mt-0.5" style={{ color: '#666' }}>
+                        {lead.company_name}
+                      </p>
+                    )}
                     {lead.tags.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-1">
                         {lead.tags.map((tag) => (
@@ -138,6 +178,11 @@ export function LeadTable({ result, isLoading, onEdit, onDelete, onSelect, onPag
                   </td>
                   <td className="px-4 py-3 max-w-[180px] truncate" style={{ color: '#777' }}>
                     {lead.email ?? <span style={{ color: '#333' }}>—</span>}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap tabular-nums">
+                    {lead.value != null && Number(lead.value) > 0
+                      ? <span style={{ color: '#00e676', fontWeight: 600 }}>{formatCurrency(Number(lead.value))}</span>
+                      : <span style={{ color: '#333' }}>—</span>}
                   </td>
                   <td className="px-4 py-3">
                     <LeadStatusBadge status={lead.status} />
@@ -190,7 +235,8 @@ export function LeadTable({ result, isLoading, onEdit, onDelete, onSelect, onPag
                     </div>
                   </td>
                 </tr>
-              ))
+              )
+              })
             }
           </tbody>
         </table>

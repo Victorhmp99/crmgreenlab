@@ -35,5 +35,8 @@ export function usePipelineCards() {
     queryKey: ['pipeline-cards', tenantId],
     queryFn:  isDemo ? () => DEMO_CARDS : () => fetchPipelineCards(tenantId!),
     enabled:  !!tenantId,
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   })
 }

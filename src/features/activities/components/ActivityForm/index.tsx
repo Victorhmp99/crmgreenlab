@@ -60,9 +60,9 @@ export function ActivityForm({ open, onClose, presetLeadId, presetLeadName }: Ac
       try {
         const { data } = await supabase
           .from('leads')
-          .select('id, name, phone, status')
+          .select('id, name, company_name, phone, status')
           .eq('tenant_id', tenantId)
-          .eq('status', 'active')
+          .in('status', ['active', 'converted'])
           .order('name')
         setLeads((data ?? []) as Lead[])
         setFiltered((data ?? []) as Lead[])
@@ -75,7 +75,11 @@ export function ActivityForm({ open, onClose, presetLeadId, presetLeadName }: Ac
   useEffect(() => {
     const q = search.toLowerCase()
     setFiltered(
-      q ? leads.filter((l) => l.name.toLowerCase().includes(q) || l.phone?.includes(q)) : leads,
+      q ? leads.filter((l) =>
+            l.name.toLowerCase().includes(q)
+            || (l.company_name ?? '').toLowerCase().includes(q)
+            || l.phone?.includes(q),
+          ) : leads,
     )
   }, [search, leads])
 
@@ -177,6 +181,9 @@ export function ActivityForm({ open, onClose, presetLeadId, presetLeadName }: Ac
                     </div>
                     <div className="min-w-0">
                       <p className="font-medium truncate" style={{ color: '#e8e8e8' }}>{lead.name}</p>
+                      {lead.company_name && (
+                        <p className="text-[11px] truncate" style={{ color: '#888' }}>{lead.company_name}</p>
+                      )}
                       {lead.phone && <p className="text-xs" style={{ color: '#555' }}>{lead.phone}</p>}
                     </div>
                     {selectedLeadId === lead.id && (

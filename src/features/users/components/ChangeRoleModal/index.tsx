@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Select } from '@/components/ui/Select'
-import { RoleBadge, ROLE_OPTIONS } from '../RoleBadge'
+import { RoleBadge, getAssignableRoles } from '../RoleBadge'
 import { useUserMutations } from '../../hooks/useUserMutations'
+import { usePermissions } from '@/hooks/usePermissions'
 import type { TenantUser } from '@/services/users'
 import type { UserRole } from '@/types'
 
@@ -14,7 +15,14 @@ interface ChangeRoleModalProps {
 
 export function ChangeRoleModal({ user, onClose }: ChangeRoleModalProps) {
   const { changeRole } = useUserMutations()
+  const { role: myRole, isSuperAdmin } = usePermissions()
   const [selected, setSelected] = useState<UserRole>(user?.role ?? 'seller')
+
+  const availableRoles = getAssignableRoles(myRole, isSuperAdmin)
+  // Bloqueia abrir o modal pra alterar Admin/Manager se sou Manager
+  const canChangeThisUser = myRole === 'admin'
+    || isSuperAdmin
+    || (myRole === 'manager' && user?.role === 'seller')
 
   async function handleSave() {
     if (!user) return
@@ -31,7 +39,9 @@ export function ChangeRoleModal({ user, onClose }: ChangeRoleModalProps) {
       footer={
         <>
           <Button variant="ghost" onClick={onClose} disabled={changeRole.isPending}>Cancelar</Button>
-          <Button loading={changeRole.isPending} onClick={handleSave}>Salvar</Button>
+          <Button loading={changeRole.isPending} onClick={handleSave} disabled={!canChangeThisUser}>
+            Salvar
+          </Button>
         </>
       }
     >
@@ -50,17 +60,28 @@ export function ChangeRoleModal({ user, onClose }: ChangeRoleModalProps) {
           </div>
         </div>
 
-        <Select
-          label="Novo papel"
-          value={selected}
-          onChange={(e) => setSelected(e.target.value as UserRole)}
-          options={ROLE_OPTIONS}
-        />
+        {canChangeThisUser ? (
+          <>
+            <Select
+              label="Novo papel"
+              value={selected}
+              onChange={(e) => setSelected(e.target.value as UserRole)}
+              options={availableRoles}
+            />
 
-        <div className="rounded-xl px-3 py-2.5 text-xs"
-          style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)', color: '#fbbf24' }}>
-          <strong>Atenção:</strong> Alterar para Admin concede acesso total, incluindo gestão de usuários e configurações do tenant.
-        </div>
+            {myRole === 'admin' && selected === 'manager' && (
+              <div className="rounded-xl px-3 py-2.5 text-xs"
+                style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)', color: '#fbbf24' }}>
+                <strong>Atenção:</strong> Gestor terá acesso a Usuários e Configurações do tenant.
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="rounded-xl px-3 py-2.5 text-xs"
+            style={{ background: 'rgba(255,68,68,0.08)', border: '1px solid rgba(255,68,68,0.2)', color: '#ff4444' }}>
+            Você não tem permissão para alterar o papel deste usuário. Apenas Admin ou Super Admin pode promover/rebaixar Gestores e Admins.
+          </div>
+        )}
       </div>
     </Modal>
   )

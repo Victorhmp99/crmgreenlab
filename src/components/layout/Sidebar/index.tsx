@@ -3,7 +3,9 @@ import {
   LayoutDashboard, Users, Kanban, Zap, Target,
   UserCog, LogOut, ChevronLeft, ChevronRight,
   DollarSign, BarChart2, Megaphone, Settings, Globe,
+  Code2, ExternalLink, Sun, Moon, CheckSquare,
 } from 'lucide-react'
+import { useThemeStore } from '@/store/themeStore'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
 import { usePermissions } from '@/hooks/usePermissions'
@@ -21,6 +23,7 @@ const NAV_ITEMS = [
   { to: '/leads',      label: 'Leads',     icon: Users           },
   { to: '/pipeline',   label: 'Pipeline',  icon: Kanban          },
   { to: '/activities', label: 'Disparos',  icon: Zap             },
+  { to: '/tasks',      label: 'Tarefas',   icon: CheckSquare     },
   { to: '/goals',      label: 'Metas',     icon: Target          },
 ]
 
@@ -41,14 +44,17 @@ const PLATFORM_ITEMS = [
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const { user, tenant, signOut } = useAuth()
-  const { isManager, isAdmin, role } = usePermissions()
+  const { isManager, role } = usePermissions()
   const isSuperAdmin = useAuthStore((s) => s.isSuperAdmin)
   const settings     = useTenantStore((s) => s.settings)
+  const themeMode    = useThemeStore((s) => s.mode)
+  const toggleTheme  = useThemeStore((s) => s.toggle)
 
+  // Manager e Admin têm acesso a Usuários e Configurações (isManager === role >= manager)
   const items = [
     ...NAV_ITEMS,
     ...(isManager     ? MANAGER_ITEMS  : []),
-    ...(isAdmin       ? ADMIN_ITEMS    : []),
+    ...(isManager     ? ADMIN_ITEMS    : []),
     ...(isSuperAdmin  ? PLATFORM_ITEMS : []),
   ]
 
@@ -129,6 +135,29 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             </span>
           </div>
         )}
+
+        {/* Scripts — link externo, somente super admin */}
+        {isSuperAdmin && (
+          <a
+            href="https://victorhmp99.github.io/scriptsgreenlab/"
+            target="_blank"
+            rel="noopener noreferrer"
+            title={collapsed ? 'Scripts' : undefined}
+            className={cn(
+              'relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150 group mt-0.5',
+              collapsed && 'justify-center',
+              'text-[#666666] hover:text-[#cccccc] hover:bg-[#141414]',
+            )}
+          >
+            <Code2 size={17} className="relative z-10 shrink-0" />
+            {!collapsed && (
+              <>
+                <span className="relative z-10 truncate flex-1">Scripts</span>
+                <ExternalLink size={11} className="relative z-10 shrink-0 opacity-60" />
+              </>
+            )}
+          </a>
+        )}
       </nav>
 
       {/* Usuário + logout */}
@@ -148,6 +177,22 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             </div>
           )}
         </div>
+
+        {/* Toggle de tema */}
+        <button
+          onClick={toggleTheme}
+          title={collapsed ? (themeMode === 'dark' ? 'Modo claro' : 'Modo escuro') : undefined}
+          className={cn(
+            'flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors',
+            'text-[#555] hover:text-[#ccc] hover:bg-[#141414]',
+            collapsed && 'justify-center',
+          )}
+        >
+          {themeMode === 'dark'
+            ? <Sun size={15} className="shrink-0" />
+            : <Moon size={15} className="shrink-0" />}
+          {!collapsed && <span>{themeMode === 'dark' ? 'Modo claro' : 'Modo escuro'}</span>}
+        </button>
 
         <button
           onClick={signOut}

@@ -7,14 +7,33 @@ export interface SourceCount { source: LeadSource; count: number }
 export interface StageCount  { stageId: string; stageName: string; color: string; count: number }
 export interface DayCount    { date: string; count: number }
 
+export interface PipelineFinancial {
+  revenue:           number
+  forecast:          number
+  loss:              number
+  won_count:         number
+  lost_count:        number
+  in_progress_count: number
+  active_count:      number  // ativos sem estar no pipeline ainda
+  total_with_value:  number
+  avg_ticket:        number
+  conversion_rate:   number
+}
+
 export interface DashboardMetrics {
   totalLeads:           number
-  totalLeadsPrev:       number   // mesmo período anterior (para delta)
+  totalLeadsPrev:       number
   leadsInPipeline:      number
   activitiesToday:      number
   activitiesYesterday:  number
   conversionsThisMonth: number
   conversionsPrevMonth: number
+  totalConverted:       number   // ganhos lifetime (count)
+  totalLost:            number   // perdidos lifetime (count)
+  monthlyRevenue:       number   // R$ entrada do mês (do financial_records, manual)
+  conversionRate:       number   // % ganhos / (ganhos + perdidos)
+  // Novos campos: financeiro automático baseado em pipeline + valor
+  financial:            PipelineFinancial
   leadsBySource:        SourceCount[]
   leadsByStage:         StageCount[]
   leadsLast30Days:      DayCount[]
@@ -37,7 +56,6 @@ function daysAgo(n: number): string {
   return d.toISOString()
 }
 
-// Preenche todos os dias de um intervalo, colocando 0 quando não há dados
 function fillDayGaps(data: Array<{ date: string; count: number }>, days: number): DayCount[] {
   const map = new Map(data.map((d) => [d.date.slice(0, 10), d.count]))
   const result: DayCount[] = []
@@ -49,84 +67,96 @@ function fillDayGaps(data: Array<{ date: string; count: number }>, days: number)
   return result
 }
 
-// ── Query principal ────────────────────────────────────────────────────────────
+// ── Query principal ───────────────────────────────────────────────────────────
 
 export async function fetchDashboardMetrics(tenantId: string): Promise<DashboardMetrics> {
-  const now         = new Date()
-  const todayStart  = startOfDay(now)
-  const monthStart  = startOfMonth(now)
-  const prevMonth   = startOfPrevMonth(now)
-  const prev30days  = daysAgo(60)  // para calcular delta do período anterior
-  const last30days  = daysAgo(30)
+  const now        = new Date()
+  const todayStart = startOfDay(now)
+  const monthStart = startOfMonth(now)
+  const prevMonth  = startOfPrevMonth(now)
+  const prev30days = daysAgo(60)
+  const last30days = daysAgo(30)
 
   const [
-    totalLeadsRes,
-    totalLeadsPrevRes,
-    pipelineRes,
-    activitiesTodayRes,
-    activitiesYestRes,
-    conversionsMonthRes,
-    conversionsPrevRes,
-    sourceRes,
-    stageCardsRes,
-    stagesRes,
-    last30Res,
-    recentRes,
+    totalLeadsRes, totalLeadsPrevRes, pipelineRes,
+    activitiesTodayRes, activitiesYestRes,
+    conversionsMonthRes, conversionsPrevRes,
+    totalConvertedRes, totalLostRes,
+    monthlyRevenueRes,
+    financialRes,
+    sourceRes, stageCardsRes, stagesRes, last30Res, recentRes,
   ] = await Promise.all([
-    // Leads ativos totais (período atual — criados nos últimos 30 dias)
     supabase.from('leads').select('*', { count: 'exact', head: true })
       .eq('tenant_id', tenantId).eq('status', 'active'),
 
-    // Leads ativos criados entre 30-60 dias atrás (base de comparação)
     supabase.from('leads').select('*', { count: 'exact', head: true })
       .eq('tenant_id', tenantId).eq('status', 'active')
       .gte('created_at', prev30days).lt('created_at', last30days),
 
-    // Leads no pipeline
     supabase.from('pipeline_cards').select('*', { count: 'exact', head: true })
       .eq('tenant_id', tenantId),
 
-    // Atividades hoje
     supabase.from('lead_activities').select('*', { count: 'exact', head: true })
       .eq('tenant_id', tenantId).gte('created_at', todayStart),
 
-    // Atividades ontem (base de comparação)
     supabase.from('lead_activities').select('*', { count: 'exact', head: true })
-      .eq('tenant_id', tenantId)
-      .gte('created_at', daysAgo(1)).lt('created_at', todayStart),
+      .eq('tenant_id', tenantId).gte('created_at', daysAgo(1)).lt('created_at', todayStart),
 
-    // Conversões este mês
     supabase.from('leads').select('*', { count: 'exact', head: true })
       .eq('tenant_id', tenantId).eq('status', 'converted')
       .gte('updated_at', monthStart),
 
-    // Conversões mês anterior
     supabase.from('leads').select('*', { count: 'exact', head: true })
       .eq('tenant_id', tenantId).eq('status', 'converted')
       .gte('updated_at', prevMonth).lt('updated_at', monthStart),
 
-    // Leads por origem (apenas id + source, agrupado client-side)
+    // Ganhos lifetime (total convertidos)
+    supabase.from('leads').select('*', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId).eq('status', 'converted'),
+
+    // Perdidos lifetime
+    supabase.from('leads').select('*', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId).eq('status', 'lost'),
+
+    // Receita do mês (tabela financial_records — manual)
+    supabase.from('financial_records').select('amount')
+      .eq('tenant_id', tenantId).eq('type', 'revenue')
+      .gte('date', monthStart.slice(0, 10)),
+
+    // Métricas financeiras automáticas via RPC (sem filtro — mostra lifetime
+    // até implementarmos um seletor de período no dashboard)
+    supabase.rpc('get_pipeline_financial_metrics', {
+      p_tenant_id: tenantId,
+      p_from:      null,
+      p_to:        null,
+    }),
+
     supabase.from('leads').select('source')
       .eq('tenant_id', tenantId).neq('status', 'archived'),
 
-    // Cards por etapa (apenas stage_id)
     supabase.from('pipeline_cards').select('stage_id')
       .eq('tenant_id', tenantId),
 
-    // Etapas do tenant
     supabase.from('pipeline_stages').select('id, name, color, position')
       .eq('tenant_id', tenantId).order('position'),
 
-    // Leads criados nos últimos 30 dias (apenas created_at)
     supabase.from('leads').select('created_at')
       .eq('tenant_id', tenantId).gte('created_at', last30days)
       .order('created_at'),
 
-    // Leads recentes (últimos 8)
     supabase.from('leads').select('*')
       .eq('tenant_id', tenantId).order('created_at', { ascending: false })
       .limit(8),
   ])
+
+  // ── Soma da receita do mês ────────────────────────────────────────────────
+  const monthlyRevenue = (monthlyRevenueRes.data ?? [])
+    .reduce((sum, r: { amount: number }) => sum + Number(r.amount ?? 0), 0)
+
+  // ── Taxa de conversão = ganhos / (ganhos + perdidos) * 100 ────────────────
+  const won  = totalConvertedRes.count ?? 0
+  const lost = totalLostRes.count ?? 0
+  const conversionRate = (won + lost) > 0 ? Math.round((won / (won + lost)) * 100) : 0
 
   // ── Leads por origem ──────────────────────────────────────────────────────
   const sourceCounts = new Map<string, number>()
@@ -160,6 +190,22 @@ export async function fetchDashboardMetrics(tenantId: string): Promise<Dashboard
     30,
   )
 
+  // Financial metrics from RPC (force number — Supabase numeric pode vir como string)
+  const rawFin = (financialRes.data as Record<string, unknown> | null) ?? {}
+  const financial: PipelineFinancial = {
+    revenue:           Number(rawFin.revenue ?? 0),
+    forecast:          Number(rawFin.forecast ?? 0),
+    loss:              Number(rawFin.loss ?? 0),
+    won_count:         Number(rawFin.won_count ?? 0),
+    lost_count:        Number(rawFin.lost_count ?? 0),
+    in_progress_count: Number(rawFin.in_progress_count ?? 0),
+    active_count:      Number(rawFin.active_count ?? 0),
+    total_with_value:  Number(rawFin.total_with_value ?? 0),
+    avg_ticket:        Number(rawFin.avg_ticket ?? 0),
+    conversion_rate:   Number(rawFin.conversion_rate ?? 0),
+  }
+  console.log('[Dashboard] financial metrics:', financial)
+
   return {
     totalLeads:           totalLeadsRes.count ?? 0,
     totalLeadsPrev:       totalLeadsPrevRes.count ?? 0,
@@ -168,6 +214,11 @@ export async function fetchDashboardMetrics(tenantId: string): Promise<Dashboard
     activitiesYesterday:  activitiesYestRes.count ?? 0,
     conversionsThisMonth: conversionsMonthRes.count ?? 0,
     conversionsPrevMonth: conversionsPrevRes.count ?? 0,
+    totalConverted:       won,
+    totalLost:            lost,
+    monthlyRevenue,
+    conversionRate,
+    financial,
     leadsBySource,
     leadsByStage,
     leadsLast30Days,

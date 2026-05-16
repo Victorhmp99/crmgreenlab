@@ -51,9 +51,14 @@ export function usePipelineManagement() {
   const editStage = useMutation({
     mutationFn: ({
       id, data, pipelineId: _pid,
-    }: { id: string; data: Partial<Pick<PipelineStage, 'name' | 'color'>>; pipelineId: string }) =>
+    }: { id: string; data: Partial<Pick<PipelineStage, 'name' | 'color' | 'stage_type' | 'funnel_step_id'>>; pipelineId: string }) =>
       updateStage(id, data),
-    onSuccess: (_, variables) => invalidateStages(variables.pipelineId),
+    onSuccess: (_, variables) => {
+      invalidateStages(variables.pipelineId)
+      queryClient.invalidateQueries({ queryKey: ['dashboard-metrics', tenantId] })
+      queryClient.invalidateQueries({ queryKey: ['pipeline-financial', tenantId] })
+      queryClient.invalidateQueries({ queryKey: ['funnel-metrics', tenantId] })
+    },
   })
 
   const removeStage = useMutation({

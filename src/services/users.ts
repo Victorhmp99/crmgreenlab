@@ -11,6 +11,8 @@ export interface TenantUser {
   role:         UserRole
   active:       boolean
   joinedAt:     string
+  tenantName:   string
+  tenantId:     string
 }
 
 export interface TenantInvite {
@@ -26,33 +28,27 @@ export interface TenantInvite {
 // ── Listar membros do tenant ──────────────────────────────────────────────────
 
 export async function fetchTenantUsers(tenantId: string): Promise<TenantUser[]> {
-  const { data, error } = await supabase
-    .from('user_memberships')
-    .select(`
-      id,
-      user_id,
-      role,
-      active,
-      created_at,
-      profiles ( email, full_name )
-    `)
-    .eq('tenant_id', tenantId)
-    .order('created_at', { ascending: true })
+  // Usa RPC SECURITY DEFINER que bypassa RLS — garante que admin enxerga todos do tenant
+  const { data, error } = await supabase.rpc('get_tenant_users', { p_tenant_id: tenantId })
 
   if (error) throw error
 
-  return (data ?? []).map((row) => {
-    const profile = (row.profiles as unknown as { email: string; full_name: string | null } | null)
-    return {
-      membershipId: row.id,
-      userId:       row.user_id,
-      email:        profile?.email ?? '—',
-      fullName:     profile?.full_name ?? null,
-      role:         row.role as UserRole,
-      active:       row.active,
-      joinedAt:     row.created_at,
-    }
-  })
+  return ((data ?? []) as Array<{
+    membership_id: string; user_id: string; email: string | null;
+    full_name: string | null; role: string; active: boolean;
+    account_status: string; joined_at: string;
+    tenant_name: string; tenant_id: string;
+  }>).map((row) => ({
+    membershipId: row.membership_id,
+    userId:       row.user_id,
+    email:        row.email ?? '—',
+    fullName:     row.full_name,
+    role:         row.role as UserRole,
+    active:       row.active,
+    joinedAt:     row.joined_at,
+    tenantName:   row.tenant_name,
+    tenantId:     row.tenant_id,
+  }))
 }
 
 // ── Alterar role ──────────────────────────────────────────────────────────────
@@ -80,15 +76,15 @@ export async function setUserActive(membershipId: string, active: boolean): Prom
 // ── Convites ──────────────────────────────────────────────────────────────────
 
 export async function fetchInvites(tenantId: string): Promise<TenantInvite[]> {
-  const { data, error } = await supabase
-    .from('tenant_invites')
-    .select('*')
-    .eq('tenant_id', tenantId)
-    .order('created_at', { ascending: false })
+  // Usa RPC SECURITY DEFINER para garantir leitura
+  const { data, error } = await supabase.rpc('get_tenant_invites', { p_tenant_id: tenantId })
 
   if (error) throw error
 
-  return (data ?? []).map((row) => ({
+  return ((data ?? []) as Array<{
+    id: string; email: string; role: string; token: string;
+    accepted_at: string | null; expires_at: string; created_at: string;
+  }>).map((row) => ({
     id:         row.id,
     email:      row.email,
     role:       row.role as UserRole,
@@ -147,20 +143,17 @@ export async function acceptInvite(token: string): Promise<{ tenantId: string }>
 export async function fetchInviteByToken(
   token: string,
 ): Promise<{ email: string; role: UserRole; tenantName: string; expiresAt: string } | null> {
-  const { data, error } = await supabase
-    .from('tenant_invites')
-    .select(`*, tenants ( name )`)
-    .eq('token', token)
-    .is('accepted_at', null)
-    .gt('expires_at', new Date().toISOString())
-    .single()
+  // Usa RPC SECURITY DEFINER que pode ser chamada por anon (usuário não logado)
+  const { data, error } = await supabase.rpc('get_invite_info', { p_token: token })
 
   if (error || !data) return null
 
+  // RPC retorna json com email, role, tenant_name, expires_at
+  const info = data as { email: string; role: string; tenant_name: string; expires_at: string }
   return {
-    email:      data.email,
-    role:       data.role as UserRole,
-    tenantName: (data.tenants as unknown as { name: string } | null)?.name ?? '—',
-    expiresAt:  data.expires_at,
+    email:      info.email,
+    role:       info.role as UserRole,
+    tenantName: info.tenant_name,
+    expiresAt:  info.expires_at,
   }
 }

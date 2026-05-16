@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -7,17 +7,25 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { useLeadMutations } from '../../hooks/useLeadMutations'
+import { useLeadChannels } from '../../hooks/useLeadChannels'
+import { useActiveLeadFields } from '@/features/lead-fields/hooks/useLeadFieldDefinitions'
+import {
+  CustomFieldsRenderer, validateCustomFields,
+} from '@/features/lead-fields/components/CustomFieldsRenderer'
 import { STATUS_OPTIONS } from '../LeadStatusBadge'
 import { SOURCE_OPTIONS } from '../LeadSourceBadge'
 import type { Lead } from '@/types'
 
 const schema = z.object({
   name:            z.string().min(1, 'Nome é obrigatório'),
+  company_name:    z.string().optional(),
   phone:           z.string().optional(),
   email:           z.string().email('E-mail inválido').or(z.literal('')).optional(),
   status:          z.enum(['active', 'converted', 'lost', 'archived']),
   source:          z.enum(['manual', 'import', 'meta_ads', 'google', 'referral', 'other']),
   source_campaign: z.string().optional(),
+  channel_id:      z.string().optional(),
+  value:           z.string().optional(),
   notes:           z.string().optional(),
   tagsRaw:         z.string().optional(),
 })
@@ -33,6 +41,12 @@ interface LeadFormProps {
 export function LeadForm({ open, onClose, lead }: LeadFormProps) {
   const isEditing = !!lead
   const { create, update } = useLeadMutations()
+  const { data: channels = [] } = useLeadChannels()
+  const { data: customFields = [] } = useActiveLeadFields()
+
+  // Estado dos custom_fields (controlado fora do react-hook-form pois é dinâmico)
+  const [customValues, setCustomValues] = useState<Record<string, unknown>>({})
+  const [customErrors, setCustomErrors] = useState<Record<string, string>>({})
 
   const {
     register, handleSubmit, reset,
@@ -46,41 +60,77 @@ export function LeadForm({ open, onClose, lead }: LeadFormProps) {
     if (open && lead) {
       reset({
         name:            lead.name,
+        company_name:    lead.company_name ?? '',
         phone:           lead.phone ?? '',
         email:           lead.email ?? '',
         status:          lead.status,
         source:          lead.source,
         source_campaign: lead.source_campaign ?? '',
+        channel_id:      lead.channel_id ?? '',
+        value:           lead.value != null ? String(lead.value) : '',
         notes:           lead.notes ?? '',
         tagsRaw:         lead.tags.join(', '),
       })
+      // Pré-popula custom_fields do lead
+      setCustomValues((lead.custom_fields as Record<string, unknown>) ?? {})
+      setCustomErrors({})
     } else if (open && !lead) {
-      reset({ status: 'active', source: 'manual' })
+      reset({ status: 'active', source: 'manual', value: '', channel_id: '' })
+      setCustomValues({})
+      setCustomErrors({})
     }
   }, [open, lead, reset])
 
   async function onSubmit(data: FormData) {
+    // Valida campos personalizados obrigatórios
+    const fieldErrors = validateCustomFields(customFields, customValues)
+    if (Object.keys(fieldErrors).length > 0) {
+      setCustomErrors(fieldErrors)
+      return
+    }
+
     const tags = data.tagsRaw
       ? data.tagsRaw.split(',').map((t) => t.trim()).filter(Boolean)
       : []
 
+    const valueNum = data.value && data.value.trim() !== ''
+      ? Number(String(data.value).replace(',', '.'))
+      : null
+
     const payload = {
       name:            data.name,
+      company_name:    data.company_name || undefined,
       phone:           data.phone || undefined,
       email:           data.email || undefined,
       status:          data.status,
       source:          data.source,
       source_campaign: data.source_campaign || undefined,
+      channel_id:      data.channel_id || null,
+      value:           Number.isFinite(valueNum) ? valueNum : null,
       notes:           data.notes || undefined,
       tags,
+      custom_fields:   customValues,
     }
 
-    if (isEditing) {
-      await update.mutateAsync({ id: lead.id, data: payload })
-    } else {
-      await create.mutateAsync(payload)
+    try {
+      if (isEditing) await update.mutateAsync({ id: lead.id, data: payload })
+      else            await create.mutateAsync(payload)
+      onClose()
+    } catch (err) {
+      console.error('[LeadForm] ERRO ao salvar:', err)
     }
-    onClose()
+  }
+
+  // Atualiza um campo personalizado (limpa erro daquele campo)
+  function handleCustomChange(fieldKey: string, value: unknown) {
+    setCustomValues((prev) => ({ ...prev, [fieldKey]: value }))
+    if (customErrors[fieldKey]) {
+      setCustomErrors((prev) => {
+        const next = { ...prev }
+        delete next[fieldKey]
+        return next
+      })
+    }
   }
 
   return (
@@ -107,6 +157,12 @@ export function LeadForm({ open, onClose, lead }: LeadFormProps) {
           {...register('name')}
         />
 
+        <Input
+          label="Nome da empresa"
+          placeholder="Ex: Clínica Sorrir, Acme Ltda..."
+          {...register('company_name')}
+        />
+
         <div className="grid grid-cols-2 gap-4">
           <Input label="Telefone" placeholder="(11) 99999-9999" type="tel" {...register('phone')} />
           <Input label="E-mail" placeholder="lead@email.com" type="email"
@@ -118,11 +174,34 @@ export function LeadForm({ open, onClose, lead }: LeadFormProps) {
           <Select label="Origem" options={SOURCE_OPTIONS} error={errors.source?.message} {...register('source')} />
         </div>
 
-        <Input
-          label="Campanha de origem"
-          placeholder="Ex: Black Friday, Google Lead Form..."
-          {...register('source_campaign')}
+        <Select
+          label="Canal (Inbound/Outbound/etc)"
+          options={[
+            { value: '', label: 'Sem categoria' },
+            ...channels.map((c) => ({ value: c.id, label: c.name })),
+          ]}
+          {...register('channel_id')}
         />
+        <p className="text-[10px] -mt-3" style={{ color: '#555' }}>
+          Gerencie os canais em Configurações
+        </p>
+
+        <div className="grid grid-cols-2 gap-4">
+          <Input
+            label="Campanha de origem"
+            placeholder="Ex: Black Friday..."
+            {...register('source_campaign')}
+          />
+          <Input
+            label="Valor (R$)"
+            placeholder="1500"
+            type="number"
+            step="0.01"
+            min="0"
+            hint="Opcional — apenas números (ex: 1500.50)"
+            {...register('value')}
+          />
+        </div>
 
         <Input
           label="Tags"
@@ -145,12 +224,27 @@ export function LeadForm({ open, onClose, lead }: LeadFormProps) {
           />
         </div>
 
-        {(create.error || update.error) && (
-          <p className="text-sm rounded-lg px-3 py-2"
-            style={{ color: '#ff4444', background: 'rgba(255,68,68,0.1)' }}>
-            Erro ao salvar lead. Tente novamente.
-          </p>
-        )}
+        {/* Campos personalizados (dinâmicos por tenant) */}
+        <CustomFieldsRenderer
+          values={customValues}
+          onChange={handleCustomChange}
+          errors={customErrors}
+        />
+
+        {(create.error || update.error) && (() => {
+          const err = create.error || update.error
+          const msg = err instanceof Error
+            ? err.message
+            : (typeof err === 'object' && err !== null && 'message' in err)
+              ? String((err as { message: unknown }).message)
+              : 'Erro ao salvar lead.'
+          return (
+            <p className="text-xs rounded-lg px-3 py-2 font-mono break-all"
+              style={{ color: '#ff4444', background: 'rgba(255,68,68,0.1)' }}>
+              {msg}
+            </p>
+          )
+        })()}
       </form>
     </Modal>
   )

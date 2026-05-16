@@ -4,7 +4,7 @@ import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
-import { useLeadImport, type ColumnMapping } from '../../hooks/useLeadImport'
+import { useLeadImport, type StdColumnMapping } from '../../hooks/useLeadImport'
 
 interface ImportModalProps {
   open:    boolean
@@ -14,12 +14,17 @@ interface ImportModalProps {
 type Step = 'source' | 'mapping' | 'confirm'
 type SourceType = 'file' | 'sheets'
 
-const FIELD_LABELS: Record<keyof ColumnMapping, string> = {
+const FIELD_LABELS: Record<keyof StdColumnMapping, string> = {
   name:            'Nome *',
+  company_name:    'Empresa',
   phone:           'Telefone',
   email:           'E-mail',
+  status:          'Status (Ativo/Convertido/Perdido)',
   source:          'Origem',
   source_campaign: 'Campanha',
+  channel:         'Canal',
+  value:           'Valor (R$)',
+  tags:            'Tags (separadas por vírgula)',
   notes:           'Observações',
 }
 
@@ -31,7 +36,8 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
 
   const {
     csvHeaders, mapping, setMapping, parseError,
-    previewRows, totalRows, loadFromFile, loadFromSheetsUrl,
+    previewRows, totalRows, mappedCount, customDefs,
+    loadFromFile, loadFromSheetsUrl,
     importMutation, reset,
   } = useLeadImport()
 
@@ -151,7 +157,8 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
       <div className="rounded-xl px-4 py-3 text-sm"
         style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', color: '#aaa' }}>
         <strong style={{ color: '#e8e8e8' }}>{csvHeaders.length}</strong> colunas detectadas ·{' '}
-        <strong style={{ color: '#e8e8e8' }}>{totalRows}</strong> linhas válidas para importar
+        <strong style={{ color: '#e8e8e8' }}>{mappedCount}</strong> mapeadas automaticamente ·{' '}
+        <strong style={{ color: '#e8e8e8' }}>{totalRows}</strong> linhas válidas
       </div>
 
       <div className="flex flex-col gap-3">
@@ -159,17 +166,55 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
           Mapeie as colunas do seu arquivo para os campos do CRM:
         </p>
 
-        {(Object.keys(FIELD_LABELS) as (keyof ColumnMapping)[]).map((field) => (
-          <div key={field} className="grid grid-cols-2 gap-3 items-center">
-            <span className="text-sm" style={{ color: '#888' }}>{FIELD_LABELS[field]}</span>
-            <Select
-              value={mapping[field] ?? ''}
-              onChange={(e) => setMapping({ ...mapping, [field]: e.target.value || undefined })}
-              options={headerOptions}
-              aria-label={`Mapear ${FIELD_LABELS[field]}`}
-            />
+        {/* Campos padrão */}
+        <div className="rounded-xl p-3 flex flex-col gap-2"
+          style={{ background: '#111', border: '1px solid #1e1e1e' }}>
+          <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: '#555' }}>
+            Dados do Lead
+          </p>
+          {(Object.keys(FIELD_LABELS) as (keyof StdColumnMapping)[]).map((field) => (
+            <div key={field} className="grid grid-cols-2 gap-3 items-center">
+              <span className="text-sm" style={{ color: '#888' }}>{FIELD_LABELS[field]}</span>
+              <Select
+                value={mapping[field] ?? ''}
+                onChange={(e) => setMapping({ ...mapping, [field]: e.target.value || undefined })}
+                options={headerOptions}
+                aria-label={`Mapear ${FIELD_LABELS[field]}`}
+              />
+            </div>
+          ))}
+        </div>
+
+        {/* Campos customizados (perguntas do formulário) */}
+        {customDefs.length > 0 && (
+          <div className="rounded-xl p-3 flex flex-col gap-2"
+            style={{ background: '#111', border: '1px solid #1e1e1e' }}>
+            <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: '#555' }}>
+              Perguntas do Formulário ({customDefs.length})
+            </p>
+            {customDefs.map((def) => (
+              <div key={def.field_key} className="grid grid-cols-2 gap-3 items-center">
+                <span className="text-sm truncate" style={{ color: '#888' }} title={def.label}>
+                  {def.label}{def.required ? ' *' : ''}
+                </span>
+                <Select
+                  value={mapping.customFields?.[def.field_key] ?? ''}
+                  onChange={(e) =>
+                    setMapping({
+                      ...mapping,
+                      customFields: {
+                        ...(mapping.customFields ?? {}),
+                        [def.field_key]: e.target.value || '',
+                      },
+                    })
+                  }
+                  options={headerOptions}
+                  aria-label={`Mapear ${def.label}`}
+                />
+              </div>
+            ))}
           </div>
-        ))}
+        )}
       </div>
 
       {previewRows.length > 0 && (

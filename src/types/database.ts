@@ -1,11 +1,14 @@
 // Tipos gerados manualmente — substituir pelo output do `supabase gen types` após conectar o projeto
 
-export type UserRole = 'admin' | 'manager' | 'seller'
+export type UserRole       = 'admin' | 'manager' | 'seller'
+export type AccountStatus  = 'pending' | 'active' | 'blocked'
+export type SuperAdminType = 'master' | 'auxiliary'
 export type LeadStatus = 'active' | 'converted' | 'lost' | 'archived'
 export type LeadSource = 'manual' | 'import' | 'meta_ads' | 'google' | 'referral' | 'other'
 export type ActivityType = 'call' | 'whatsapp' | 'email' | 'meeting' | 'note' | 'stage_change' | 'import'
 export type GoalPeriod = 'daily' | 'weekly' | 'monthly' | 'quarterly'
 export type RecordType = 'revenue' | 'expense'
+export type StageType  = 'in_progress' | 'won' | 'lost'
 
 export interface Tenant {
   id: string
@@ -22,6 +25,7 @@ export interface TenantSettings {
   primary_color: string
   secondary_color: string
   custom_domain: string | null
+  webhook_key: string
   updated_at: string
 }
 
@@ -31,6 +35,9 @@ export interface UserMembership {
   tenant_id: string
   role: UserRole
   active: boolean
+  account_status: AccountStatus
+  status_changed_by: string | null
+  status_changed_at: string | null
   created_at: string
 }
 
@@ -41,7 +48,30 @@ export interface PipelineStage {
   color: string
   position: number
   is_final: boolean
+  stage_type?: StageType        // adicionado depois — sempre vem do banco
+  funnel_step_id?: string | null // mapeamento opcional para um passo do funil
   created_at: string
+}
+
+export interface FunnelStep {
+  id:             string
+  tenant_id?:     string
+  name:           string
+  description:    string | null
+  color:          string
+  position:       number
+  activity_types: ActivityType[] | null
+  created_at:     string
+}
+
+export interface FunnelMetric {
+  stepId:           string
+  stepName:         string
+  stepColor:        string
+  stepPosition:     number
+  countInStep:      number  // leads ativos cuja etapa atual mapeia para este step
+  countAtOrBeyond:  number  // leads ativos neste step OU adiante (cumulativo)
+  countLostHere:    number  // leads perdidos cuja última etapa era deste step
 }
 
 export interface Lead {
@@ -49,6 +79,7 @@ export interface Lead {
   tenant_id: string
   assigned_to: string | null
   name: string
+  company_name?: string | null  // adicionado depois — opcional
   phone: string | null
   email: string | null
   status: LeadStatus
@@ -57,8 +88,51 @@ export interface Lead {
   notes: string | null
   tags: string[]
   custom_fields: Record<string, unknown>
+  value?: number | null      // adicionado depois — opcional
+  channel_id?: string | null // adicionado depois — opcional
   created_at: string
   updated_at: string
+}
+
+export interface LeadChannel {
+  id:         string
+  tenant_id:  string
+  name:       string
+  color:      string
+  position:   number
+  created_at: string
+}
+
+// ── Custom fields ───────────────────────────────────────────────────────────
+
+export type LeadFieldType = 'text' | 'number' | 'boolean' | 'select' | 'textarea'
+
+export interface LeadFieldDefinition {
+  id:          string
+  tenant_id?:  string
+  label:       string
+  field_key:   string
+  field_type:  LeadFieldType
+  options:     string[] | null   // só usado quando field_type='select'
+  required:    boolean
+  active:      boolean
+  position:    number
+  created_at:  string
+}
+
+// ── WhatsApp ────────────────────────────────────────────────────────────────
+
+export interface WhatsappSettings {
+  id:                 string
+  tenant_id:          string
+  webhook_token:      string
+  evolution_url:      string | null
+  instance_name:      string | null
+  default_stage_id:   string | null
+  default_channel_id: string | null
+  active:             boolean
+  created_at:         string
+  updated_at:         string
 }
 
 export interface PipelineCard {
@@ -80,6 +154,29 @@ export interface LeadActivity {
   description: string | null
   metadata: Record<string, unknown>
   created_at: string
+}
+
+export interface LeadTagDefinition {
+  id:         string
+  tenant_id:  string
+  name:       string
+  color:      string
+  created_at: string
+}
+
+export interface LeadTask {
+  id:           string
+  tenant_id:    string
+  lead_id:      string | null
+  created_by:   string | null
+  assigned_to:  string | null
+  title:        string
+  description:  string | null
+  due_at:       string
+  completed:    boolean
+  completed_at: string | null
+  created_at:   string
+  updated_at:   string
 }
 
 export interface Goal {

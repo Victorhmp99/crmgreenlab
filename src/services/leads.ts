@@ -12,6 +12,7 @@ export interface LeadFilters {
 
 export interface LeadFormData {
   name: string
+  company_name?: string
   phone?: string
   email?: string
   status: LeadStatus
@@ -20,6 +21,9 @@ export interface LeadFormData {
   assigned_to?: string
   notes?: string
   tags?: string[]
+  value?: number | null
+  channel_id?: string | null
+  custom_fields?: Record<string, unknown>
 }
 
 export interface PaginatedLeads {
@@ -74,17 +78,28 @@ export async function fetchLeadById(id: string): Promise<Lead> {
 }
 
 export async function createLead(tenantId: string, formData: LeadFormData): Promise<Lead> {
+  // Se não veio assigned_to, atribui ao usuário logado (criador)
+  let assignedTo = formData.assigned_to ?? null
+  if (!assignedTo) {
+    const { data: { user } } = await supabase.auth.getUser()
+    assignedTo = user?.id ?? null
+  }
+
   const payload = {
     tenant_id: tenantId,
     name: formData.name,
+    company_name: formData.company_name || null,
     phone: formData.phone || null,
     email: formData.email || null,
     status: formData.status,
     source: formData.source,
     source_campaign: formData.source_campaign || null,
-    assigned_to: formData.assigned_to || null,
+    assigned_to: assignedTo,
     notes: formData.notes || null,
     tags: formData.tags ?? [],
+    value: formData.value ?? null,
+    channel_id: formData.channel_id ?? null,
+    custom_fields: formData.custom_fields ?? {},
   }
 
   const { data, error } = await supabase.from('leads').insert(payload).select().single()
@@ -95,6 +110,7 @@ export async function createLead(tenantId: string, formData: LeadFormData): Prom
 export async function updateLead(id: string, formData: Partial<LeadFormData>): Promise<Lead> {
   const payload = {
     ...(formData.name !== undefined && { name: formData.name }),
+    ...(formData.company_name !== undefined && { company_name: formData.company_name || null }),
     ...(formData.phone !== undefined && { phone: formData.phone || null }),
     ...(formData.email !== undefined && { email: formData.email || null }),
     ...(formData.status !== undefined && { status: formData.status }),
@@ -103,6 +119,9 @@ export async function updateLead(id: string, formData: Partial<LeadFormData>): P
     ...(formData.assigned_to !== undefined && { assigned_to: formData.assigned_to || null }),
     ...(formData.notes !== undefined && { notes: formData.notes || null }),
     ...(formData.tags !== undefined && { tags: formData.tags }),
+    ...(formData.value !== undefined && { value: formData.value }),
+    ...(formData.channel_id !== undefined && { channel_id: formData.channel_id }),
+    ...(formData.custom_fields !== undefined && { custom_fields: formData.custom_fields }),
   }
 
   const { data, error } = await supabase.from('leads').update(payload).eq('id', id).select().single()
@@ -115,26 +134,47 @@ export async function deleteLead(id: string): Promise<void> {
   if (error) throw error
 }
 
+// Bulk delete — RLS aplica linha a linha, então só vai apagar o que o usuário tem permissão.
+export async function deleteLeadsBulk(ids: string[]): Promise<number> {
+  if (ids.length === 0) return 0
+  const { error, count } = await supabase
+    .from('leads')
+    .delete({ count: 'exact' })
+    .in('id', ids)
+  if (error) throw error
+  return count ?? 0
+}
+
 export interface ImportLeadRow {
-  name: string
-  phone?: string
-  email?: string
-  source?: LeadSource
+  name:             string
+  company_name?:    string
+  phone?:           string
+  email?:           string
+  status?:          LeadStatus
+  source?:          LeadSource
   source_campaign?: string
-  notes?: string
+  notes?:           string
+  channel_id?:      string | null
+  value?:           number | null
+  tags?:            string[]
+  custom_fields?:   Record<string, unknown>
 }
 
 export async function importLeads(tenantId: string, rows: ImportLeadRow[]): Promise<number> {
   const payload = rows.map((row) => ({
-    tenant_id: tenantId,
-    name: row.name,
-    phone: row.phone || null,
-    email: row.email || null,
-    status: 'active' as LeadStatus,
-    source: row.source ?? ('import' as LeadSource),
+    tenant_id:       tenantId,
+    name:            row.name,
+    company_name:    row.company_name || null,
+    phone:           row.phone || null,
+    email:           row.email || null,
+    status:          row.status ?? ('active' as LeadStatus),
+    source:          row.source ?? ('import' as LeadSource),
     source_campaign: row.source_campaign || null,
-    notes: row.notes || null,
-    tags: [],
+    notes:           row.notes || null,
+    tags:            row.tags ?? [],
+    channel_id:      row.channel_id ?? null,
+    value:           row.value ?? null,
+    custom_fields:   row.custom_fields ?? {},
   }))
 
   // Insere em lotes de 100 para não sobrecarregar o Supabase

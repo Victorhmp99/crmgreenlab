@@ -23,3 +23,22 @@ export const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
   { value: 'manager', label: 'Gestor'   },
   { value: 'seller',  label: 'Vendedor' },
 ]
+
+/**
+ * Retorna as opções de role que o usuário atual pode atribuir, baseado no seu próprio role.
+ * - Super Admin: pode atribuir qualquer role (admin/manager/seller)
+ * - Admin: pode atribuir manager e seller (não promove ninguém para admin)
+ * - Manager: pode atribuir apenas seller
+ * - Seller / null: nenhum (não chamado neste contexto)
+ *
+ * O banco também valida via triggers — esta filtragem é só pra UI.
+ */
+export function getAssignableRoles(
+  currentRole:    UserRole | null,
+  isSuperAdmin?:  boolean,
+): { value: UserRole; label: string }[] {
+  if (isSuperAdmin)             return ROLE_OPTIONS
+  if (currentRole === 'admin')  return ROLE_OPTIONS.filter((r) => r.value !== 'admin')
+  if (currentRole === 'manager') return ROLE_OPTIONS.filter((r) => r.value === 'seller')
+  return []
+}

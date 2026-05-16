@@ -1,5 +1,7 @@
 import { supabase } from '@/lib/supabase'
 
+const MASTER_EMAIL = 'assessoriagreenlab@gmail.com'
+
 function toSlug(name: string): string {
   return name
     .toLowerCase()
@@ -10,56 +12,69 @@ function toSlug(name: string): string {
     || 'empresa'
 }
 
-interface RegisterResult {
+export interface RegisterResult {
   needsEmailConfirmation: boolean
+  accountStatus: 'active' | 'pending'
 }
 
+/**
+ * Registra novo tenant + conta admin.
+ * Usa RPC atômico no banco — se qualquer passo falha, tudo é desfeito.
+ */
 export async function registerTenant(
-  companyName: string,
-  email: string,
-  password: string,
+  companyName:  string,
+  email:        string,
+  password:     string,
+  signupToken?: string,
 ): Promise<RegisterResult> {
+  const isMaster = email.toLowerCase() === MASTER_EMAIL
+
   // 1. Cria usuário no Supabase Auth
   const { data: authData, error: authError } = await supabase.auth.signUp({ email, password })
   if (authError) throw authError
   if (!authData.user) throw new Error('Não foi possível criar o usuário.')
 
   if (!authData.session) {
-    return { needsEmailConfirmation: true }
+    return { needsEmailConfirmation: true, accountStatus: 'pending' }
   }
 
   const userId = authData.user.id
 
-  // 2. Cria o tenant
-  const { data: tenant, error: tenantError } = await supabase
-    .from('tenants')
-    .insert({ name: companyName, slug: toSlug(companyName), plan: 'trial', active: true })
-    .select()
-    .single()
-  if (tenantError) throw tenantError
+  // 2. RPC atômico: cria tenant + membership + settings em uma única transação
+  //    Se for master ou token válido, account_status = 'active'; senão 'pending'
+  const { data: result, error: rpcError } = await supabase.rpc('register_new_tenant_with_admin', {
+    p_user_id:      userId,
+    p_company_name: companyName,
+    p_slug:         toSlug(companyName),
+    p_signup_token: signupToken ?? null,
+  })
 
-  // 3. Cria membership de admin
-  const { error: membershipError } = await supabase
-    .from('user_memberships')
-    .insert({ user_id: userId, tenant_id: tenant.id, role: 'admin', active: true })
-  if (membershipError) throw membershipError
+  if (rpcError) {
+    console.error('[Register] RPC error:', rpcError)
+    throw new Error(`Erro ao criar empresa: ${rpcError.message}`)
+  }
 
-  // 4. Cria configurações padrão do tenant
-  await supabase
-    .from('tenant_settings')
-    .insert({
-      tenant_id:       tenant.id,
-      primary_color:   '#00e676',
-      secondary_color: '#00c853',
-      logo_url:        null,
-      custom_domain:   null,
-    })
-    .maybeSingle()
+  // 3. Determina o status final (master sempre é active)
+  let accountStatus: 'active' | 'pending' = isMaster ? 'active' : (result?.account_status ?? 'pending')
 
-  // 5. CRÍTICO: força novo ciclo de auth para o AuthProvider encontrar a membership
-  //    O onAuthStateChange disparou no signUp ANTES da membership existir.
-  //    O refreshSession faz ele disparar novamente — agora com a membership no banco.
+  // 4. Se for master, garante registro em super_admins
+  if (isMaster) {
+    await supabase
+      .from('super_admins')
+      .upsert({ user_id: userId, type: 'master' })
+
+    // Master é forçado a active mesmo que o RPC tenha retornado pending
+    if (result && result.account_status !== 'active') {
+      await supabase
+        .from('user_memberships')
+        .update({ account_status: 'active' })
+        .eq('user_id', userId)
+      accountStatus = 'active'
+    }
+  }
+
+  // 5. Força novo ciclo de auth para o AuthProvider reler a membership
   await supabase.auth.refreshSession()
 
-  return { needsEmailConfirmation: false }
+  return { needsEmailConfirmation: false, accountStatus }
 }

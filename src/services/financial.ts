@@ -18,10 +18,13 @@ export interface FinancialRecord {
 }
 
 export interface FinancialSummary {
-  totalRevenue:  number
-  totalExpenses: number
-  netProfit:     number
-  profitMargin:  number   // % (0-100)
+  totalRevenue:    number  // manual + auto (leads)
+  manualRevenue:   number  // só lançamentos manuais
+  autoRevenue:     number  // só de leads convertidos com valor
+  autoRevenueCount: number // quantos leads convertidos contam
+  totalExpenses:   number
+  netProfit:       number
+  profitMargin:    number  // % (0-100)
 }
 
 export interface MonthlyPoint {
@@ -65,31 +68,58 @@ export async function fetchFinancialSummary(
   dateFrom?: string,
   dateTo?:   string,
 ): Promise<FinancialSummary> {
-  let query = supabase
+  // 1. Receitas/despesas manuais (financial_records)
+  let manualQuery = supabase
     .from('financial_records')
     .select('type, amount')
     .eq('tenant_id', tenantId)
 
-  if (dateFrom) query = query.gte('date', dateFrom)
-  if (dateTo)   query = query.lte('date', dateTo)
+  if (dateFrom) manualQuery = manualQuery.gte('date', dateFrom)
+  if (dateTo)   manualQuery = manualQuery.lte('date', dateTo)
 
-  const { data, error } = await query
-  if (error) throw error
+  // 2. Receita automática (leads convertidos com valor)
+  let autoQuery = supabase
+    .from('leads')
+    .select('value, updated_at')
+    .eq('tenant_id', tenantId)
+    .eq('status', 'converted')
+    .not('value', 'is', null)
 
-  let totalRevenue  = 0
+  if (dateFrom) autoQuery = autoQuery.gte('updated_at', dateFrom)
+  if (dateTo)   autoQuery = autoQuery.lte('updated_at', dateTo + 'T23:59:59')
+
+  const [manualRes, autoRes] = await Promise.all([manualQuery, autoQuery])
+  if (manualRes.error) throw manualRes.error
+  if (autoRes.error)   throw autoRes.error
+
+  // Soma manuais
+  let manualRevenue = 0
   let totalExpenses = 0
-
-  for (const row of data ?? []) {
-    if (row.type === 'revenue') totalRevenue  += Number(row.amount)
-    else                        totalExpenses += Number(row.amount)
+  for (const row of manualRes.data ?? []) {
+    if (row.type === 'revenue') manualRevenue  += Number(row.amount)
+    else                        totalExpenses  += Number(row.amount)
   }
 
+  // Soma auto-receitas dos leads convertidos
+  let autoRevenue       = 0
+  let autoRevenueCount  = 0
+  for (const row of autoRes.data ?? []) {
+    if (row.value != null) {
+      autoRevenue += Number(row.value)
+      autoRevenueCount++
+    }
+  }
+
+  const totalRevenue = manualRevenue + autoRevenue
   const netProfit    = totalRevenue - totalExpenses
   const profitMargin = totalRevenue > 0
     ? Math.round((netProfit / totalRevenue) * 100)
     : 0
 
-  return { totalRevenue, totalExpenses, netProfit, profitMargin }
+  return {
+    totalRevenue, manualRevenue, autoRevenue, autoRevenueCount,
+    totalExpenses, netProfit, profitMargin,
+  }
 }
 
 // ── Tendência mensal (últimos N meses) ────────────────────────────────────────
@@ -103,30 +133,46 @@ export async function fetchMonthlyTrend(
   cutoff.setDate(1)
   const fromDate = cutoff.toISOString().slice(0, 10)
 
-  const { data, error } = await supabase
-    .from('financial_records')
-    .select('type, amount, date')
-    .eq('tenant_id', tenantId)
-    .gte('date', fromDate)
+  // Busca manuais E leads convertidos em paralelo
+  const [manualRes, leadsRes] = await Promise.all([
+    supabase.from('financial_records')
+      .select('type, amount, date')
+      .eq('tenant_id', tenantId)
+      .gte('date', fromDate),
+    supabase.from('leads')
+      .select('value, updated_at')
+      .eq('tenant_id', tenantId)
+      .eq('status', 'converted')
+      .not('value', 'is', null)
+      .gte('updated_at', fromDate),
+  ])
 
-  if (error) throw error
+  if (manualRes.error) throw manualRes.error
+  if (leadsRes.error)  throw leadsRes.error
 
-  // Agrupa por mês
+  // Inicializa todos os meses com 0
   const map = new Map<string, { revenue: number; expenses: number }>()
-
   for (let i = months - 1; i >= 0; i--) {
     const d = new Date()
     d.setMonth(d.getMonth() - i)
-    const key = d.toISOString().slice(0, 7)
-    map.set(key, { revenue: 0, expenses: 0 })
+    map.set(d.toISOString().slice(0, 7), { revenue: 0, expenses: 0 })
   }
 
-  for (const row of data ?? []) {
+  // Soma manuais
+  for (const row of manualRes.data ?? []) {
     const key = row.date.slice(0, 7)
     if (!map.has(key)) continue
     const entry = map.get(key)!
     if (row.type === 'revenue') entry.revenue  += Number(row.amount)
     else                        entry.expenses += Number(row.amount)
+  }
+
+  // Soma leads convertidos como receita
+  for (const row of leadsRes.data ?? []) {
+    const key = row.updated_at.slice(0, 7)
+    if (!map.has(key)) continue
+    const entry = map.get(key)!
+    entry.revenue += Number(row.value ?? 0)
   }
 
   return Array.from(map.entries()).map(([month, { revenue, expenses }]) => {
@@ -145,25 +191,34 @@ export async function fetchTransactions(
   filters: FinancialFilters = {},
 ): Promise<PaginatedTransactions> {
   const { type, dateFrom, dateTo, page = 1, pageSize = 25 } = filters
-  const from = (page - 1) * pageSize
-  const to   = from + pageSize - 1
 
-  let query = supabase
+  // 1. Lançamentos manuais (todos, sem paginação ainda — vamos combinar com leads e paginar no fim)
+  let manualQuery = supabase
     .from('financial_records')
-    .select(`*, leads ( name )`, { count: 'exact' })
+    .select(`*, leads ( name )`)
     .eq('tenant_id', tenantId)
-    .order('date', { ascending: false })
-    .order('created_at', { ascending: false })
-    .range(from, to)
 
-  if (type)     query = query.eq('type', type)
-  if (dateFrom) query = query.gte('date', dateFrom)
-  if (dateTo)   query = query.lte('date', dateTo)
+  if (type)     manualQuery = manualQuery.eq('type', type)
+  if (dateFrom) manualQuery = manualQuery.gte('date', dateFrom)
+  if (dateTo)   manualQuery = manualQuery.lte('date', dateTo)
 
-  const { data, error, count } = await query
-  if (error) throw error
+  // 2. Leads convertidos com valor (entradas automáticas)
+  let leadsQuery = supabase
+    .from('leads')
+    .select('id, name, value, updated_at')
+    .eq('tenant_id', tenantId)
+    .eq('status', 'converted')
+    .not('value', 'is', null)
 
-  const rows: FinancialRecord[] = (data ?? []).map((row) => ({
+  if (dateFrom) leadsQuery = leadsQuery.gte('updated_at', dateFrom)
+  if (dateTo)   leadsQuery = leadsQuery.lte('updated_at', dateTo + 'T23:59:59')
+
+  const [manualRes, leadsRes] = await Promise.all([manualQuery, leadsQuery])
+  if (manualRes.error) throw manualRes.error
+  if (leadsRes.error)  throw leadsRes.error
+
+  // Mapeia manuais
+  const manualRows: FinancialRecord[] = (manualRes.data ?? []).map((row) => ({
     id:          row.id,
     tenant_id:   row.tenant_id,
     type:        row.type as RecordType,
@@ -177,12 +232,39 @@ export async function fetchTransactions(
     lead_name:   (row.leads as unknown as { name: string } | null)?.name ?? null,
   }))
 
+  // Mapeia leads convertidos como receita auto (se filtro de tipo for revenue ou vazio)
+  let autoRows: FinancialRecord[] = []
+  if (!type || type === 'revenue') {
+    autoRows = (leadsRes.data ?? []).map((l) => ({
+      id:          'lead-' + l.id,
+      tenant_id:   tenantId,
+      type:        'revenue' as RecordType,
+      category:    'Lead convertido',
+      description: `Conversão automática: ${l.name}`,
+      amount:      Number(l.value ?? 0),
+      date:        (l.updated_at as string).slice(0, 10),
+      lead_id:     l.id,
+      created_by:  null,
+      created_at:  l.updated_at as string,
+      lead_name:   l.name,
+    }))
+  }
+
+  // Combina, ordena por data desc e pagina manualmente
+  const combined = [...manualRows, ...autoRows].sort((a, b) =>
+    b.date.localeCompare(a.date) || b.created_at.localeCompare(a.created_at),
+  )
+
+  const total = combined.length
+  const fromIdx = (page - 1) * pageSize
+  const sliced = combined.slice(fromIdx, fromIdx + pageSize)
+
   return {
-    data: rows,
-    count: count ?? 0,
+    data: sliced,
+    count: total,
     page,
     pageSize,
-    totalPages: Math.ceil((count ?? 0) / pageSize),
+    totalPages: Math.ceil(total / pageSize),
   }
 }
 

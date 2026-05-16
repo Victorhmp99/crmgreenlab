@@ -13,7 +13,8 @@ export function useAllGoals(onlyActive = false) {
     queryKey:  ['goals', tenantId, { onlyActive }],
     queryFn:   () => fetchGoalsWithProgress(tenantId!, onlyActive),
     enabled:   !!tenantId,
-    staleTime: 1000 * 60,
+    staleTime: 0,
+    refetchOnMount: true,
   })
 }
 
@@ -25,7 +26,8 @@ export function useMyGoals() {
     queryKey:  ['goals-mine', tenantId, userId],
     queryFn:   () => fetchUserGoals(tenantId!, userId!),
     enabled:   !!tenantId && !!userId,
-    staleTime: 1000 * 60,
+    staleTime: 0,
+    refetchOnMount: true,
   })
 }
 
@@ -36,6 +38,7 @@ export function useLeaderboard(startDate: string, endDate: string) {
     queryKey:  ['leaderboard', tenantId, startDate, endDate],
     queryFn:   () => fetchLeaderboard(tenantId!, startDate, endDate),
     enabled:   !!tenantId && !!startDate && !!endDate,
-    staleTime: 1000 * 60 * 5,
+    staleTime: 1000 * 60,  // 1 min
+    refetchOnMount: true,
   })
 }

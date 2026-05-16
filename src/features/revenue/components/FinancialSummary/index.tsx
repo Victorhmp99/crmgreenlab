@@ -54,7 +54,9 @@ export function FinancialSummaryCards({ data, isLoading, periodLabel }: Financia
         icon={TrendingUp}
         iconBg="rgba(0,230,118,0.12)"
         iconColor="#00e676"
-        subLabel={periodLabel}
+        subLabel={data
+          ? `${formatBRL(data.autoRevenue)} de ${data.autoRevenueCount} leads · ${formatBRL(data.manualRevenue)} manual`
+          : periodLabel}
         isLoading={isLoading}
       />
       <SummaryCard

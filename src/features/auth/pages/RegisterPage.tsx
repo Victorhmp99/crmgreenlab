@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Eye, EyeOff, CheckCircle, Building2 } from 'lucide-react'
+import { Eye, EyeOff, CheckCircle, Building2, Clock } from 'lucide-react'
 import { AuthLayout } from '@/components/layout/AuthLayout'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -24,9 +24,10 @@ const schema = z
 type RegisterForm = z.infer<typeof schema>
 
 export function RegisterPage() {
-  const [showPw, setShowPw]       = useState(false)
-  const [error, setError]         = useState<string | null>(null)
-  const [emailSent, setEmailSent] = useState(false)
+  const [showPw, setShowPw]         = useState(false)
+  const [error, setError]           = useState<string | null>(null)
+  const [emailSent, setEmailSent]   = useState(false)
+  const [isPending, setIsPending]   = useState(false)
 
   const {
     register,
@@ -35,15 +36,22 @@ export function RegisterPage() {
     formState: { errors, isSubmitting },
   } = useForm<RegisterForm>({ resolver: zodResolver(schema) })
 
+  // Lê o token de pré-aprovação do query string (ex: /registrar?ref=UUID)
+  // No HashRouter o token vem no hash, então usamos location.hash
+  const hashParams = new URLSearchParams(window.location.hash.split('?')[1] ?? '')
+  const signupToken = hashParams.get('ref') ?? undefined
+
   async function onSubmit(data: RegisterForm) {
     try {
       setError(null)
-      const result = await registerTenant(data.companyName, data.email, data.password)
+      const result = await registerTenant(data.companyName, data.email, data.password, signupToken)
 
       if (result.needsEmailConfirmation) {
         setEmailSent(true)
+      } else if (result.accountStatus === 'pending') {
+        setIsPending(true)
       } else {
-        // Hard reload garante que o AuthProvider relê a sessão com a membership já criada
+        // Master ou ativação imediata — hard reload para o AuthProvider reler a sessão
         window.location.href = window.location.origin + window.location.pathname + '#/dashboard'
       }
     } catch (err) {
@@ -56,6 +64,31 @@ export function RegisterPage() {
         setError(msg)
       }
     }
+  }
+
+  // ── Conta criada — aguardando aprovação do admin ─────────────────────────
+  if (isPending) {
+    return (
+      <AuthLayout>
+        <div className="flex flex-col items-center text-center gap-5 py-4">
+          <div className="h-14 w-14 rounded-full flex items-center justify-center"
+            style={{ background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.3)' }}>
+            <Clock size={28} style={{ color: '#fbbf24' }} />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold" style={{ color: '#e8e8e8' }}>Conta criada!</h2>
+            <p className="text-sm mt-2 leading-relaxed" style={{ color: '#888' }}>
+              Sua conta está aguardando aprovação do administrador da plataforma.
+              Você será notificado assim que o acesso for liberado.
+            </p>
+            <p className="text-xs mt-3" style={{ color: '#555' }}>{getValues('email')}</p>
+          </div>
+          <Link to="/login" className="text-sm transition-colors" style={{ color: '#555' }}>
+            Voltar ao login
+          </Link>
+        </div>
+      </AuthLayout>
+    )
   }
 
   // ── Aguardando confirmação de e-mail ──────────────────────────────────────

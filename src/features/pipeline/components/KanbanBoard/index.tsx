@@ -142,7 +142,7 @@ export function KanbanBoard({ stages, cards, pipelineId, onAddLead, onRemoveCard
     })
   }, [stages, cards, displayStages, localStages])
 
-  const handleDragEnd = useCallback((event: DragEndEvent) => {
+  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     const { active } = event
     const type = active.data.current?.type as string
 
@@ -151,7 +151,6 @@ export function KanbanBoard({ stages, cards, pipelineId, onAddLead, onRemoveCard
     setOverColumnId(null)
 
     if (type === 'column' && localStages) {
-      // Persiste nova ordem das colunas
       const updates = localStages.map((s, i) => ({ id: s.id, position: i }))
       reorderStages.mutate({ updates, pipelineId })
       setLocalStages(null)
@@ -165,11 +164,13 @@ export function KanbanBoard({ stages, cards, pipelineId, onAddLead, onRemoveCard
     if (!over) { setLocalColumns(null); return }
 
     const activeId  = active.id as string
-    const overId    = over.id   as string
 
-    const sourceCol = findColByCardId(localColumns, activeId)
-    const destCol   = localColumns.find((c) => c.stage.id === overId)
-      ?? findColByCardId(localColumns, overId)
+    // CRÍTICO: sourceCol vem do estado do SERVIDOR (antes do handleDragOver mover o card),
+    // destCol vem do estado LOCAL (após o handleDragOver). Comparar local com local
+    // sempre dá igual porque o card já foi movido no estado local.
+    const serverColumns = buildColumns(stages, cards)
+    const sourceCol     = findColByCardId(serverColumns, activeId)
+    const destCol       = findColByCardId(localColumns, activeId)
 
     if (!sourceCol || !destCol) { setLocalColumns(null); return }
 
@@ -180,23 +181,39 @@ export function KanbanBoard({ stages, cards, pipelineId, onAddLead, onRemoveCard
 
     if (!movedCard) { setLocalColumns(null); return }
 
-    if (sourceCol.stage.id !== destCol.stage.id) {
-      move.mutate({
-        cardId:        activeId,
-        newStageId:    destCol.stage.id,
-        newPosition:   finalPosition,
-        fromStageName: sourceCol.stage.name,
-        toStageName:   destCol.stage.name,
-        leadId:        movedCard.lead.id,
-      })
-    } else {
-      const serverCol = buildColumns(stages, cards).find((c) => c.stage.id === sourceCol.stage.id)
-      const serverIdx = serverCol?.cards.findIndex((c) => c.card.id === activeId) ?? -1
-      if (serverIdx !== finalPosition) {
-        reorder.mutate(finalCol.cards.map((c, i) => ({ id: c.card.id, position: i })))
+    try {
+      if (sourceCol.stage.id !== destCol.stage.id) {
+        // 1. Move o card para a nova coluna
+        await move.mutateAsync({
+          cardId:        activeId,
+          newStageId:    destCol.stage.id,
+          newPosition:   finalPosition,
+          fromStageName: sourceCol.stage.name,
+          toStageName:   destCol.stage.name,
+          leadId:        movedCard.lead.id,
+        })
+        // 2. Reordena coluna destino para garantir posições sequenciais únicas
+        const destReorders = finalCol.cards.map((c, i) => ({ id: c.card.id, position: i }))
+        await reorder.mutateAsync(destReorders)
+
+        // 3. Reordena coluna origem também (preenche gap deixado)
+        const sourceColFinal = localColumns.find((c) => c.stage.id === sourceCol.stage.id)!
+        const sourceReorders = sourceColFinal.cards.map((c, i) => ({ id: c.card.id, position: i }))
+        if (sourceReorders.length > 0) {
+          await reorder.mutateAsync(sourceReorders)
+        }
       } else {
-        setLocalColumns(null)
+        const serverCol = buildColumns(stages, cards).find((c) => c.stage.id === sourceCol.stage.id)
+        const serverIdx = serverCol?.cards.findIndex((c) => c.card.id === activeId) ?? -1
+        if (serverIdx !== finalPosition) {
+          await reorder.mutateAsync(finalCol.cards.map((c, i) => ({ id: c.card.id, position: i })))
+        } else {
+          setLocalColumns(null)
+        }
       }
+    } catch (err) {
+      console.error('[Pipeline] erro ao mover card:', err)
+      setLocalColumns(null)
     }
   }, [localColumns, localStages, stages, cards, pipelineId, move, reorder, reorderStages])
 

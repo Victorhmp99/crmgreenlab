@@ -123,7 +123,14 @@ export function GoalForm({ open, onClose, goal }: GoalFormProps) {
     onClose()
   }
 
-  const userOptions = users.map((u) => ({ value: u.userId, label: u.fullName ?? u.email }))
+  // Metas só podem ser atribuídas para Gestores e Vendedores ativos.
+  // Admins e Super Admins gerenciam — não recebem metas.
+  const userOptions = users
+    .filter((u) => u.active && (u.role === 'manager' || u.role === 'seller'))
+    .map((u) => ({
+      value: u.userId,
+      label: `${u.fullName ?? u.email} · ${u.role === 'manager' ? 'Gestor' : 'Vendedor'}`,
+    }))
 
   return (
     <Modal

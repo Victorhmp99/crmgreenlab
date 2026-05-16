@@ -55,15 +55,17 @@ export async function fetchPipelineCards(tenantId: string): Promise<KanbanCardDa
       moved_by,
       tenant_id,
       leads (
-        id, tenant_id, assigned_to, name, phone, email,
+        id, tenant_id, assigned_to, name, company_name, phone, email,
         status, source, source_campaign, notes, tags,
-        custom_fields, created_at, updated_at
+        custom_fields, value, channel_id, created_at, updated_at
       )
     `)
     .eq('tenant_id', tenantId)
     .order('position', { ascending: true })
 
   if (error) throw error
+
+  console.log('[fetchPipelineCards] data bruto do banco:', data?.slice(0, 3))
 
   return (data ?? [])
     .filter((row) => row.leads !== null)

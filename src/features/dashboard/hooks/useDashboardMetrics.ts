@@ -22,6 +22,22 @@ function buildDemoMetrics(): DashboardMetrics {
     activitiesYesterday:  9,
     conversionsThisMonth: 8,
     conversionsPrevMonth: 5,
+    totalConverted:       45,
+    totalLost:            12,
+    monthlyRevenue:       18500,
+    conversionRate:       79,
+    financial: {
+      revenue:           28500,
+      forecast:          42000,
+      loss:              7800,
+      won_count:         8,
+      lost_count:        3,
+      in_progress_count: 15,
+      active_count:      4,
+      total_with_value:  30,
+      avg_ticket:        3562.5,
+      conversion_rate:   73,
+    },
     leadsBySource: [
       { source: 'meta_ads',  count: 54 },
       { source: 'referral',  count: 29 },
@@ -56,7 +72,8 @@ export function useDashboardMetrics() {
     queryKey:  ['dashboard-metrics', tenantId],
     queryFn:   isDemo ? buildDemoMetrics : () => fetchDashboardMetrics(tenantId!),
     enabled:   !!tenantId,
-    staleTime: 1000 * 60 * 2,
+    staleTime: 0,  // sempre rebusca quando algo muda
     refetchOnWindowFocus: !isDemo,
+    refetchOnMount: true,
   })
 }

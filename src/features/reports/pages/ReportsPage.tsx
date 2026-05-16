@@ -1,12 +1,17 @@
 import { useState } from 'react'
-import { Users, Kanban, Megaphone, ArrowUpRight } from 'lucide-react'
+import { Users, Kanban, Megaphone, ArrowUpRight, Tag, Filter, BarChart3, Settings as SettingsIcon } from 'lucide-react'
 import { Input } from '@/components/ui/Input'
 import { Spinner } from '@/components/ui/Spinner'
+import { formatCurrency, formatCurrencyCompact } from '@/lib/utils'
+import { HorizontalFunnel } from '@/features/funnel/components/HorizontalFunnel'
+import { FunnelStepsManager } from '@/features/funnel/components/FunnelStepsManager'
+import { PipelineMapping } from '@/features/funnel/components/PipelineMapping'
 import {
   useSellerPerformance,
   useFunnelBreakdown,
   useCampaignPerformance,
   useSourceBreakdown,
+  useChannelBreakdown,
 } from '../hooks/useReports'
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell,
@@ -41,16 +46,20 @@ function DarkCard({ children, className = '' }: { children: React.ReactNode; cla
   )
 }
 
+type ReportsTab = 'overview' | 'funnel-config'
+
 // ── Page ─────────────────────────────────────────────────────────────────────
 export function ReportsPage() {
   const { from, to } = currentMonthRange()
   const [dateFrom, setDateFrom] = useState(from)
   const [dateTo,   setDateTo]   = useState(to)
+  const [tab, setTab] = useState<ReportsTab>('overview')
 
   const { data: sellers   = [], isLoading: sellersLoading }   = useSellerPerformance(dateFrom, dateTo)
   const { data: funnel    = [], isLoading: funnelLoading }    = useFunnelBreakdown()
   const { data: campaigns = [], isLoading: campaignsLoading } = useCampaignPerformance()
   const { data: sources   = [], isLoading: sourcesLoading }   = useSourceBreakdown()
+  const { data: channels  = [], isLoading: channelsLoading }  = useChannelBreakdown()
 
   return (
     <div className="flex flex-col gap-6">
@@ -61,20 +70,51 @@ export function ReportsPage() {
           <p className="text-sm mt-0.5" style={{ color: '#555' }}>Performance por vendedor e canal</p>
         </div>
 
-        {/* Filtro de período */}
-        <div className="flex items-end gap-2">
-          <div className="flex flex-col gap-1">
-            <label className="text-xs uppercase tracking-wide" style={{ color: '#666' }}>De</label>
-            <Input type="date" value={dateFrom} className="w-32"
-              onChange={(e) => setDateFrom(e.target.value)} />
+        {/* Filtro de período (só na aba Visão Geral) */}
+        {tab === 'overview' && (
+          <div className="flex items-end gap-2">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs uppercase tracking-wide" style={{ color: '#666' }}>De</label>
+              <Input type="date" value={dateFrom} className="w-32"
+                onChange={(e) => setDateFrom(e.target.value)} />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs uppercase tracking-wide" style={{ color: '#666' }}>Até</label>
+              <Input type="date" value={dateTo} className="w-32"
+                onChange={(e) => setDateTo(e.target.value)} />
+            </div>
           </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs uppercase tracking-wide" style={{ color: '#666' }}>Até</label>
-            <Input type="date" value={dateTo} className="w-32"
-              onChange={(e) => setDateTo(e.target.value)} />
-          </div>
-        </div>
+        )}
       </div>
+
+      {/* Tabs */}
+      <div className="flex items-center gap-1 rounded-xl p-1 self-start"
+        style={{ background: 'var(--bg-surface2)', border: '1px solid var(--border-dim)' }}>
+        {([
+          { id: 'overview',     label: 'Visão Geral',          icon: BarChart3 },
+          { id: 'funnel-config',label: 'Configuração do Funil',icon: SettingsIcon },
+        ] as const).map(({ id, label, icon: Icon }) => (
+          <button key={id} onClick={() => setTab(id)}
+            className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-all"
+            style={
+              tab === id
+                ? { background: 'var(--bg-surface)', color: 'var(--text)', border: '1px solid var(--border)' }
+                : { color: 'var(--text-dim)' }
+            }>
+            <Icon size={13} />
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'funnel-config' && (
+        <>
+          <FunnelStepsManager />
+          <PipelineMapping />
+        </>
+      )}
+
+      {tab === 'overview' && (<>
 
       {/* Performance por vendedor */}
       <DarkCard>
@@ -88,7 +128,7 @@ export function ReportsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ borderBottom: '1px solid #1a1a1a' }}>
-                  {['Vendedor', 'Leads', 'Disparos', 'Fechamentos', 'Conv. %'].map((h, i) => (
+                  {['Vendedor', 'Leads', 'Fechados', 'Receita', 'Previsão', 'Perdas', 'Ticket Médio', 'Conv. %'].map((h, i) => (
                     <th key={h} className={`pb-2 text-xs font-medium uppercase tracking-wide ${i > 0 ? 'text-right' : 'text-left'}`}
                       style={{ color: '#444' }}>
                       {h}
@@ -113,15 +153,26 @@ export function ReportsPage() {
                         </span>
                       </div>
                     </td>
-                    <td className="py-3 text-right font-semibold tabular-nums" style={{ color: '#e8e8e8' }}>{s.leads}</td>
-                    <td className="py-3 text-right tabular-nums" style={{ color: '#888' }}>{s.activities}</td>
-                    <td className="py-3 text-right font-semibold tabular-nums" style={{ color: 'var(--tenant-primary)' }}>{s.conversions}</td>
+                    <td className="py-3 text-right tabular-nums" style={{ color: '#888' }}>{s.leads}</td>
+                    <td className="py-3 text-right font-semibold tabular-nums" style={{ color: '#00e676' }}>{s.wonCount}</td>
+                    <td className="py-3 text-right font-semibold tabular-nums" style={{ color: '#00e676' }}>
+                      {formatCurrencyCompact(s.revenue)}
+                    </td>
+                    <td className="py-3 text-right tabular-nums" style={{ color: '#40a0ff' }}>
+                      {formatCurrencyCompact(s.forecast)}
+                    </td>
+                    <td className="py-3 text-right tabular-nums" style={{ color: '#ff4444' }}>
+                      {formatCurrencyCompact(s.loss)}
+                    </td>
+                    <td className="py-3 text-right tabular-nums" style={{ color: '#aaa' }}>
+                      {formatCurrencyCompact(s.avgTicket)}
+                    </td>
                     <td className="py-3 text-right">
                       <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
                         style={
-                          s.convRate >= 20
+                          s.convRate >= 50
                             ? { background: 'rgba(0,230,118,0.1)', color: '#00e676' }
-                            : s.convRate >= 10
+                            : s.convRate >= 20
                             ? { background: 'rgba(251,191,36,0.1)', color: '#fbbf24' }
                             : { background: 'rgba(255,255,255,0.05)', color: '#555' }
                         }>
@@ -132,6 +183,28 @@ export function ReportsPage() {
                 ))}
               </tbody>
             </table>
+
+            {/* Totais */}
+            <div className="mt-4 pt-3 grid grid-cols-3 gap-4 text-xs" style={{ borderTop: '1px solid #1a1a1a' }}>
+              <div>
+                <p className="uppercase tracking-wide" style={{ color: '#555' }}>Receita Total</p>
+                <p className="text-lg font-bold tabular-nums mt-0.5" style={{ color: '#00e676' }}>
+                  {formatCurrency(sellers.reduce((sum, s) => sum + s.revenue, 0))}
+                </p>
+              </div>
+              <div>
+                <p className="uppercase tracking-wide" style={{ color: '#555' }}>Previsão Total</p>
+                <p className="text-lg font-bold tabular-nums mt-0.5" style={{ color: '#40a0ff' }}>
+                  {formatCurrency(sellers.reduce((sum, s) => sum + s.forecast, 0))}
+                </p>
+              </div>
+              <div>
+                <p className="uppercase tracking-wide" style={{ color: '#555' }}>Perdas Total</p>
+                <p className="text-lg font-bold tabular-nums mt-0.5" style={{ color: '#ff4444' }}>
+                  {formatCurrency(sellers.reduce((sum, s) => sum + s.loss, 0))}
+                </p>
+              </div>
+            </div>
           </div>
         )}
       </DarkCard>
@@ -165,12 +238,21 @@ export function ReportsPage() {
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
-              <div className="flex flex-wrap gap-x-3 gap-y-1 mt-3">
+              <div className="flex flex-col gap-1.5 mt-3">
                 {funnel.map((s) => (
-                  <span key={s.stageId} className="text-xs flex items-center gap-1" style={{ color: '#666' }}>
-                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: s.color }} />
-                    {s.stageName} ({s.count}) · {s.pct}%
-                  </span>
+                  <div key={s.stageId} className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-1.5" style={{ color: '#aaa' }}>
+                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: s.color }} />
+                      <span className="font-medium">{s.stageName}</span>
+                      <span style={{ color: '#555' }}>({s.count})</span>
+                    </div>
+                    {s.totalValue > 0 && (
+                      <span className="font-semibold tabular-nums"
+                        style={{ color: s.stageType === 'won' ? '#00e676' : s.stageType === 'lost' ? '#ff4444' : '#40a0ff' }}>
+                        {formatCurrencyCompact(s.totalValue)}
+                      </span>
+                    )}
+                  </div>
                 ))}
               </div>
             </>
@@ -212,6 +294,76 @@ export function ReportsPage() {
         </DarkCard>
       </div>
 
+      {/* ── Funil de Conversão (horizontal, configurável) ──────────────────── */}
+      <DarkCard>
+        <SectionTitle icon={Filter} title="Funil de Conversão" />
+        <HorizontalFunnel height={200} />
+      </DarkCard>
+
+      {/* ── Breakdown por Canal (Inbound/Outbound/etc) ──────────────────── */}
+      <DarkCard>
+        <SectionTitle icon={Tag} title="Performance por Canal" />
+        {channelsLoading ? (
+          <div className="flex justify-center py-6"><Spinner /></div>
+        ) : channels.length === 0 ? (
+          <p className="text-sm text-center py-6" style={{ color: '#444' }}>
+            Nenhum canal configurado. Configure em Configurações.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr style={{ borderBottom: '1px solid #1a1a1a' }}>
+                  {['Canal', 'Leads', 'Contatos Feitos', 'Reuniões', 'Conversões', 'Declinaram', 'Tx Reunião', 'Tx Conv.'].map((h, i) => (
+                    <th key={h} className={`pb-2 text-xs font-medium uppercase tracking-wide ${i > 0 ? 'text-right' : 'text-left'}`}
+                      style={{ color: '#444' }}>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {channels.map((c) => (
+                  <tr key={c.channelId ?? 'none'} style={{ borderBottom: '1px solid #191919' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = '#191919')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
+                    <td className="py-3">
+                      <div className="flex items-center gap-2">
+                        <span className="h-2.5 w-2.5 rounded-full" style={{ background: c.color }} />
+                        <span className="font-medium" style={{ color: '#e8e8e8' }}>{c.channelName}</span>
+                      </div>
+                    </td>
+                    <td className="py-3 text-right tabular-nums font-semibold" style={{ color: '#e8e8e8' }}>{c.leads}</td>
+                    <td className="py-3 text-right tabular-nums" style={{ color: '#a78bfa' }}>{c.contatosFeitos}</td>
+                    <td className="py-3 text-right tabular-nums" style={{ color: '#40a0ff' }}>{c.reunioes}</td>
+                    <td className="py-3 text-right tabular-nums" style={{ color: '#00e676' }}>{c.conversions}</td>
+                    <td className="py-3 text-right tabular-nums" style={{ color: '#ff4444' }}>{c.declined}</td>
+                    <td className="py-3 text-right">
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
+                        style={{ background: 'rgba(64,160,255,0.1)', color: '#40a0ff' }}>
+                        {c.meetingRate}%
+                      </span>
+                    </td>
+                    <td className="py-3 text-right">
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
+                        style={
+                          c.convRate >= 30
+                            ? { background: 'rgba(0,230,118,0.1)', color: '#00e676' }
+                            : c.convRate >= 15
+                            ? { background: 'rgba(251,191,36,0.1)', color: '#fbbf24' }
+                            : { background: 'rgba(255,255,255,0.05)', color: '#555' }
+                        }>
+                        {c.convRate}%
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </DarkCard>
+
       {/* Breakdown por origem */}
       <DarkCard>
         <SectionTitle icon={ArrowUpRight} title="Leads por Origem" />
@@ -237,6 +389,7 @@ export function ReportsPage() {
           </div>
         )}
       </DarkCard>
+      </>)}
     </div>
   )
 }

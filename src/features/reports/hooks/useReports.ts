@@ -5,6 +5,8 @@ import {
   fetchFunnelBreakdown,
   fetchCampaignPerformance,
   fetchSourceBreakdown,
+  fetchChannelBreakdown,
+  fetchConversionFunnelMetrics,
 } from '@/services/reports'
 
 export function useSellerPerformance(startDate: string, endDate: string) {
@@ -44,5 +46,25 @@ export function useSourceBreakdown() {
     queryFn:   () => fetchSourceBreakdown(tenantId!),
     enabled:   !!tenantId,
     staleTime: 1000 * 60 * 5,
+  })
+}
+
+export function useChannelBreakdown() {
+  const tenantId = useAuthStore((s) => s.tenant?.id)
+  return useQuery({
+    queryKey:  ['report-channels', tenantId],
+    queryFn:   () => fetchChannelBreakdown(tenantId!),
+    enabled:   !!tenantId,
+    staleTime: 1000 * 60,
+  })
+}
+
+export function useConversionFunnelMetrics() {
+  const tenantId = useAuthStore((s) => s.tenant?.id)
+  return useQuery({
+    queryKey:  ['report-conversion-funnel', tenantId],
+    queryFn:   () => fetchConversionFunnelMetrics(tenantId!),
+    enabled:   !!tenantId,
+    staleTime: 1000 * 60,
   })
 }

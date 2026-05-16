@@ -82,6 +82,13 @@ async function fetchProgress(tenantId: string, goal: Goal): Promise<GoalProgress
   const callsActual = callsRes.count ?? 0
   const dealsActual = dealsRes.count ?? 0
 
+  console.log('[Goals] progresso da meta:', {
+    user_id: goal.user_id,
+    period: `${goal.start_date} → ${goal.end_date}`,
+    targets: { leads: goal.leads_target, calls: goal.calls_target, deals: goal.deals_target },
+    actuals: { leads: leadsActual, calls: callsActual, deals: dealsActual },
+  })
+
   return {
     leadsActual,
     callsActual,
@@ -99,38 +106,36 @@ export async function fetchGoalsWithProgress(
   tenantId: string,
   onlyActive = false,
 ): Promise<GoalWithProgress[]> {
-  let query = supabase
-    .from('goals')
-    .select(`*, profiles ( email, full_name )`)
-    .eq('tenant_id', tenantId)
-    .order('start_date', { ascending: false })
+  // Usa RPC SECURITY DEFINER que bypassa RLS e já traz email/nome
+  const { data, error } = await supabase.rpc('get_tenant_goals', {
+    p_tenant_id:   tenantId,
+    p_only_active: onlyActive,
+  })
 
-  if (onlyActive) {
-    query = query.gte('end_date', new Date().toISOString().slice(0, 10))
-  }
-
-  const { data, error } = await query
   if (error) throw error
 
-  const goals = (data ?? []).map((row) => {
-    const profile = (row.profiles as unknown as { email: string; full_name: string | null } | null)
-    return {
-      id:             row.id,
-      tenant_id:      row.tenant_id,
-      user_id:        row.user_id,
-      period:         row.period as GoalPeriod,
-      start_date:     row.start_date,
-      end_date:       row.end_date,
-      leads_target:   row.leads_target,
-      calls_target:   row.calls_target,
-      deals_target:   row.deals_target,
-      revenue_target: row.revenue_target,
-      created_by:     row.created_by,
-      created_at:     row.created_at,
-      userEmail:      profile?.email ?? null,
-      userFullName:   profile?.full_name ?? null,
-    } as Omit<GoalWithProgress, 'progress'>
-  })
+  const goals = ((data ?? []) as Array<{
+    id: string; tenant_id: string; user_id: string;
+    period: string; start_date: string; end_date: string;
+    leads_target: number | null; calls_target: number | null; deals_target: number | null;
+    revenue_target: number | null; created_by: string | null; created_at: string;
+    user_email: string | null; user_full_name: string | null;
+  }>).map((row) => ({
+    id:             row.id,
+    tenant_id:      row.tenant_id,
+    user_id:        row.user_id,
+    period:         row.period as GoalPeriod,
+    start_date:     row.start_date,
+    end_date:       row.end_date,
+    leads_target:   row.leads_target,
+    calls_target:   row.calls_target,
+    deals_target:   row.deals_target,
+    revenue_target: row.revenue_target,
+    created_by:     row.created_by,
+    created_at:     row.created_at,
+    userEmail:      row.user_email,
+    userFullName:   row.user_full_name,
+  } as Omit<GoalWithProgress, 'progress'>))
 
   // Progresso em paralelo (lote de até 5 para não sobrecarregar)
   const results: GoalWithProgress[] = []
@@ -203,19 +208,25 @@ export async function fetchLeaderboard(
   startDate: string,
   endDate:   string,
 ): Promise<LeaderboardEntry[]> {
-  // Busca membros ativos
-  const { data: members } = await supabase
-    .from('user_memberships')
-    .select('user_id, profiles ( email, full_name )')
-    .eq('tenant_id', tenantId)
-    .eq('active', true)
+  // Busca usuários ativos via RPC (bypassa RLS e já traz email/nome)
+  const { data: users, error } = await supabase.rpc('get_tenant_users', { p_tenant_id: tenantId })
+  if (error) throw error
 
-  if (!members?.length) return []
+  // Leaderboard exibe só Gestores e Vendedores — Admins não recebem metas
+  const activeUsers = ((users ?? []) as Array<{
+    user_id: string; email: string | null; full_name: string | null;
+    role: string; active: boolean; account_status: string;
+  }>).filter((u) =>
+    u.active
+    && u.account_status === 'active'
+    && (u.role === 'manager' || u.role === 'seller'),
+  )
+
+  if (!activeUsers.length) return []
 
   const entries = await Promise.all(
-    members.map(async (m) => {
-      const profile = (m.profiles as unknown as { email: string; full_name: string | null } | null)
-      const userId  = m.user_id
+    activeUsers.map(async (u) => {
+      const userId = u.user_id
 
       const [leadsRes, callsRes, dealsRes] = await Promise.all([
         supabase.from('leads').select('*', { count: 'exact', head: true })
@@ -239,8 +250,8 @@ export async function fetchLeaderboard(
 
       return {
         userId,
-        email:      profile?.email    ?? '—',
-        fullName:   profile?.full_name ?? null,
+        email:      u.email    ?? '—',
+        fullName:   u.full_name ?? null,
         leads,
         calls,
         deals,

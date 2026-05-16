@@ -1,40 +1,78 @@
-import { Users, Kanban, Zap, CheckCircle, RefreshCw } from 'lucide-react'
-import { MetricCard } from '../components/MetricCard'
-import { LeadsEvolutionChart } from '../components/LeadsEvolutionChart'
-import { PipelineFunnelChart } from '../components/PipelineFunnelChart'
-import { SourceDistributionChart } from '../components/SourceDistributionChart'
-import { RecentLeadsTable } from '../components/RecentLeadsTable'
+import { Users, TrendingUp, DollarSign, XCircle, MessageCircle, Calendar, RefreshCw, Briefcase, Handshake, Target } from 'lucide-react'
 import { useDashboardMetrics } from '../hooks/useDashboardMetrics'
+import { useMyGoals } from '@/features/goals/hooks/useGoals'
 import { useAuth } from '@/hooks/useAuth'
+import { Spinner } from '@/components/ui/Spinner'
 
 function greeting(): string {
   const h = new Date().getHours()
   return h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite'
 }
 
+function formatCurrency(value: number): string {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency', currency: 'BRL',
+  }).format(value)
+}
+
+function formatTodayLabel(): string {
+  const months = ['jan.', 'fev.', 'mar.', 'abr.', 'mai.', 'jun.', 'jul.', 'ago.', 'set.', 'out.', 'nov.', 'dez.']
+  const d = new Date()
+  return `${d.getDate()} de ${months[d.getMonth()]}`
+}
+
+// ── Card pequeno KPI ─────────────────────────────────────────────────────────
+function KpiCard({ label, value, sublabel, icon: Icon, color }: {
+  label: string; value: string | number; sublabel?: string
+  icon: React.ElementType; color: string
+}) {
+  return (
+    <div className="rounded-xl p-4 flex flex-col gap-1 transition-colors"
+      style={{ background: '#141414', border: '1px solid #1e1e1e' }}>
+      <div className="flex items-center justify-between">
+        <p className="text-xs uppercase tracking-wide" style={{ color: '#555' }}>{label}</p>
+        <div className="h-8 w-8 rounded-lg flex items-center justify-center"
+          style={{ background: `${color}22` }}>
+          <Icon size={14} style={{ color }} />
+        </div>
+      </div>
+      <p className="text-2xl font-bold tabular-nums mt-1" style={{ color: '#e8e8e8' }}>{value}</p>
+      {sublabel && <p className="text-xs" style={{ color: '#555' }}>{sublabel}</p>}
+    </div>
+  )
+}
+
+// ── Página ────────────────────────────────────────────────────────────────────
 export function DashboardPage() {
   const { user, tenant } = useAuth()
   const { data, isLoading, refetch, dataUpdatedAt } = useDashboardMetrics()
+  const { data: myGoals = [] } = useMyGoals()
 
-  const name = user?.email?.split('@')[0] ?? 'usuário'
+  // Filtra metas ativas (período atual)
+  const today = new Date().toISOString().slice(0, 10)
+  const activeGoals = myGoals.filter((g) =>
+    g.start_date <= today && today <= g.end_date
+  )
+
+  const name = user?.email?.split('@')[0]?.replace(/[._-]/g, ' ') ?? 'usuário'
 
   const lastUpdated = dataUpdatedAt
     ? new Date(dataUpdatedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
     : null
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* Saudação */}
-      <div className="flex items-start justify-between">
+    <div className="flex flex-col gap-5">
+      {/* ── Header ───────────────────────────────────────────────────────── */}
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-xl font-semibold" style={{ color: '#e8e8e8' }}>
-            {greeting()}, {name} 👋
+          <h2 className="text-2xl font-semibold capitalize" style={{ color: '#e8e8e8' }}>
+            {greeting()},{' '}
+            <span style={{ color: 'var(--tenant-primary)' }}>{name}</span> 👋
           </h2>
           <p className="text-sm mt-0.5" style={{ color: '#555' }}>
-            {tenant?.name ?? 'Green Hub'} · Resumo geral
+            {tenant?.name ?? 'Green Hub'}
           </p>
         </div>
-
         <button
           onClick={() => refetch()}
           disabled={isLoading}
@@ -42,81 +80,228 @@ export function DashboardPage() {
           style={{ color: '#555' }}
           onMouseEnter={(e) => (e.currentTarget.style.color = '#aaa')}
           onMouseLeave={(e) => (e.currentTarget.style.color = '#555')}
-          title="Atualizar dados"
         >
           <RefreshCw size={13} className={isLoading ? 'animate-spin' : ''} />
           {lastUpdated ? `Atualizado às ${lastUpdated}` : 'Atualizar'}
         </button>
       </div>
 
-      {/* Métricas principais */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-        <MetricCard
-          label="Leads Ativos"
-          value={data?.totalLeads ?? 0}
-          icon={Users}
-          iconColor="rgba(0,230,118,0.15)"
-          iconTextColor="var(--tenant-primary)"
-          current={data?.totalLeads}
-          previous={data?.totalLeadsPrev}
-          deltaLabel="vs 30 dias anteriores"
-          isLoading={isLoading}
-        />
-        <MetricCard
-          label="No Pipeline"
-          value={data?.leadsInPipeline ?? 0}
-          icon={Kanban}
-          iconColor="rgba(139,92,246,0.15)"
-          iconTextColor="#a78bfa"
-          isLoading={isLoading}
-        />
-        <MetricCard
-          label="Disparos Hoje"
-          value={data?.activitiesToday ?? 0}
-          icon={Zap}
-          iconColor="rgba(251,191,36,0.15)"
-          iconTextColor="#fbbf24"
-          current={data?.activitiesToday}
-          previous={data?.activitiesYesterday}
-          deltaLabel="vs ontem"
-          isLoading={isLoading}
-        />
-        <MetricCard
-          label="Fechamentos"
-          value={data?.conversionsThisMonth ?? 0}
-          icon={CheckCircle}
-          iconColor="rgba(0,230,118,0.15)"
-          iconTextColor="var(--tenant-primary)"
-          current={data?.conversionsThisMonth}
-          previous={data?.conversionsPrevMonth}
-          deltaLabel="vs mês anterior"
-          isLoading={isLoading}
-        />
+      {/* ── KPIs principais (3 grandes em destaque) ──────────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="rounded-xl p-5 flex items-center gap-4"
+          style={{ background: 'linear-gradient(135deg, rgba(0,230,118,0.08), transparent)', border: '1px solid rgba(0,230,118,0.2)' }}>
+          <div className="h-12 w-12 rounded-xl flex items-center justify-center shrink-0"
+            style={{ background: 'rgba(0,230,118,0.15)' }}>
+            <Users size={20} style={{ color: '#00e676' }} />
+          </div>
+          <div>
+            <p className="text-3xl font-bold tabular-nums" style={{ color: '#e8e8e8' }}>
+              {isLoading ? '—' : (data?.financial.active_count ?? 0) + (data?.financial.in_progress_count ?? 0)}
+            </p>
+            <p className="text-sm" style={{ color: '#888' }}>Leads Ativos</p>
+            <p className="text-[10px] mt-0.5" style={{ color: '#555' }}>
+              Vivos (exclui fechados/perdidos)
+            </p>
+          </div>
+        </div>
+
+        <div className="rounded-xl p-5 flex items-center gap-4"
+          style={{ background: 'linear-gradient(135deg, rgba(64,160,255,0.08), transparent)', border: '1px solid rgba(64,160,255,0.2)' }}>
+          <div className="h-12 w-12 rounded-xl flex items-center justify-center shrink-0"
+            style={{ background: 'rgba(64,160,255,0.15)' }}>
+            <Handshake size={20} style={{ color: '#40a0ff' }} />
+          </div>
+          <div>
+            <p className="text-3xl font-bold tabular-nums" style={{ color: '#e8e8e8' }}>
+              {isLoading ? '—' : data?.financial.in_progress_count ?? 0}
+            </p>
+            <p className="text-sm" style={{ color: '#888' }}>Em Negociação</p>
+            <p className="text-[10px] mt-0.5" style={{ color: '#555' }}>
+              No pipeline
+            </p>
+          </div>
+        </div>
+
+        <div className="rounded-xl p-5 flex items-center gap-4"
+          style={{ background: 'linear-gradient(135deg, rgba(167,139,250,0.08), transparent)', border: '1px solid rgba(167,139,250,0.2)' }}>
+          <div className="h-12 w-12 rounded-xl flex items-center justify-center shrink-0"
+            style={{ background: 'rgba(167,139,250,0.15)' }}>
+            <TrendingUp size={20} style={{ color: '#a78bfa' }} />
+          </div>
+          <div>
+            <p className="text-3xl font-bold tabular-nums" style={{ color: '#e8e8e8' }}>
+              {isLoading ? '—' : data?.financial.won_count ?? 0}
+            </p>
+            <p className="text-sm" style={{ color: '#888' }}>Fechamentos</p>
+            <p className="text-[10px] mt-0.5" style={{ color: '#555' }}>
+              Convertidos
+            </p>
+          </div>
+        </div>
       </div>
 
-      {/* Gráfico de evolução — largura total */}
-      <LeadsEvolutionChart
-        data={data?.leadsLast30Days ?? []}
-        isLoading={isLoading}
-      />
-
-      {/* Pipeline + Origem — lado a lado */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <PipelineFunnelChart
-          data={data?.leadsByStage ?? []}
-          isLoading={isLoading}
-        />
-        <SourceDistributionChart
-          data={data?.leadsBySource ?? []}
-          isLoading={isLoading}
-        />
+      {/* ── Carteira (4 KPIs) ────────────────────────────────────────────── */}
+      <div>
+        <h3 className="text-xs font-semibold uppercase tracking-wider mb-2"
+          style={{ color: '#666' }}>
+          Carteira
+        </h3>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <KpiCard
+            label="Previsão (Pipeline)"
+            value={isLoading ? '—' : formatCurrency(Number(data?.financial.forecast ?? 0))}
+            sublabel={`${data?.financial.in_progress_count ?? 0} oportunidades`}
+            icon={Briefcase}
+            color="#40a0ff"
+          />
+          <KpiCard
+            label="Receita"
+            value={isLoading ? '—' : formatCurrency(Number(data?.financial.revenue ?? 0))}
+            sublabel={`${data?.financial.won_count ?? 0} fechamentos`}
+            icon={DollarSign}
+            color="#00e676"
+          />
+          <KpiCard
+            label="Perdidos"
+            value={isLoading ? '—' : (data?.financial.lost_count ?? 0)}
+            sublabel="leads perdidos"
+            icon={XCircle}
+            color="#ff4444"
+          />
+          <KpiCard
+            label="Ticket Médio"
+            value={isLoading ? '—' : formatCurrency(Number(data?.financial.avg_ticket ?? 0))}
+            sublabel="Por fechamento"
+            icon={MessageCircle}
+            color="#a78bfa"
+          />
+        </div>
       </div>
 
-      {/* Leads recentes */}
-      <RecentLeadsTable
-        leads={data?.recentLeads ?? []}
-        isLoading={isLoading}
-      />
+      {/* ── Grid principal: Agenda + Tarefas + Conversão ──────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* ── Agenda ───────────────────────────────────────────────────── */}
+        <div className="rounded-xl p-5 flex flex-col gap-3"
+          style={{ background: '#141414', border: '1px solid #1e1e1e' }}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Calendar size={15} style={{ color: 'var(--tenant-primary)' }} />
+              <h3 className="text-sm font-semibold" style={{ color: '#e8e8e8' }}>Agenda</h3>
+            </div>
+            <span className="text-xs" style={{ color: '#555' }}>{formatTodayLabel()}</span>
+          </div>
+
+          <div className="rounded-lg p-6 text-center"
+            style={{ background: '#0d0d0d', border: '1px dashed #1e1e1e' }}>
+            <Calendar size={24} className="mx-auto mb-2" style={{ color: '#333' }} />
+            <p className="text-xs" style={{ color: '#555' }}>
+              Nenhum compromisso para hoje.
+            </p>
+          </div>
+        </div>
+
+        {/* ── Minhas Metas ─────────────────────────────────────────────── */}
+        <div className="rounded-xl p-5 flex flex-col gap-3"
+          style={{ background: '#141414', border: '1px solid #1e1e1e' }}>
+          <div className="flex items-center gap-2">
+            <Target size={15} style={{ color: 'var(--tenant-primary)' }} />
+            <h3 className="text-sm font-semibold" style={{ color: '#e8e8e8' }}>Minhas Metas</h3>
+          </div>
+
+          {activeGoals.length === 0 ? (
+            <div className="rounded-lg p-4 text-center mt-1"
+              style={{ background: '#0d0d0d', border: '1px dashed #1e1e1e' }}>
+              <Target size={20} className="mx-auto mb-2" style={{ color: '#333' }} />
+              <p className="text-xs" style={{ color: '#555' }}>
+                Nenhuma meta ativa no período.
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {activeGoals.slice(0, 3).map((goal) => (
+                <div key={goal.id} className="rounded-lg p-3"
+                  style={{ background: '#0d0d0d', border: '1px solid #1a1a1a' }}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] uppercase tracking-wide" style={{ color: '#666' }}>
+                      {goal.period === 'daily' ? 'Diária' :
+                       goal.period === 'weekly' ? 'Semanal' :
+                       goal.period === 'monthly' ? 'Mensal' : 'Trimestral'}
+                    </span>
+                    <span className="text-xs font-bold tabular-nums" style={{ color: 'var(--tenant-primary)' }}>
+                      {goal.progress.overallPercent}%
+                    </span>
+                  </div>
+                  {/* Barra geral */}
+                  <div className="h-1.5 w-full rounded-full mb-2" style={{ background: '#1a1a1a' }}>
+                    <div className="h-full rounded-full transition-all"
+                      style={{
+                        width: `${goal.progress.overallPercent}%`,
+                        background: 'var(--tenant-primary)',
+                      }} />
+                  </div>
+                  {/* Detalhes inline */}
+                  <div className="flex items-center gap-3 text-[10px]" style={{ color: '#666' }}>
+                    {goal.leads_target != null && (
+                      <span>Leads: <strong style={{ color: '#aaa' }}>{goal.progress.leadsActual}/{goal.leads_target}</strong></span>
+                    )}
+                    {goal.calls_target != null && (
+                      <span>Disparos: <strong style={{ color: '#aaa' }}>{goal.progress.callsActual}/{goal.calls_target}</strong></span>
+                    )}
+                    {goal.deals_target != null && (
+                      <span>Fechamentos: <strong style={{ color: '#aaa' }}>{goal.progress.dealsActual}/{goal.deals_target}</strong></span>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {activeGoals.length > 3 && (
+                <p className="text-[10px] text-center" style={{ color: '#444' }}>
+                  +{activeGoals.length - 3} outras metas em <a href="#/goals" style={{ color: 'var(--tenant-primary)' }}>Metas</a>
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* ── Conversão ────────────────────────────────────────────────── */}
+        <div className="rounded-xl p-5 flex flex-col gap-3"
+          style={{ background: '#141414', border: '1px solid #1e1e1e' }}>
+          <div className="flex items-center gap-2">
+            <TrendingUp size={15} style={{ color: 'var(--tenant-primary)' }} />
+            <h3 className="text-sm font-semibold" style={{ color: '#e8e8e8' }}>Conversão</h3>
+          </div>
+
+          {/* Taxa grande — usa conversion_rate financeiro (won/(won+lost)) */}
+          <div className="flex flex-col items-center justify-center py-3">
+            <p className="text-5xl font-bold tabular-nums" style={{ color: 'var(--tenant-primary)' }}>
+              {isLoading ? '—' : `${data?.financial.conversion_rate ?? 0}%`}
+            </p>
+            <p className="text-[11px] uppercase tracking-widest mt-1" style={{ color: '#555' }}>Taxa</p>
+          </div>
+
+          {/* Quebra ganhos/perdidos com valores */}
+          <div className="grid grid-cols-2 gap-2 mt-1">
+            <div className="rounded-lg p-3 text-center"
+              style={{ background: 'rgba(0,230,118,0.05)', border: '1px solid rgba(0,230,118,0.15)' }}>
+              <p className="text-xl font-bold tabular-nums" style={{ color: '#00e676' }}>
+                {data?.financial.won_count ?? 0}
+              </p>
+              <p className="text-[10px] uppercase tracking-wider mt-0.5" style={{ color: '#666' }}>Ganhos</p>
+            </div>
+            <div className="rounded-lg p-3 text-center"
+              style={{ background: 'rgba(255,68,68,0.05)', border: '1px solid rgba(255,68,68,0.15)' }}>
+              <p className="text-xl font-bold tabular-nums" style={{ color: '#ff4444' }}>
+                {data?.financial.lost_count ?? 0}
+              </p>
+              <p className="text-[10px] uppercase tracking-wider mt-0.5" style={{ color: '#666' }}>Perdidos</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Loading global se ainda não tem dados */}
+      {isLoading && !data && (
+        <div className="flex justify-center py-8"><Spinner size="md" /></div>
+      )}
     </div>
   )
 }

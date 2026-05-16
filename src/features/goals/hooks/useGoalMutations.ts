@@ -8,8 +8,9 @@ export function useGoalMutations() {
   const user   = useAuthStore((s) => s.user)
 
   function invalidate() {
-    queryClient.invalidateQueries({ queryKey: ['goals',      tenant?.id] })
-    queryClient.invalidateQueries({ queryKey: ['goals-mine', tenant?.id] })
+    queryClient.invalidateQueries({ queryKey: ['goals',       tenant?.id] })
+    queryClient.invalidateQueries({ queryKey: ['goals-mine',  tenant?.id] })
+    queryClient.invalidateQueries({ queryKey: ['leaderboard', tenant?.id] })
   }
 
   const create = useMutation({
