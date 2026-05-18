@@ -45,7 +45,8 @@ const PLATFORM_ITEMS = [
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const { user, tenant, signOut } = useAuth()
   const { isManager, role } = usePermissions()
-  const isSuperAdmin = useAuthStore((s) => s.isSuperAdmin)
+  const isSuperAdmin       = useAuthStore((s) => s.isSuperAdmin)
+  const isSuperAdminMaster = useAuthStore((s) => s.isSuperAdminMaster)
   const settings     = useTenantStore((s) => s.settings)
   const themeMode    = useThemeStore((s) => s.mode)
   const toggleTheme  = useThemeStore((s) => s.toggle)
@@ -136,8 +137,8 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           </div>
         )}
 
-        {/* Scripts — link externo, somente super admin */}
-        {isSuperAdmin && (
+        {/* Scripts — link externo, SOMENTE super admin master */}
+        {isSuperAdminMaster && (
           <a
             href="https://scripts-platform-m63z3ccaj-vhvictor2015-1502s-projects.vercel.app"
             target="_blank"
