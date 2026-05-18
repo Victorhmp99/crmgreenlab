@@ -139,7 +139,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         {/* Scripts — link externo, somente super admin */}
         {isSuperAdmin && (
           <a
-            href="https://victorhmp99.github.io/scriptsgreenlab/"
+            href="https://scripts-platform-m63z3ccaj-vhvictor2015-1502s-projects.vercel.app"
             target="_blank"
             rel="noopener noreferrer"
             title={collapsed ? 'Scripts' : undefined}
