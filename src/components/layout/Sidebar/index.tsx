@@ -45,8 +45,7 @@ const PLATFORM_ITEMS = [
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const { user, tenant, signOut } = useAuth()
   const { isManager, role } = usePermissions()
-  const isSuperAdmin       = useAuthStore((s) => s.isSuperAdmin)
-  const isSuperAdminMaster = useAuthStore((s) => s.isSuperAdminMaster)
+  const isSuperAdmin = useAuthStore((s) => s.isSuperAdmin)
   const settings     = useTenantStore((s) => s.settings)
   const themeMode    = useThemeStore((s) => s.mode)
   const toggleTheme  = useThemeStore((s) => s.toggle)
@@ -137,28 +136,26 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           </div>
         )}
 
-        {/* Scripts — link externo, SOMENTE super admin master */}
-        {isSuperAdminMaster && (
-          <a
-            href="https://scripts-platform-m63z3ccaj-vhvictor2015-1502s-projects.vercel.app"
-            target="_blank"
-            rel="noopener noreferrer"
-            title={collapsed ? 'Scripts' : undefined}
-            className={cn(
-              'relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150 group mt-0.5',
-              collapsed && 'justify-center',
-              'text-[#666666] hover:text-[#cccccc] hover:bg-[#141414]',
-            )}
-          >
-            <Code2 size={17} className="relative z-10 shrink-0" />
-            {!collapsed && (
-              <>
-                <span className="relative z-10 truncate flex-1">Scripts</span>
-                <ExternalLink size={11} className="relative z-10 shrink-0 opacity-60" />
-              </>
-            )}
-          </a>
-        )}
+        {/* Scripts — link externo, visível para TODOS os usuários */}
+        <a
+          href="https://scripts-platform-m63z3ccaj-vhvictor2015-1502s-projects.vercel.app"
+          target="_blank"
+          rel="noopener noreferrer"
+          title={collapsed ? 'Scripts' : undefined}
+          className={cn(
+            'relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150 group mt-0.5',
+            collapsed && 'justify-center',
+            'text-[#666666] hover:text-[#cccccc] hover:bg-[#141414]',
+          )}
+        >
+          <Code2 size={17} className="relative z-10 shrink-0" />
+          {!collapsed && (
+            <>
+              <span className="relative z-10 truncate flex-1">Scripts</span>
+              <ExternalLink size={11} className="relative z-10 shrink-0 opacity-60" />
+            </>
+          )}
+        </a>
       </nav>
 
       {/* Usuário + logout */}
