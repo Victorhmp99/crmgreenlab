@@ -2,6 +2,7 @@ import { Navigate, Outlet } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthStore } from '@/store/authStore'
 import { Spinner } from '@/components/ui/Spinner'
+import { IdleWarning } from '@/components/layout/IdleWarning'
 
 // O Master nunca é bloqueado — proteção hardcoded
 const MASTER_EMAIL = 'assessoriagreenlab@gmail.com'
@@ -25,5 +26,10 @@ export function PrivateRoute() {
   if (!isMaster && accountStatus === 'pending')  return <Navigate to="/aguardando" replace />
   if (!isMaster && accountStatus === 'blocked')  return <Navigate to="/bloqueado"  replace />
 
-  return <Outlet />
+  return (
+    <>
+      <IdleWarning />
+      <Outlet />
+    </>
+  )
 }
