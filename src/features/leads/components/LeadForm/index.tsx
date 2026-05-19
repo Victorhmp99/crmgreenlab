@@ -84,10 +84,22 @@ export function LeadForm({ open, onClose, lead }: LeadFormProps) {
   }, [open, lead, reset])
 
   async function onSubmit(data: FormData) {
+    setSaveError(null)
     // Valida campos personalizados obrigatórios
     const fieldErrors = validateCustomFields(customFields, customValues)
     if (Object.keys(fieldErrors).length > 0) {
       setCustomErrors(fieldErrors)
+      // Lista quais campos faltam pra mostrar no banner no topo
+      const missingLabels = Object.keys(fieldErrors)
+        .map((key) => customFields.find((f) => f.field_key === key)?.label ?? key)
+        .filter(Boolean)
+      setSaveError(
+        `Preencha os campos obrigatórios: ${missingLabels.join(', ')}`,
+      )
+      // Rola pro topo do form pra mostrar o alerta
+      requestAnimationFrame(() => {
+        document.getElementById('lead-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      })
       return
     }
 
@@ -114,7 +126,6 @@ export function LeadForm({ open, onClose, lead }: LeadFormProps) {
       custom_fields:   customValues,
     }
 
-    setSaveError(null)
     try {
       if (isEditing) {
         if (!lead?.id) {

@@ -167,8 +167,8 @@ export function PipelinePage() {
           <p className="text-sm" style={{ color: '#444' }}>Selecione ou crie um pipeline acima para começar</p>
         </div>
       ) : (
-        <div className="overflow-x-auto pb-2">
-          <div>
+        <div className="flex-1 min-h-0 overflow-x-auto">
+          <div className="h-full min-h-[500px]">
             {selectedPipelineId && (
               <KanbanBoard
                 stages={stages}

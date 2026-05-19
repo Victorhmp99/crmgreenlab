@@ -147,11 +147,13 @@ export async function fetchLeadsNotInPipeline(tenantId: string): Promise<Lead[]>
 
   const excludeIds = (cards ?? []).map((c: { lead_id: string }) => c.lead_id)
 
+  // Aceita active + converted + lost (apenas exclui archived).
+  // Lead que foi convertido/perdido em uma pipeline pode entrar em outra de novo.
   let query = supabase
     .from('leads')
     .select('*')
     .eq('tenant_id', tenantId)
-    .eq('status', 'active')
+    .in('status', ['active', 'converted', 'lost'])
     .order('name')
 
   if (excludeIds.length > 0) {
