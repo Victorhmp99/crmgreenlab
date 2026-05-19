@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { Plus, MoreHorizontal, Pencil, Trash2, Check, X } from 'lucide-react'
 import { usePipelineManagement } from '../../hooks/usePipelineManagement'
 import type { Pipeline } from '@/services/pipelineManagement'
@@ -28,7 +29,11 @@ function ColorDot({ color, selected, onClick }: { color: string; selected: boole
   )
 }
 
-function PipelineMenu({ pipeline, onClose }: { pipeline: Pipeline; onClose: () => void }) {
+function PipelineMenu({ pipeline, anchorRect, onClose }: {
+  pipeline:   Pipeline
+  anchorRect: DOMRect
+  onClose:    () => void
+}) {
   const { renamePipeline, removePipeline } = usePipelineManagement()
   const [editing, setEditing] = useState(false)
   const [name,    setName]    = useState(pipeline.name)
@@ -50,59 +55,74 @@ function PipelineMenu({ pipeline, onClose }: { pipeline: Pipeline; onClose: () =
     onClose()
   }
 
-  if (editing) {
-    return (
-      <div className="absolute top-full left-0 mt-1 z-50 rounded-xl p-3 w-56"
-        style={{ background: '#161616', border: '1px solid #2a2a2a', boxShadow: '0 8px 30px rgba(0,0,0,0.5)' }}>
-        <input
-          ref={inputRef}
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') setEditing(false) }}
-          className="w-full h-8 rounded-lg px-2 text-sm mb-2 focus:outline-none"
-          style={{ background: '#1a1a1a', border: '1px solid var(--tenant-primary)', color: '#e8e8e8' }}
-        />
-        <div className="flex flex-wrap gap-1.5 mb-3">
-          {PRESET_COLORS.map((c) => (
-            <ColorDot key={c} color={c} selected={color === c} onClick={() => setColor(c)} />
-          ))}
-        </div>
-        <div className="flex gap-2">
-          <button onClick={() => setEditing(false)}
-            className="flex-1 h-7 rounded-lg text-xs flex items-center justify-center gap-1 transition-colors"
-            style={{ border: '1px solid #2a2a2a', color: '#666' }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = '#1a1a1a')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
-            <X size={11} /> Cancelar
-          </button>
-          <button onClick={handleSave} disabled={!name.trim() || renamePipeline.isPending}
-            className="flex-1 h-7 rounded-lg text-xs flex items-center justify-center gap-1 text-black disabled:opacity-50"
-            style={{ background: 'var(--tenant-primary)' }}>
-            <Check size={11} /> Salvar
-          </button>
-        </div>
-      </div>
-    )
-  }
+  // Posiciona o menu logo abaixo do botão de "..." (anchor)
+  const top  = anchorRect.bottom + 4 + window.scrollY
+  const left = Math.max(8, anchorRect.left + window.scrollX - 80) // alinha à esquerda do botão
 
-  return (
-    <div className="absolute top-full left-0 mt-1 z-50 rounded-xl py-1 w-40 text-sm"
-      style={{ background: '#161616', border: '1px solid #2a2a2a', boxShadow: '0 8px 30px rgba(0,0,0,0.5)' }}>
-      <button onClick={() => setEditing(true)}
-        className="w-full flex items-center gap-2 px-3 py-2 transition-colors"
-        style={{ color: '#aaa' }}
-        onMouseEnter={(e) => (e.currentTarget.style.background = '#1e1e1e')}
-        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
-        <Pencil size={13} /> Renomear
-      </button>
-      <button onClick={handleDelete}
-        className="w-full flex items-center gap-2 px-3 py-2 transition-colors"
-        style={{ color: '#ff4444' }}
-        onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,68,68,0.08)')}
-        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
-        <Trash2 size={13} /> Excluir
-      </button>
-    </div>
+  return createPortal(
+    <>
+      {/* Overlay clicável pra fechar */}
+      <div className="fixed inset-0 z-[1000]" onClick={onClose} />
+
+      {/* Menu */}
+      <div className="fixed z-[1001] rounded-xl"
+        style={{
+          top, left,
+          background: '#161616',
+          border: '1px solid #2a2a2a',
+          boxShadow: '0 8px 30px rgba(0,0,0,0.6)',
+          minWidth: editing ? 224 : 160,
+        }}
+        onClick={(e) => e.stopPropagation()}>
+        {editing ? (
+          <div className="p-3 flex flex-col gap-2">
+            <input
+              ref={inputRef}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') setEditing(false) }}
+              className="w-full h-8 rounded-lg px-2 text-sm focus:outline-none"
+              style={{ background: '#1a1a1a', border: '1px solid var(--tenant-primary)', color: '#e8e8e8' }}
+            />
+            <div className="flex flex-wrap gap-1.5">
+              {PRESET_COLORS.map((c) => (
+                <ColorDot key={c} color={c} selected={color === c} onClick={() => setColor(c)} />
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setEditing(false)}
+                className="flex-1 h-7 rounded-lg text-xs flex items-center justify-center gap-1"
+                style={{ border: '1px solid #2a2a2a', color: '#666' }}>
+                <X size={11} /> Cancelar
+              </button>
+              <button onClick={handleSave} disabled={!name.trim() || renamePipeline.isPending}
+                className="flex-1 h-7 rounded-lg text-xs flex items-center justify-center gap-1 text-black disabled:opacity-50"
+                style={{ background: 'var(--tenant-primary)' }}>
+                <Check size={11} /> Salvar
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="py-1">
+            <button onClick={() => setEditing(true)}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors"
+              style={{ color: '#aaa' }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = '#1e1e1e')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
+              <Pencil size={13} /> Renomear
+            </button>
+            <button onClick={handleDelete}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors"
+              style={{ color: '#ff4444' }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,68,68,0.08)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
+              <Trash2 size={13} /> Excluir
+            </button>
+          </div>
+        )}
+      </div>
+    </>,
+    document.body,
   )
 }
 
@@ -162,8 +182,16 @@ function CreatePipelineModal({ onClose }: { onClose: () => void }) {
 }
 
 export function PipelineSelector({ pipelines, selectedId, onSelect }: PipelineSelectorProps) {
-  const [menuOpenId, setMenuOpenId] = useState<string | null>(null)
+  const [menuState, setMenuState] = useState<{ pipeline: Pipeline; rect: DOMRect } | null>(null)
   const [showCreate, setShowCreate] = useState(false)
+
+  function openMenu(pipeline: Pipeline, e: React.MouseEvent<HTMLButtonElement>) {
+    e.stopPropagation()
+    const rect = e.currentTarget.getBoundingClientRect()
+    setMenuState((prev) =>
+      prev?.pipeline.id === pipeline.id ? null : { pipeline, rect },
+    )
+  }
 
   return (
     <>
@@ -189,7 +217,8 @@ export function PipelineSelector({ pipelines, selectedId, onSelect }: PipelineSe
 
                 {isActive && (
                   <button
-                    onClick={(e) => { e.stopPropagation(); setMenuOpenId(menuOpenId === pipeline.id ? null : pipeline.id) }}
+                    onClick={(e) => openMenu(pipeline, e)}
+                    title="Renomear ou excluir pipeline"
                     className="h-7 w-7 rounded-lg flex items-center justify-center mr-1 transition-colors"
                     style={{ color: '#555' }}
                     onMouseEnter={(e) => {
@@ -205,10 +234,6 @@ export function PipelineSelector({ pipelines, selectedId, onSelect }: PipelineSe
                   </button>
                 )}
               </div>
-
-              {menuOpenId === pipeline.id && (
-                <PipelineMenu pipeline={pipeline} onClose={() => setMenuOpenId(null)} />
-              )}
             </div>
           )
         })}
@@ -231,7 +256,13 @@ export function PipelineSelector({ pipelines, selectedId, onSelect }: PipelineSe
         </button>
       </div>
 
-      {menuOpenId && <div className="fixed inset-0 z-40" onClick={() => setMenuOpenId(null)} />}
+      {menuState && (
+        <PipelineMenu
+          pipeline={menuState.pipeline}
+          anchorRect={menuState.rect}
+          onClose={() => setMenuState(null)}
+        />
+      )}
       {showCreate && <CreatePipelineModal onClose={() => setShowCreate(false)} />}
     </>
   )
