@@ -47,6 +47,7 @@ export function LeadForm({ open, onClose, lead }: LeadFormProps) {
   // Estado dos custom_fields (controlado fora do react-hook-form pois é dinâmico)
   const [customValues, setCustomValues] = useState<Record<string, unknown>>({})
   const [customErrors, setCustomErrors] = useState<Record<string, string>>({})
+  const [saveError,    setSaveError]    = useState<string | null>(null)
 
   const {
     register, handleSubmit, reset,
@@ -57,6 +58,7 @@ export function LeadForm({ open, onClose, lead }: LeadFormProps) {
   })
 
   useEffect(() => {
+    setSaveError(null)
     if (open && lead) {
       reset({
         name:            lead.name,
@@ -112,13 +114,36 @@ export function LeadForm({ open, onClose, lead }: LeadFormProps) {
       custom_fields:   customValues,
     }
 
+    setSaveError(null)
     try {
-      if (isEditing) await update.mutateAsync({ id: lead.id, data: payload })
-      else            await create.mutateAsync(payload)
+      if (isEditing) {
+        if (!lead?.id) {
+          throw new Error('ID do lead não encontrado. Recarregue a página.')
+        }
+        await update.mutateAsync({ id: lead.id, data: payload })
+      } else {
+        await create.mutateAsync(payload)
+      }
       onClose()
     } catch (err) {
       console.error('[LeadForm] ERRO ao salvar:', err)
+      // Extrai mensagem real do erro (Supabase manda objeto com .message)
+      const msg = extractErrorMessage(err)
+      setSaveError(msg)
     }
+  }
+
+  function extractErrorMessage(e: unknown): string {
+    if (e instanceof Error) return e.message
+    if (typeof e === 'string') return e
+    if (typeof e === 'object' && e !== null) {
+      const obj = e as Record<string, unknown>
+      if (typeof obj.message === 'string') return obj.message
+      if (typeof obj.details === 'string') return obj.details
+      if (typeof obj.hint    === 'string') return obj.hint
+      try { return JSON.stringify(obj) } catch { return String(obj) }
+    }
+    return 'Erro desconhecido. Veja o console (F12) para detalhes.'
   }
 
   // Atualiza um campo personalizado (limpa erro daquele campo)
@@ -150,6 +175,13 @@ export function LeadForm({ open, onClose, lead }: LeadFormProps) {
       }
     >
       <form id="lead-form" onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+        {saveError && (
+          <div className="rounded-lg px-3 py-2 text-sm"
+            style={{ background: 'rgba(255,68,68,0.1)', border: '1px solid rgba(255,68,68,0.25)', color: '#ff4444' }}>
+            <strong>Erro ao salvar:</strong> {saveError}
+          </div>
+        )}
+
         <Input
           label="Nome *"
           placeholder="Nome completo do lead"

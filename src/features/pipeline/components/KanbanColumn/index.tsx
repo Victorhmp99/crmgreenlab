@@ -251,10 +251,10 @@ export function KanbanColumn({
         )}
       </div>
 
-      {/* Área droppável */}
+      {/* Área droppável — cresce naturalmente com a quantidade de cards */}
       <div
         ref={setDropRef}
-        className="flex flex-col gap-2.5 flex-1 rounded-xl p-2 min-h-32 transition-all"
+        className="flex flex-col gap-2.5 rounded-xl p-2 min-h-32 transition-all"
         style={{
           background: isOver ? 'rgba(0,230,118,0.05)' : '#0d0d0d',
           border: isOver ? '2px dashed rgba(0,230,118,0.3)' : '1px solid #1a1a1a',

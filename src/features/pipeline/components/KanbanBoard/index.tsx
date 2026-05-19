@@ -227,7 +227,7 @@ export function KanbanBoard({ stages, cards, pipelineId, onAddLead, onRemoveCard
     >
       {/* SortableContext horizontal para colunas */}
       <SortableContext items={columnSortIds} strategy={horizontalListSortingStrategy}>
-        <div className="flex gap-4 h-full pb-4">
+        <div className="flex gap-4 pb-4 items-start">
           {displayColumns.map((column) => (
             <KanbanColumn
               key={column.stage.id}
