@@ -53,6 +53,20 @@ export interface ChannelBreakdown {
   convRate:     number    // % conversões / leads
 }
 
+// Performance agrupada por PIPELINE (cada linha = 1 pipeline do tenant)
+export interface PipelineBreakdown {
+  pipelineId:    string
+  pipelineName:  string
+  color:         string
+  leads:         number  // total de cards na pipeline
+  contatosFeitos: number // cards em stages cujo nome bate com "contato"/etc
+  reunioes:      number  // cards em stages cujo nome bate com "reuni"/"agenda"/"negoci"
+  conversions:   number  // cards em stages stage_type='won'
+  declined:      number  // cards em stages stage_type='lost'
+  meetingRate:   number  // % reuniões / leads
+  convRate:      number  // % conversões / leads
+}
+
 export interface ConversionFunnelMetrics {
   totalLeads:    number
   meetingsCount: number
@@ -200,6 +214,86 @@ function isNegociacaoStep(name: string): boolean {
   // Inclui "Em Negociação", "Está em Negociação", "Proposta", "Orçamento"
   // e também "Reunião"/"Agendada"/"Marcou Reunião" (usuário equiparou)
   return /negoci|propost|or[çc]ament|reuni|agenda|meeting/i.test(name)
+}
+
+// ── Breakdown por PIPELINE (cada linha = 1 pipeline) ────────────────────────
+
+export async function fetchPipelineBreakdown(tenantId: string): Promise<PipelineBreakdown[]> {
+  // Busca pipelines, stages e cards em paralelo
+  const [pipelinesRes, stagesRes, cardsRes] = await Promise.all([
+    supabase.from('pipelines').select('id, name, color, position')
+      .eq('tenant_id', tenantId).order('position'),
+    supabase.from('pipeline_stages').select('id, name, pipeline_id, stage_type')
+      .eq('tenant_id', tenantId),
+    supabase.from('pipeline_cards').select('id, stage_id, lead_id')
+      .eq('tenant_id', tenantId),
+  ])
+
+  if (pipelinesRes.error)  throw pipelinesRes.error
+  if (stagesRes.error)     throw stagesRes.error
+  if (cardsRes.error)      throw cardsRes.error
+
+  const stages = stagesRes.data ?? []
+  const cards  = cardsRes.data ?? []
+
+  // Mapa stage_id → info da stage (pipeline, tipo, classificação)
+  type StageInfo = {
+    pipeline_id:  string
+    isContato:    boolean
+    isReuniao:    boolean
+    isWon:        boolean
+    isLost:       boolean
+  }
+  const stageMap = new Map<string, StageInfo>()
+  for (const s of stages as Array<{ id: string; name: string; pipeline_id: string | null; stage_type: string | null }>) {
+    if (!s.pipeline_id) continue
+    stageMap.set(s.id, {
+      pipeline_id: s.pipeline_id,
+      isContato:   isContatoStep(s.name),
+      isReuniao:   isNegociacaoStep(s.name),
+      isWon:       s.stage_type === 'won',
+      isLost:      s.stage_type === 'lost',
+    })
+  }
+
+  // Inicializa um bucket por pipeline
+  type Bucket = { leads: number; contatos: number; reunioes: number; won: number; lost: number }
+  const buckets = new Map<string, Bucket>()
+  for (const p of (pipelinesRes.data ?? []) as Array<{ id: string }>) {
+    buckets.set(p.id, { leads: 0, contatos: 0, reunioes: 0, won: 0, lost: 0 })
+  }
+
+  // Conta cards por pipeline e classifica por categoria
+  for (const c of cards as Array<{ stage_id: string }>) {
+    const info = stageMap.get(c.stage_id)
+    if (!info) continue
+    const bucket = buckets.get(info.pipeline_id)
+    if (!bucket) continue
+
+    bucket.leads++
+    if (info.isContato) bucket.contatos++
+    if (info.isReuniao) bucket.reunioes++
+    if (info.isWon)     bucket.won++
+    if (info.isLost)    bucket.lost++
+  }
+
+  // Monta resultado preservando a ordem das pipelines
+  return ((pipelinesRes.data ?? []) as Array<{ id: string; name: string; color: string; position: number }>)
+    .map((p) => {
+      const b = buckets.get(p.id) ?? { leads: 0, contatos: 0, reunioes: 0, won: 0, lost: 0 }
+      return {
+        pipelineId:     p.id,
+        pipelineName:   p.name,
+        color:          p.color,
+        leads:          b.leads,
+        contatosFeitos: b.contatos,
+        reunioes:       b.reunioes,
+        conversions:    b.won,
+        declined:       b.lost,
+        meetingRate:    b.leads > 0 ? Math.round((b.reunioes / b.leads) * 100) : 0,
+        convRate:       b.leads > 0 ? Math.round((b.won      / b.leads) * 100) : 0,
+      }
+    })
 }
 
 // Tipos de atividade que ATRIBUÍMOS a cada coluna

@@ -11,7 +11,7 @@ import {
   useFunnelBreakdown,
   useCampaignPerformance,
   useSourceBreakdown,
-  useChannelBreakdown,
+  usePipelineBreakdown,
 } from '../hooks/useReports'
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell,
@@ -59,7 +59,7 @@ export function ReportsPage() {
   const { data: funnel    = [], isLoading: funnelLoading }    = useFunnelBreakdown()
   const { data: campaigns = [], isLoading: campaignsLoading } = useCampaignPerformance()
   const { data: sources   = [], isLoading: sourcesLoading }   = useSourceBreakdown()
-  const { data: channels  = [], isLoading: channelsLoading }  = useChannelBreakdown()
+  const { data: pipelines = [], isLoading: pipelinesLoading } = usePipelineBreakdown()
 
   return (
     <div className="flex flex-col gap-6">
@@ -220,34 +220,41 @@ export function ReportsPage() {
             <p className="text-sm text-center py-6" style={{ color: '#444' }}>Pipeline vazio</p>
           ) : (
             <>
-              <ResponsiveContainer width="100%" height={180}>
-                <BarChart data={funnel} margin={{ top: 4, right: 0, left: -24, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" vertical={false} />
-                  <XAxis dataKey="stageName" tick={{ fontSize: 9, fill: '#444' }}
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={funnel} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#2a2a2a" vertical={false} />
+                  <XAxis dataKey="stageName" tick={{ fontSize: 11, fill: '#aaa' }}
                     axisLine={false} tickLine={false}
-                    tickFormatter={(v: string) => v.length > 8 ? v.slice(0, 7) + '…' : v} />
-                  <YAxis tick={{ fontSize: 10, fill: '#444' }} axisLine={false} tickLine={false} allowDecimals={false} />
+                    interval={0}
+                    tickFormatter={(v: string) => v.length > 12 ? v.slice(0, 10) + '…' : v} />
+                  <YAxis tick={{ fontSize: 11, fill: '#aaa' }} axisLine={false} tickLine={false} allowDecimals={false} />
                   <Tooltip
                     formatter={(v) => [`${v} leads`, '']}
+                    cursor={{ fill: 'rgba(255,255,255,0.04)' }}
                     contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #2a2a2a', background: '#1a1a1a', color: '#e8e8e8' }}
+                    labelStyle={{ color: '#e8e8e8' }}
                   />
-                  <Bar dataKey="count" radius={[6, 6, 0, 0]} maxBarSize={36}>
+                  <Bar dataKey="count" radius={[6, 6, 0, 0]} maxBarSize={48}>
                     {funnel.map((entry) => (
                       <Cell key={entry.stageId} fill={entry.color} />
                     ))}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
-              <div className="flex flex-col gap-1.5 mt-3">
+              <div className="flex flex-col gap-2 mt-3">
                 {funnel.map((s) => (
-                  <div key={s.stageId} className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-1.5" style={{ color: '#aaa' }}>
-                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: s.color }} />
+                  <div key={s.stageId} className="flex items-center justify-between text-sm rounded-lg px-2 py-1.5"
+                    style={{ background: '#0f0f0f' }}>
+                    <div className="flex items-center gap-2" style={{ color: '#e8e8e8' }}>
+                      <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
                       <span className="font-medium">{s.stageName}</span>
-                      <span style={{ color: '#555' }}>({s.count})</span>
+                      <span className="font-bold tabular-nums px-2 py-0.5 rounded-full text-xs"
+                        style={{ background: `${s.color}22`, color: s.color }}>
+                        {s.count}
+                      </span>
                     </div>
                     {s.totalValue > 0 && (
-                      <span className="font-semibold tabular-nums"
+                      <span className="font-semibold tabular-nums text-xs"
                         style={{ color: s.stageType === 'won' ? '#00e676' : s.stageType === 'lost' ? '#ff4444' : '#40a0ff' }}>
                         {formatCurrencyCompact(s.totalValue)}
                       </span>
@@ -300,66 +307,71 @@ export function ReportsPage() {
         <HorizontalFunnel height={200} />
       </DarkCard>
 
-      {/* ── Breakdown por Canal (Inbound/Outbound/etc) ──────────────────── */}
+      {/* ── Performance por Pipeline (cada linha = 1 pipeline) ──────────── */}
       <DarkCard>
-        <SectionTitle icon={Tag} title="Performance por Canal" />
-        {channelsLoading ? (
+        <SectionTitle icon={Tag} title="Performance por Pipeline" />
+        {pipelinesLoading ? (
           <div className="flex justify-center py-6"><Spinner /></div>
-        ) : channels.length === 0 ? (
-          <p className="text-sm text-center py-6" style={{ color: '#444' }}>
-            Nenhum canal configurado. Configure em Configurações.
+        ) : pipelines.length === 0 ? (
+          <p className="text-sm text-center py-6" style={{ color: '#666' }}>
+            Nenhuma pipeline criada ainda.
           </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr style={{ borderBottom: '1px solid #1a1a1a' }}>
-                  {['Canal', 'Leads', 'Contatos Feitos', 'Reuniões', 'Conversões', 'Declinaram', 'Tx Reunião', 'Tx Conv.'].map((h, i) => (
-                    <th key={h} className={`pb-2 text-xs font-medium uppercase tracking-wide ${i > 0 ? 'text-right' : 'text-left'}`}
-                      style={{ color: '#444' }}>
+                <tr style={{ borderBottom: '1px solid #2a2a2a' }}>
+                  {['Pipeline', 'Leads', 'Contatos Feitos', 'Reuniões', 'Conversões', 'Declinaram', 'Tx Reunião', 'Tx Conv.'].map((h, i) => (
+                    <th key={h} className={`pb-2 px-2 text-xs font-medium uppercase tracking-wide ${i > 0 ? 'text-right' : 'text-left'}`}
+                      style={{ color: '#888' }}>
                       {h}
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {channels.map((c) => (
-                  <tr key={c.channelId ?? 'none'} style={{ borderBottom: '1px solid #191919' }}
+                {pipelines.map((p) => (
+                  <tr key={p.pipelineId} style={{ borderBottom: '1px solid #1a1a1a' }}
                     onMouseEnter={(e) => (e.currentTarget.style.background = '#191919')}
                     onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
-                    <td className="py-3">
+                    <td className="py-3 px-2">
                       <div className="flex items-center gap-2">
-                        <span className="h-2.5 w-2.5 rounded-full" style={{ background: c.color }} />
-                        <span className="font-medium" style={{ color: '#e8e8e8' }}>{c.channelName}</span>
+                        <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: p.color }} />
+                        <span className="font-medium" style={{ color: '#e8e8e8' }}>{p.pipelineName}</span>
                       </div>
                     </td>
-                    <td className="py-3 text-right tabular-nums font-semibold" style={{ color: '#e8e8e8' }}>{c.leads}</td>
-                    <td className="py-3 text-right tabular-nums" style={{ color: '#a78bfa' }}>{c.contatosFeitos}</td>
-                    <td className="py-3 text-right tabular-nums" style={{ color: '#40a0ff' }}>{c.reunioes}</td>
-                    <td className="py-3 text-right tabular-nums" style={{ color: '#00e676' }}>{c.conversions}</td>
-                    <td className="py-3 text-right tabular-nums" style={{ color: '#ff4444' }}>{c.declined}</td>
-                    <td className="py-3 text-right">
+                    <td className="py-3 px-2 text-right tabular-nums font-semibold" style={{ color: '#e8e8e8' }}>{p.leads}</td>
+                    <td className="py-3 px-2 text-right tabular-nums" style={{ color: '#a78bfa' }}>{p.contatosFeitos}</td>
+                    <td className="py-3 px-2 text-right tabular-nums" style={{ color: '#40a0ff' }}>{p.reunioes}</td>
+                    <td className="py-3 px-2 text-right tabular-nums" style={{ color: '#00e676' }}>{p.conversions}</td>
+                    <td className="py-3 px-2 text-right tabular-nums" style={{ color: '#ff4444' }}>{p.declined}</td>
+                    <td className="py-3 px-2 text-right">
                       <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
-                        style={{ background: 'rgba(64,160,255,0.1)', color: '#40a0ff' }}>
-                        {c.meetingRate}%
+                        style={{ background: 'rgba(64,160,255,0.12)', color: '#40a0ff' }}>
+                        {p.meetingRate}%
                       </span>
                     </td>
-                    <td className="py-3 text-right">
+                    <td className="py-3 px-2 text-right">
                       <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
                         style={
-                          c.convRate >= 30
-                            ? { background: 'rgba(0,230,118,0.1)', color: '#00e676' }
-                            : c.convRate >= 15
-                            ? { background: 'rgba(251,191,36,0.1)', color: '#fbbf24' }
-                            : { background: 'rgba(255,255,255,0.05)', color: '#555' }
+                          p.convRate >= 30
+                            ? { background: 'rgba(0,230,118,0.15)', color: '#00e676' }
+                            : p.convRate >= 15
+                            ? { background: 'rgba(251,191,36,0.15)', color: '#fbbf24' }
+                            : { background: 'rgba(255,255,255,0.05)', color: '#888' }
                         }>
-                        {c.convRate}%
+                        {p.convRate}%
                       </span>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            <p className="text-[11px] mt-3" style={{ color: '#666' }}>
+              <strong>Contatos Feitos</strong> = cards em etapas tipo "Contato feito" ·{' '}
+              <strong>Reuniões</strong> = etapas tipo "Reunião/Em negociação" ·{' '}
+              <strong>Conversões/Declinaram</strong> = etapas marcadas como Ganho/Perdido
+            </p>
           </div>
         )}
       </DarkCard>

@@ -6,6 +6,7 @@ import {
   fetchCampaignPerformance,
   fetchSourceBreakdown,
   fetchChannelBreakdown,
+  fetchPipelineBreakdown,
   fetchConversionFunnelMetrics,
 } from '@/services/reports'
 
@@ -54,6 +55,16 @@ export function useChannelBreakdown() {
   return useQuery({
     queryKey:  ['report-channels', tenantId],
     queryFn:   () => fetchChannelBreakdown(tenantId!),
+    enabled:   !!tenantId,
+    staleTime: 1000 * 60,
+  })
+}
+
+export function usePipelineBreakdown() {
+  const tenantId = useAuthStore((s) => s.tenant?.id)
+  return useQuery({
+    queryKey:  ['report-pipelines', tenantId],
+    queryFn:   () => fetchPipelineBreakdown(tenantId!),
     enabled:   !!tenantId,
     staleTime: 1000 * 60,
   })
