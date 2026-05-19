@@ -116,36 +116,65 @@ export async function fetchSellerPerformance(
 // ── Distribuição do funil por etapa ──────────────────────────────────────────
 
 export async function fetchFunnelBreakdown(tenantId: string): Promise<FunnelStageData[]> {
-  // Usa o funil POR DISPAROS (get_funnel_metrics) — mesma lógica do funil principal.
-  // Reflete o histórico real de cada lead, não só o estado atual da pipeline.
-  const { data, error } = await supabase.rpc('get_funnel_metrics', { p_tenant_id: tenantId })
+  // Usa RPC com soma de valores por etapa (estado atual da pipeline)
+  const { data, error } = await supabase.rpc('get_funnel_with_values', { p_tenant_id: tenantId })
   if (error) throw error
 
   const rows = ((data ?? []) as Array<{
-    step_id: string; step_name: string; step_color: string;
-    step_position: number; count_in_step: number;
-    count_at_or_beyond: number; count_lost_here: number;
+    stage_id: string; stage_name: string; color: string; stage_type: string;
+    stage_position: number; lead_count: number; total_value: number;
   }>)
 
-  const total = rows.reduce((s, r) => s + Number(r.count_in_step), 0)
+  // Agrega por NOME (case-insensitive, sem acento) pra não duplicar quando
+  // várias pipelines têm "Novo Lead", "Contato Feito", "Fechado" etc.
+  const normalize = (s: string) =>
+    s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim()
 
-  return rows.map((r) => {
-    const name = r.step_name.toLowerCase()
-    // Classifica won/lost/in_progress pelo nome do passo
-    const stageType: string =
-      /fechad|ganho|won|convertido|contrato/i.test(name) ? 'won' :
-      /perdid|lost|recusad|declin/i.test(name)            ? 'lost' :
-      'in_progress'
-    return {
-      stageId:    r.step_id,
-      stageName:  r.step_name,
-      color:      r.step_color,
-      stageType,
-      count:      Number(r.count_in_step),
-      totalValue: 0,  // funil por disparos não tem valor — vem das atividades, não dos cards
-      pct:        total > 0 ? Math.round((Number(r.count_in_step) / total) * 100) : 0,
+  type Agg = {
+    stageId: string
+    stageName: string
+    color: string
+    stageType: string
+    position: number
+    count: number
+    totalValue: number
+  }
+  const byName = new Map<string, Agg>()
+  for (const r of rows) {
+    const key = normalize(r.stage_name)
+    const existing = byName.get(key)
+    if (existing) {
+      existing.count      += Number(r.lead_count)
+      existing.totalValue += Number(r.total_value)
+      if (r.stage_position < existing.position) existing.position = r.stage_position
+      if ((r.stage_type === 'won' || r.stage_type === 'lost') && existing.stageType !== r.stage_type) {
+        existing.stageType = r.stage_type
+      }
+    } else {
+      byName.set(key, {
+        stageId:    r.stage_id,
+        stageName:  r.stage_name,
+        color:      r.color,
+        stageType:  r.stage_type,
+        position:   r.stage_position,
+        count:      Number(r.lead_count),
+        totalValue: Number(r.total_value),
+      })
     }
-  })
+  }
+
+  const aggregated = Array.from(byName.values()).sort((a, b) => a.position - b.position)
+  const total = aggregated.reduce((s, r) => s + r.count, 0)
+
+  return aggregated.map((r) => ({
+    stageId:    r.stageId,
+    stageName:  r.stageName,
+    color:      r.color,
+    stageType:  r.stageType,
+    count:      r.count,
+    totalValue: r.totalValue,
+    pct:        total > 0 ? Math.round((r.count / total) * 100) : 0,
+  }))
 }
 
 // ── Performance por campanha de origem ───────────────────────────────────────
