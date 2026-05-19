@@ -14,7 +14,7 @@ export function usePipelineMutations() {
   const user    = useAuthStore((s) => s.user)
 
   function invalidate() {
-    // Card movido → lead.status pode ter sido alterado pela trigger
+    // Invalida tudo que depende de cards/leads (status do lead NÃO é alterado automaticamente)
     queryClient.invalidateQueries({ queryKey: ['pipeline-cards',          tenant?.id] })
     queryClient.invalidateQueries({ queryKey: ['leads',                   tenant?.id] })
     queryClient.invalidateQueries({ queryKey: ['dashboard-metrics',       tenant?.id] })
