@@ -125,16 +125,57 @@ export async function fetchFunnelBreakdown(tenantId: string): Promise<FunnelStag
     stage_position: number; lead_count: number; total_value: number;
   }>)
 
-  const total = rows.reduce((s, r) => s + r.lead_count, 0)
+  // Agrega por NOME (case-insensitive, sem acento) pra não duplicar quando
+  // várias pipelines têm "Novo Lead", "Contato Feito", "Fechado" etc.
+  const normalize = (s: string) =>
+    s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim()
 
-  return rows.map((r) => ({
-    stageId:    r.stage_id,
-    stageName:  r.stage_name,
+  type Agg = {
+    stageId: string
+    stageName: string
+    color: string
+    stageType: string
+    position: number
+    count: number
+    totalValue: number
+  }
+  const byName = new Map<string, Agg>()
+  for (const r of rows) {
+    const key = normalize(r.stage_name)
+    const existing = byName.get(key)
+    if (existing) {
+      existing.count      += Number(r.lead_count)
+      existing.totalValue += Number(r.total_value)
+      // Mantém a menor posição pra ordenar coerente
+      if (r.stage_position < existing.position) existing.position = r.stage_position
+      // Prioriza stage_type 'won'/'lost' se aparecer
+      if ((r.stage_type === 'won' || r.stage_type === 'lost') && existing.stageType !== r.stage_type) {
+        existing.stageType = r.stage_type
+      }
+    } else {
+      byName.set(key, {
+        stageId:    r.stage_id,
+        stageName:  r.stage_name,
+        color:      r.color,
+        stageType:  r.stage_type,
+        position:   r.stage_position,
+        count:      Number(r.lead_count),
+        totalValue: Number(r.total_value),
+      })
+    }
+  }
+
+  const aggregated = Array.from(byName.values()).sort((a, b) => a.position - b.position)
+  const total = aggregated.reduce((s, r) => s + r.count, 0)
+
+  return aggregated.map((r) => ({
+    stageId:    r.stageId,
+    stageName:  r.stageName,
     color:      r.color,
-    stageType:  r.stage_type,
-    count:      r.lead_count,
-    totalValue: Number(r.total_value),
-    pct:        total > 0 ? Math.round((r.lead_count / total) * 100) : 0,
+    stageType:  r.stageType,
+    count:      r.count,
+    totalValue: r.totalValue,
+    pct:        total > 0 ? Math.round((r.count / total) * 100) : 0,
   }))
 }
 
@@ -236,6 +277,10 @@ export async function fetchPipelineBreakdown(tenantId: string): Promise<Pipeline
   const stages = stagesRes.data ?? []
   const cards  = cardsRes.data ?? []
 
+  // Helpers de classificação pelo NOME (fallback quando stage_type não está setado)
+  const isWonByName  = (n: string) => /^(fechado|fechou|ganho|won|convertido|contrato)/i.test(n)
+  const isLostByName = (n: string) => /^(perdido|lost|recusado|declin|cancelado)/i.test(n)
+
   // Mapa stage_id → info da stage (pipeline, tipo, classificação)
   type StageInfo = {
     pipeline_id:  string
@@ -247,12 +292,15 @@ export async function fetchPipelineBreakdown(tenantId: string): Promise<Pipeline
   const stageMap = new Map<string, StageInfo>()
   for (const s of stages as Array<{ id: string; name: string; pipeline_id: string | null; stage_type: string | null }>) {
     if (!s.pipeline_id) continue
+    const won  = s.stage_type === 'won'  || isWonByName(s.name)
+    const lost = s.stage_type === 'lost' || isLostByName(s.name)
     stageMap.set(s.id, {
       pipeline_id: s.pipeline_id,
-      isContato:   isContatoStep(s.name),
-      isReuniao:   isNegociacaoStep(s.name),
-      isWon:       s.stage_type === 'won',
-      isLost:      s.stage_type === 'lost',
+      // won/lost prevalecem — uma stage "Fechado" não deve contar em "Reuniões"
+      isContato:   !won && !lost && isContatoStep(s.name),
+      isReuniao:   !won && !lost && isNegociacaoStep(s.name),
+      isWon:       won,
+      isLost:      lost,
     })
   }
 
