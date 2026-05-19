@@ -226,26 +226,25 @@ function isNegociacaoStep(name: string): boolean {
   return /negoci|propost|or[çc]ament|reuni|agenda|meeting/i.test(name)
 }
 
-// ── Breakdown por PIPELINE — alimentado pelos DISPAROS de cada lead ─────────
-// Cada linha = uma pipeline. Para cada lead na pipeline, conta seus DISPAROS:
-//   contatosFeitos = lead tem disparo call/whatsapp/email/note
-//   reunioes       = lead tem disparo meeting
+// ── Breakdown por PIPELINE — alimentado por DISPAROS + HISTÓRICO + STAGE ATUAL
+// Cada linha = uma pipeline. Para cada lead na pipeline, conta:
+//   contatosFeitos = lead teve disparo call/whatsapp/email/note OU passou por stage de contato
+//   reunioes       = lead teve disparo meeting OU passou por stage de reunião/negociação
 //   conversions    = lead.status = 'converted'
 //   declined       = lead.status = 'lost'
-// Isso reflete o histórico real do lead, não só o estado atual da etapa.
+// Igual o funil principal — usa disparos + stage_change + pipeline atual.
 export async function fetchPipelineBreakdown(tenantId: string): Promise<PipelineBreakdown[]> {
   const [pipelinesRes, stagesRes, cardsRes, leadsRes, activitiesRes] = await Promise.all([
     supabase.from('pipelines').select('id, name, color, position')
       .eq('tenant_id', tenantId).order('position'),
-    supabase.from('pipeline_stages').select('id, pipeline_id')
+    supabase.from('pipeline_stages').select('id, name, pipeline_id, stage_type')
       .eq('tenant_id', tenantId),
     supabase.from('pipeline_cards').select('lead_id, stage_id')
       .eq('tenant_id', tenantId),
     supabase.from('leads').select('id, status')
       .eq('tenant_id', tenantId),
-    supabase.from('lead_activities').select('lead_id, type')
-      .eq('tenant_id', tenantId)
-      .in('type', ['call', 'whatsapp', 'email', 'meeting', 'note']),
+    supabase.from('lead_activities').select('lead_id, type, metadata')
+      .eq('tenant_id', tenantId),
   ])
 
   if (pipelinesRes.error)  throw pipelinesRes.error
@@ -254,10 +253,28 @@ export async function fetchPipelineBreakdown(tenantId: string): Promise<Pipeline
   if (leadsRes.error)      throw leadsRes.error
   if (activitiesRes.error) throw activitiesRes.error
 
-  // Mapa stage_id → pipeline_id
-  const stageToPipeline = new Map<string, string>()
-  for (const s of (stagesRes.data ?? []) as Array<{ id: string; pipeline_id: string | null }>) {
-    if (s.pipeline_id) stageToPipeline.set(s.id, s.pipeline_id)
+  // Identifica cada stage como contato/reuniao/won/lost
+  type StageCat = 'contato' | 'reuniao' | 'won' | 'lost' | 'other'
+  const classifyStage = (name: string, stageType: string | null): StageCat => {
+    if (stageType === 'won')  return 'won'
+    if (stageType === 'lost') return 'lost'
+    const n = name.toLowerCase()
+    if (/fechad|ganho|won|convertido|contrato/.test(n)) return 'won'
+    if (/perdid|lost|recusad|declin|cancelado/.test(n)) return 'lost'
+    if (/reuni|agenda|meeting|negoci|propost|or[çc]ament/.test(n)) return 'reuniao'
+    if (/contato|primeiro|inicial|abord/.test(n)) return 'contato'
+    return 'other'
+  }
+
+  // Mapa stage_id → { pipeline_id, name, cat }
+  const stageInfo = new Map<string, { pipeline_id: string; name: string; cat: StageCat }>()
+  // Mapa stage_name → cat (para casar stage_change.metadata.to)
+  const stageNameCat = new Map<string, StageCat>()
+  for (const s of (stagesRes.data ?? []) as Array<{ id: string; name: string; pipeline_id: string | null; stage_type: string | null }>) {
+    if (!s.pipeline_id) continue
+    const cat = classifyStage(s.name, s.stage_type)
+    stageInfo.set(s.id, { pipeline_id: s.pipeline_id, name: s.name, cat })
+    stageNameCat.set(s.name, cat)
   }
 
   // Mapa lead_id → status
@@ -266,51 +283,64 @@ export async function fetchPipelineBreakdown(tenantId: string): Promise<Pipeline
     leadStatus.set(l.id, l.status)
   }
 
-  // Mapa lead_id → { hasContato, hasReuniao }
-  // Contato Feito = qualquer disparo manual (call/whatsapp/email/note)
-  // Reunião       = disparo 'meeting'
+  // Mapa lead_id → { contato, reuniao } a partir dos disparos
   const leadActs = new Map<string, { contato: boolean; reuniao: boolean }>()
-  for (const a of (activitiesRes.data ?? []) as Array<{ lead_id: string; type: string }>) {
-    const cur = leadActs.get(a.lead_id) ?? { contato: false, reuniao: false }
-    if (a.type === 'meeting')                              cur.reuniao = true
-    if (['call', 'whatsapp', 'email', 'note'].includes(a.type)) cur.contato = true
-    leadActs.set(a.lead_id, cur)
+  const getActs = (id: string) => {
+    let v = leadActs.get(id)
+    if (!v) { v = { contato: false, reuniao: false }; leadActs.set(id, v) }
+    return v
+  }
+  for (const a of (activitiesRes.data ?? []) as Array<{ lead_id: string; type: string; metadata: Record<string, unknown> | null }>) {
+    if (a.type === 'meeting') {
+      getActs(a.lead_id).reuniao = true
+    } else if (['call', 'whatsapp', 'email', 'note'].includes(a.type)) {
+      getActs(a.lead_id).contato = true
+    } else if (a.type === 'stage_change') {
+      // HISTÓRICO: ao mover card pra uma stage de reunião/contato, conta
+      const toName = (a.metadata as Record<string, string> | null)?.to
+      if (toName) {
+        const cat = stageNameCat.get(toName)
+        if (cat === 'reuniao') getActs(a.lead_id).reuniao = true
+        if (cat === 'contato') getActs(a.lead_id).contato = true
+      }
+    }
   }
 
-  // Inicializa um bucket por pipeline + um Set pra evitar contar lead duplicado
+  // Inicializa um bucket por pipeline (sets pra evitar duplicidade)
   type Bucket = {
-    leadSet:   Set<string>
-    contatos:  Set<string>
-    reunioes:  Set<string>
-    won:       Set<string>
-    lost:      Set<string>
+    leadSet:  Set<string>
+    contatos: Set<string>
+    reunioes: Set<string>
+    won:      Set<string>
+    lost:     Set<string>
   }
   const buckets = new Map<string, Bucket>()
   for (const p of (pipelinesRes.data ?? []) as Array<{ id: string }>) {
     buckets.set(p.id, {
-      leadSet:  new Set(),
-      contatos: new Set(),
-      reunioes: new Set(),
-      won:      new Set(),
-      lost:     new Set(),
+      leadSet: new Set(), contatos: new Set(), reunioes: new Set(),
+      won: new Set(), lost: new Set(),
     })
   }
 
-  // Distribui cada card (= lead na pipeline) nos buckets
+  // Distribui cada card (= lead na pipeline)
   for (const c of (cardsRes.data ?? []) as Array<{ lead_id: string; stage_id: string }>) {
-    const pipelineId = stageToPipeline.get(c.stage_id)
-    if (!pipelineId) continue
-    const bucket = buckets.get(pipelineId)
+    const info = stageInfo.get(c.stage_id)
+    if (!info) continue
+    const bucket = buckets.get(info.pipeline_id)
     if (!bucket) continue
 
     bucket.leadSet.add(c.lead_id)
 
-    // Disparos
+    // 1. Disparos diretos do lead
     const acts = leadActs.get(c.lead_id)
     if (acts?.contato) bucket.contatos.add(c.lead_id)
     if (acts?.reuniao) bucket.reunioes.add(c.lead_id)
 
-    // Status do lead
+    // 2. Pipeline atual: se está numa stage de contato/reuniao agora
+    if (info.cat === 'contato') bucket.contatos.add(c.lead_id)
+    if (info.cat === 'reuniao') bucket.reunioes.add(c.lead_id)
+
+    // 3. Status do lead → conversão / declínio
     const status = leadStatus.get(c.lead_id)
     if (status === 'converted') bucket.won.add(c.lead_id)
     if (status === 'lost')      bucket.lost.add(c.lead_id)
@@ -320,11 +350,11 @@ export async function fetchPipelineBreakdown(tenantId: string): Promise<Pipeline
   return ((pipelinesRes.data ?? []) as Array<{ id: string; name: string; color: string; position: number }>)
     .map((p) => {
       const b = buckets.get(p.id)
-      const leads     = b?.leadSet.size  ?? 0
-      const contatos  = b?.contatos.size ?? 0
-      const reunioes  = b?.reunioes.size ?? 0
-      const won       = b?.won.size      ?? 0
-      const lost      = b?.lost.size     ?? 0
+      const leads    = b?.leadSet.size  ?? 0
+      const contatos = b?.contatos.size ?? 0
+      const reunioes = b?.reunioes.size ?? 0
+      const won      = b?.won.size      ?? 0
+      const lost     = b?.lost.size     ?? 0
       return {
         pipelineId:     p.id,
         pipelineName:   p.name,
