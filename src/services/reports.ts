@@ -116,67 +116,36 @@ export async function fetchSellerPerformance(
 // ── Distribuição do funil por etapa ──────────────────────────────────────────
 
 export async function fetchFunnelBreakdown(tenantId: string): Promise<FunnelStageData[]> {
-  // Usa RPC com soma de valores por etapa
-  const { data, error } = await supabase.rpc('get_funnel_with_values', { p_tenant_id: tenantId })
+  // Usa o funil POR DISPAROS (get_funnel_metrics) — mesma lógica do funil principal.
+  // Reflete o histórico real de cada lead, não só o estado atual da pipeline.
+  const { data, error } = await supabase.rpc('get_funnel_metrics', { p_tenant_id: tenantId })
   if (error) throw error
 
   const rows = ((data ?? []) as Array<{
-    stage_id: string; stage_name: string; color: string; stage_type: string;
-    stage_position: number; lead_count: number; total_value: number;
+    step_id: string; step_name: string; step_color: string;
+    step_position: number; count_in_step: number;
+    count_at_or_beyond: number; count_lost_here: number;
   }>)
 
-  // Agrega por NOME (case-insensitive, sem acento) pra não duplicar quando
-  // várias pipelines têm "Novo Lead", "Contato Feito", "Fechado" etc.
-  const normalize = (s: string) =>
-    s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim()
+  const total = rows.reduce((s, r) => s + Number(r.count_in_step), 0)
 
-  type Agg = {
-    stageId: string
-    stageName: string
-    color: string
-    stageType: string
-    position: number
-    count: number
-    totalValue: number
-  }
-  const byName = new Map<string, Agg>()
-  for (const r of rows) {
-    const key = normalize(r.stage_name)
-    const existing = byName.get(key)
-    if (existing) {
-      existing.count      += Number(r.lead_count)
-      existing.totalValue += Number(r.total_value)
-      // Mantém a menor posição pra ordenar coerente
-      if (r.stage_position < existing.position) existing.position = r.stage_position
-      // Prioriza stage_type 'won'/'lost' se aparecer
-      if ((r.stage_type === 'won' || r.stage_type === 'lost') && existing.stageType !== r.stage_type) {
-        existing.stageType = r.stage_type
-      }
-    } else {
-      byName.set(key, {
-        stageId:    r.stage_id,
-        stageName:  r.stage_name,
-        color:      r.color,
-        stageType:  r.stage_type,
-        position:   r.stage_position,
-        count:      Number(r.lead_count),
-        totalValue: Number(r.total_value),
-      })
+  return rows.map((r) => {
+    const name = r.step_name.toLowerCase()
+    // Classifica won/lost/in_progress pelo nome do passo
+    const stageType: string =
+      /fechad|ganho|won|convertido|contrato/i.test(name) ? 'won' :
+      /perdid|lost|recusad|declin/i.test(name)            ? 'lost' :
+      'in_progress'
+    return {
+      stageId:    r.step_id,
+      stageName:  r.step_name,
+      color:      r.step_color,
+      stageType,
+      count:      Number(r.count_in_step),
+      totalValue: 0,  // funil por disparos não tem valor — vem das atividades, não dos cards
+      pct:        total > 0 ? Math.round((Number(r.count_in_step) / total) * 100) : 0,
     }
-  }
-
-  const aggregated = Array.from(byName.values()).sort((a, b) => a.position - b.position)
-  const total = aggregated.reduce((s, r) => s + r.count, 0)
-
-  return aggregated.map((r) => ({
-    stageId:    r.stageId,
-    stageName:  r.stageName,
-    color:      r.color,
-    stageType:  r.stageType,
-    count:      r.count,
-    totalValue: r.totalValue,
-    pct:        total > 0 ? Math.round((r.count / total) * 100) : 0,
-  }))
+  })
 }
 
 // ── Performance por campanha de origem ───────────────────────────────────────
@@ -257,89 +226,116 @@ function isNegociacaoStep(name: string): boolean {
   return /negoci|propost|or[çc]ament|reuni|agenda|meeting/i.test(name)
 }
 
-// ── Breakdown por PIPELINE (cada linha = 1 pipeline) ────────────────────────
-
+// ── Breakdown por PIPELINE — alimentado pelos DISPAROS de cada lead ─────────
+// Cada linha = uma pipeline. Para cada lead na pipeline, conta seus DISPAROS:
+//   contatosFeitos = lead tem disparo call/whatsapp/email/note
+//   reunioes       = lead tem disparo meeting
+//   conversions    = lead.status = 'converted'
+//   declined       = lead.status = 'lost'
+// Isso reflete o histórico real do lead, não só o estado atual da etapa.
 export async function fetchPipelineBreakdown(tenantId: string): Promise<PipelineBreakdown[]> {
-  // Busca pipelines, stages e cards em paralelo
-  const [pipelinesRes, stagesRes, cardsRes] = await Promise.all([
+  const [pipelinesRes, stagesRes, cardsRes, leadsRes, activitiesRes] = await Promise.all([
     supabase.from('pipelines').select('id, name, color, position')
       .eq('tenant_id', tenantId).order('position'),
-    supabase.from('pipeline_stages').select('id, name, pipeline_id, stage_type')
+    supabase.from('pipeline_stages').select('id, pipeline_id')
       .eq('tenant_id', tenantId),
-    supabase.from('pipeline_cards').select('id, stage_id, lead_id')
+    supabase.from('pipeline_cards').select('lead_id, stage_id')
       .eq('tenant_id', tenantId),
+    supabase.from('leads').select('id, status')
+      .eq('tenant_id', tenantId),
+    supabase.from('lead_activities').select('lead_id, type')
+      .eq('tenant_id', tenantId)
+      .in('type', ['call', 'whatsapp', 'email', 'meeting', 'note']),
   ])
 
   if (pipelinesRes.error)  throw pipelinesRes.error
   if (stagesRes.error)     throw stagesRes.error
   if (cardsRes.error)      throw cardsRes.error
+  if (leadsRes.error)      throw leadsRes.error
+  if (activitiesRes.error) throw activitiesRes.error
 
-  const stages = stagesRes.data ?? []
-  const cards  = cardsRes.data ?? []
-
-  // Helpers de classificação pelo NOME (fallback quando stage_type não está setado)
-  const isWonByName  = (n: string) => /^(fechado|fechou|ganho|won|convertido|contrato)/i.test(n)
-  const isLostByName = (n: string) => /^(perdido|lost|recusado|declin|cancelado)/i.test(n)
-
-  // Mapa stage_id → info da stage (pipeline, tipo, classificação)
-  type StageInfo = {
-    pipeline_id:  string
-    isContato:    boolean
-    isReuniao:    boolean
-    isWon:        boolean
-    isLost:       boolean
+  // Mapa stage_id → pipeline_id
+  const stageToPipeline = new Map<string, string>()
+  for (const s of (stagesRes.data ?? []) as Array<{ id: string; pipeline_id: string | null }>) {
+    if (s.pipeline_id) stageToPipeline.set(s.id, s.pipeline_id)
   }
-  const stageMap = new Map<string, StageInfo>()
-  for (const s of stages as Array<{ id: string; name: string; pipeline_id: string | null; stage_type: string | null }>) {
-    if (!s.pipeline_id) continue
-    const won  = s.stage_type === 'won'  || isWonByName(s.name)
-    const lost = s.stage_type === 'lost' || isLostByName(s.name)
-    stageMap.set(s.id, {
-      pipeline_id: s.pipeline_id,
-      // won/lost prevalecem — uma stage "Fechado" não deve contar em "Reuniões"
-      isContato:   !won && !lost && isContatoStep(s.name),
-      isReuniao:   !won && !lost && isNegociacaoStep(s.name),
-      isWon:       won,
-      isLost:      lost,
+
+  // Mapa lead_id → status
+  const leadStatus = new Map<string, string>()
+  for (const l of (leadsRes.data ?? []) as Array<{ id: string; status: string }>) {
+    leadStatus.set(l.id, l.status)
+  }
+
+  // Mapa lead_id → { hasContato, hasReuniao }
+  // Contato Feito = qualquer disparo manual (call/whatsapp/email/note)
+  // Reunião       = disparo 'meeting'
+  const leadActs = new Map<string, { contato: boolean; reuniao: boolean }>()
+  for (const a of (activitiesRes.data ?? []) as Array<{ lead_id: string; type: string }>) {
+    const cur = leadActs.get(a.lead_id) ?? { contato: false, reuniao: false }
+    if (a.type === 'meeting')                              cur.reuniao = true
+    if (['call', 'whatsapp', 'email', 'note'].includes(a.type)) cur.contato = true
+    leadActs.set(a.lead_id, cur)
+  }
+
+  // Inicializa um bucket por pipeline + um Set pra evitar contar lead duplicado
+  type Bucket = {
+    leadSet:   Set<string>
+    contatos:  Set<string>
+    reunioes:  Set<string>
+    won:       Set<string>
+    lost:      Set<string>
+  }
+  const buckets = new Map<string, Bucket>()
+  for (const p of (pipelinesRes.data ?? []) as Array<{ id: string }>) {
+    buckets.set(p.id, {
+      leadSet:  new Set(),
+      contatos: new Set(),
+      reunioes: new Set(),
+      won:      new Set(),
+      lost:     new Set(),
     })
   }
 
-  // Inicializa um bucket por pipeline
-  type Bucket = { leads: number; contatos: number; reunioes: number; won: number; lost: number }
-  const buckets = new Map<string, Bucket>()
-  for (const p of (pipelinesRes.data ?? []) as Array<{ id: string }>) {
-    buckets.set(p.id, { leads: 0, contatos: 0, reunioes: 0, won: 0, lost: 0 })
-  }
-
-  // Conta cards por pipeline e classifica por categoria
-  for (const c of cards as Array<{ stage_id: string }>) {
-    const info = stageMap.get(c.stage_id)
-    if (!info) continue
-    const bucket = buckets.get(info.pipeline_id)
+  // Distribui cada card (= lead na pipeline) nos buckets
+  for (const c of (cardsRes.data ?? []) as Array<{ lead_id: string; stage_id: string }>) {
+    const pipelineId = stageToPipeline.get(c.stage_id)
+    if (!pipelineId) continue
+    const bucket = buckets.get(pipelineId)
     if (!bucket) continue
 
-    bucket.leads++
-    if (info.isContato) bucket.contatos++
-    if (info.isReuniao) bucket.reunioes++
-    if (info.isWon)     bucket.won++
-    if (info.isLost)    bucket.lost++
+    bucket.leadSet.add(c.lead_id)
+
+    // Disparos
+    const acts = leadActs.get(c.lead_id)
+    if (acts?.contato) bucket.contatos.add(c.lead_id)
+    if (acts?.reuniao) bucket.reunioes.add(c.lead_id)
+
+    // Status do lead
+    const status = leadStatus.get(c.lead_id)
+    if (status === 'converted') bucket.won.add(c.lead_id)
+    if (status === 'lost')      bucket.lost.add(c.lead_id)
   }
 
-  // Monta resultado preservando a ordem das pipelines
+  // Monta resultado preservando ordem das pipelines
   return ((pipelinesRes.data ?? []) as Array<{ id: string; name: string; color: string; position: number }>)
     .map((p) => {
-      const b = buckets.get(p.id) ?? { leads: 0, contatos: 0, reunioes: 0, won: 0, lost: 0 }
+      const b = buckets.get(p.id)
+      const leads     = b?.leadSet.size  ?? 0
+      const contatos  = b?.contatos.size ?? 0
+      const reunioes  = b?.reunioes.size ?? 0
+      const won       = b?.won.size      ?? 0
+      const lost      = b?.lost.size     ?? 0
       return {
         pipelineId:     p.id,
         pipelineName:   p.name,
         color:          p.color,
-        leads:          b.leads,
-        contatosFeitos: b.contatos,
-        reunioes:       b.reunioes,
-        conversions:    b.won,
-        declined:       b.lost,
-        meetingRate:    b.leads > 0 ? Math.round((b.reunioes / b.leads) * 100) : 0,
-        convRate:       b.leads > 0 ? Math.round((b.won      / b.leads) * 100) : 0,
+        leads,
+        contatosFeitos: contatos,
+        reunioes,
+        conversions:    won,
+        declined:       lost,
+        meetingRate:    leads > 0 ? Math.round((reunioes / leads) * 100) : 0,
+        convRate:       leads > 0 ? Math.round((won      / leads) * 100) : 0,
       }
     })
 }

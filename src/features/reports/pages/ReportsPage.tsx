@@ -368,9 +368,10 @@ export function ReportsPage() {
               </tbody>
             </table>
             <p className="text-[11px] mt-3" style={{ color: '#666' }}>
-              <strong>Contatos Feitos</strong> = cards em etapas tipo "Contato feito" ·{' '}
-              <strong>Reuniões</strong> = etapas tipo "Reunião/Em negociação" ·{' '}
-              <strong>Conversões/Declinaram</strong> = etapas marcadas como Ganho/Perdido
+              Calculado pelos <strong>disparos</strong> de cada lead na pipeline ·{' '}
+              <strong>Contatos Feitos</strong> = leads com call/whatsapp/email/nota ·{' '}
+              <strong>Reuniões</strong> = leads com disparo "Reunião" ·{' '}
+              <strong>Conversões/Declinaram</strong> = leads com status convertido/perdido
             </p>
           </div>
         )}
