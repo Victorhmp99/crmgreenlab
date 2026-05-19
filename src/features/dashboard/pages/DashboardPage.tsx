@@ -1,7 +1,8 @@
-import { Users, TrendingUp, DollarSign, XCircle, MessageCircle, Calendar, RefreshCw, Briefcase, Handshake, Target } from 'lucide-react'
+import { Users, TrendingUp, DollarSign, XCircle, MessageCircle, Calendar, RefreshCw, Briefcase, Handshake, Target, Eye, EyeOff } from 'lucide-react'
 import { useDashboardMetrics } from '../hooks/useDashboardMetrics'
 import { useMyGoals } from '@/features/goals/hooks/useGoals'
 import { useAuth } from '@/hooks/useAuth'
+import { usePrivacyMode } from '@/hooks/usePrivacyMode'
 import { Spinner } from '@/components/ui/Spinner'
 
 function greeting(): string {
@@ -47,6 +48,7 @@ export function DashboardPage() {
   const { user, tenant } = useAuth()
   const { data, isLoading, refetch, dataUpdatedAt } = useDashboardMetrics()
   const { data: myGoals = [] } = useMyGoals()
+  const { hidden, toggle, mask, maskCurrency } = usePrivacyMode()
 
   // Filtra metas ativas (período atual)
   const today = new Date().toISOString().slice(0, 10)
@@ -73,17 +75,37 @@ export function DashboardPage() {
             {tenant?.name ?? 'Green Hub'}
           </p>
         </div>
-        <button
-          onClick={() => refetch()}
-          disabled={isLoading}
-          className="flex items-center gap-1.5 text-xs transition-colors disabled:opacity-50"
-          style={{ color: '#555' }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = '#aaa')}
-          onMouseLeave={(e) => (e.currentTarget.style.color = '#555')}
-        >
-          <RefreshCw size={13} className={isLoading ? 'animate-spin' : ''} />
-          {lastUpdated ? `Atualizado às ${lastUpdated}` : 'Atualizar'}
-        </button>
+        <div className="flex items-center gap-3 shrink-0">
+          <button
+            onClick={toggle}
+            title={hidden ? 'Mostrar valores' : 'Ocultar valores'}
+            className="h-8 w-8 rounded-lg flex items-center justify-center transition-colors"
+            style={{
+              color: hidden ? 'var(--tenant-primary)' : '#555',
+              background: hidden ? 'rgba(0,230,118,0.08)' : 'transparent',
+              border: '1px solid ' + (hidden ? 'rgba(0,230,118,0.3)' : '#2a2a2a'),
+            }}
+            onMouseEnter={(e) => {
+              if (!hidden) (e.currentTarget as HTMLButtonElement).style.color = '#aaa'
+            }}
+            onMouseLeave={(e) => {
+              if (!hidden) (e.currentTarget as HTMLButtonElement).style.color = '#555'
+            }}
+          >
+            {hidden ? <EyeOff size={14} /> : <Eye size={14} />}
+          </button>
+          <button
+            onClick={() => refetch()}
+            disabled={isLoading}
+            className="flex items-center gap-1.5 text-xs transition-colors disabled:opacity-50"
+            style={{ color: '#555' }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = '#aaa')}
+            onMouseLeave={(e) => (e.currentTarget.style.color = '#555')}
+          >
+            <RefreshCw size={13} className={isLoading ? 'animate-spin' : ''} />
+            {lastUpdated ? `Atualizado às ${lastUpdated}` : 'Atualizar'}
+          </button>
+        </div>
       </div>
 
       {/* ── KPIs principais (3 grandes em destaque) ──────────────────────── */}
@@ -96,7 +118,7 @@ export function DashboardPage() {
           </div>
           <div>
             <p className="text-3xl font-bold tabular-nums" style={{ color: '#e8e8e8' }}>
-              {isLoading ? '—' : (data?.financial.active_count ?? 0) + (data?.financial.in_progress_count ?? 0)}
+              {isLoading ? '—' : mask((data?.financial.active_count ?? 0) + (data?.financial.in_progress_count ?? 0))}
             </p>
             <p className="text-sm" style={{ color: '#888' }}>Leads Ativos</p>
             <p className="text-[10px] mt-0.5" style={{ color: '#555' }}>
@@ -113,7 +135,7 @@ export function DashboardPage() {
           </div>
           <div>
             <p className="text-3xl font-bold tabular-nums" style={{ color: '#e8e8e8' }}>
-              {isLoading ? '—' : data?.financial.in_progress_count ?? 0}
+              {isLoading ? '—' : mask(data?.financial.in_progress_count ?? 0)}
             </p>
             <p className="text-sm" style={{ color: '#888' }}>Em Negociação</p>
             <p className="text-[10px] mt-0.5" style={{ color: '#555' }}>
@@ -130,7 +152,7 @@ export function DashboardPage() {
           </div>
           <div>
             <p className="text-3xl font-bold tabular-nums" style={{ color: '#e8e8e8' }}>
-              {isLoading ? '—' : data?.financial.won_count ?? 0}
+              {isLoading ? '—' : mask(data?.financial.won_count ?? 0)}
             </p>
             <p className="text-sm" style={{ color: '#888' }}>Fechamentos</p>
             <p className="text-[10px] mt-0.5" style={{ color: '#555' }}>
@@ -149,28 +171,28 @@ export function DashboardPage() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <KpiCard
             label="Previsão (Pipeline)"
-            value={isLoading ? '—' : formatCurrency(Number(data?.financial.forecast ?? 0))}
-            sublabel={`${data?.financial.in_progress_count ?? 0} oportunidades`}
+            value={isLoading ? '—' : maskCurrency(formatCurrency(Number(data?.financial.forecast ?? 0)))}
+            sublabel={`${hidden ? '●' : (data?.financial.in_progress_count ?? 0)} oportunidades`}
             icon={Briefcase}
             color="#40a0ff"
           />
           <KpiCard
             label="Receita"
-            value={isLoading ? '—' : formatCurrency(Number(data?.financial.revenue ?? 0))}
-            sublabel={`${data?.financial.won_count ?? 0} fechamentos`}
+            value={isLoading ? '—' : maskCurrency(formatCurrency(Number(data?.financial.revenue ?? 0)))}
+            sublabel={`${hidden ? '●' : (data?.financial.won_count ?? 0)} fechamentos`}
             icon={DollarSign}
             color="#00e676"
           />
           <KpiCard
             label="Perdidos"
-            value={isLoading ? '—' : (data?.financial.lost_count ?? 0)}
+            value={isLoading ? '—' : mask(data?.financial.lost_count ?? 0)}
             sublabel="leads perdidos"
             icon={XCircle}
             color="#ff4444"
           />
           <KpiCard
             label="Ticket Médio"
-            value={isLoading ? '—' : formatCurrency(Number(data?.financial.avg_ticket ?? 0))}
+            value={isLoading ? '—' : maskCurrency(formatCurrency(Number(data?.financial.avg_ticket ?? 0)))}
             sublabel="Por fechamento"
             icon={MessageCircle}
             color="#a78bfa"
@@ -228,7 +250,7 @@ export function DashboardPage() {
                        goal.period === 'monthly' ? 'Mensal' : 'Trimestral'}
                     </span>
                     <span className="text-xs font-bold tabular-nums" style={{ color: 'var(--tenant-primary)' }}>
-                      {goal.progress.overallPercent}%
+                      {hidden ? '●●%' : `${goal.progress.overallPercent}%`}
                     </span>
                   </div>
                   {/* Barra geral */}
@@ -242,13 +264,13 @@ export function DashboardPage() {
                   {/* Detalhes inline */}
                   <div className="flex items-center gap-3 text-[10px]" style={{ color: '#666' }}>
                     {goal.leads_target != null && (
-                      <span>Leads: <strong style={{ color: '#aaa' }}>{goal.progress.leadsActual}/{goal.leads_target}</strong></span>
+                      <span>Leads: <strong style={{ color: '#aaa' }}>{hidden ? '●/●' : `${goal.progress.leadsActual}/${goal.leads_target}`}</strong></span>
                     )}
                     {goal.calls_target != null && (
-                      <span>Disparos: <strong style={{ color: '#aaa' }}>{goal.progress.callsActual}/{goal.calls_target}</strong></span>
+                      <span>Disparos: <strong style={{ color: '#aaa' }}>{hidden ? '●/●' : `${goal.progress.callsActual}/${goal.calls_target}`}</strong></span>
                     )}
                     {goal.deals_target != null && (
-                      <span>Fechamentos: <strong style={{ color: '#aaa' }}>{goal.progress.dealsActual}/{goal.deals_target}</strong></span>
+                      <span>Fechamentos: <strong style={{ color: '#aaa' }}>{hidden ? '●/●' : `${goal.progress.dealsActual}/${goal.deals_target}`}</strong></span>
                     )}
                   </div>
                 </div>
@@ -283,14 +305,14 @@ export function DashboardPage() {
             <div className="rounded-lg p-3 text-center"
               style={{ background: 'rgba(0,230,118,0.05)', border: '1px solid rgba(0,230,118,0.15)' }}>
               <p className="text-xl font-bold tabular-nums" style={{ color: '#00e676' }}>
-                {data?.financial.won_count ?? 0}
+                {mask(data?.financial.won_count ?? 0)}
               </p>
               <p className="text-[10px] uppercase tracking-wider mt-0.5" style={{ color: '#666' }}>Ganhos</p>
             </div>
             <div className="rounded-lg p-3 text-center"
               style={{ background: 'rgba(255,68,68,0.05)', border: '1px solid rgba(255,68,68,0.15)' }}>
               <p className="text-xl font-bold tabular-nums" style={{ color: '#ff4444' }}>
-                {data?.financial.lost_count ?? 0}
+                {mask(data?.financial.lost_count ?? 0)}
               </p>
               <p className="text-[10px] uppercase tracking-wider mt-0.5" style={{ color: '#666' }}>Perdidos</p>
             </div>
