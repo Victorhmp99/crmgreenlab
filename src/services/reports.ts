@@ -337,48 +337,69 @@ export async function fetchPipelineBreakdown(tenantId: string): Promise<Pipeline
     })
   }
 
-  // 1. Distribui cards ATIVOS (lead atualmente na pipeline)
-  // Lead-na-pipeline é a base — sem card, lead não aparece em nenhum bucket
-  const leadInPipeline = new Map<string, string>() // lead_id → pipeline_id
+  // ── Lógica CUMULATIVA (igual ao funil) ──
+  // Pra cada lead na pipeline, calcula a CATEGORIA MAIS AVANÇADA que ele
+  // alcançou (current stage + histórico de stage_change na mesma pipeline).
+  // Depois, soma o lead em TODAS as categorias até a máxima.
+  // Ex: lead em "Negociação" → conta em Contato + Reunião + Negociação.
+  // Isso faz com que o SOMATÓRIO bata com a contagem do funil.
+  const catRank: Record<Cat, number> = {
+    other: 0, contato: 1, reuniao: 2, negociacao: 3, fechado: 4, lost: -1,
+  }
+
+  // Passo 1: identifica pipeline de cada lead + categoria atual
+  type LeadState = { pipelineId: string; maxCat: Cat; isLost: boolean }
+  const leadState = new Map<string, LeadState>()
   for (const c of (cardsRes.data ?? []) as Array<{ lead_id: string; stage_id: string }>) {
     const info = stageInfo.get(c.stage_id)
     if (!info) continue
-    const bucket = buckets.get(info.pipeline_id)
-    if (!bucket) continue
-
-    bucket.leadSet.add(c.lead_id)
-    leadInPipeline.set(c.lead_id, info.pipeline_id)
-
-    // Categoria pela stage ATUAL
-    if (info.cat === 'contato')    bucket.contatos.add(c.lead_id)
-    if (info.cat === 'reuniao')    bucket.reunioes.add(c.lead_id)
-    if (info.cat === 'negociacao') bucket.negociacao.add(c.lead_id)
-    if (info.cat === 'fechado')    bucket.fechado.add(c.lead_id)
-    if (info.cat === 'lost')       bucket.lost.add(c.lead_id)
-
-    // Status do lead também conta como fechado/lost
-    const status = leadStatus.get(c.lead_id)
-    if (status === 'converted') bucket.fechado.add(c.lead_id)
-    if (status === 'lost')      bucket.lost.add(c.lead_id)
+    const existing = leadState.get(c.lead_id)
+    if (!existing) {
+      leadState.set(c.lead_id, {
+        pipelineId: info.pipeline_id,
+        maxCat: info.cat === 'lost' ? 'contato' : info.cat,
+        isLost: info.cat === 'lost' || leadStatus.get(c.lead_id) === 'lost',
+      })
+    } else {
+      // Mesmo lead em outro card — usa categoria mais avançada
+      if (catRank[info.cat] > catRank[existing.maxCat]) {
+        existing.maxCat = info.cat
+      }
+    }
   }
 
-  // 2. Histórico: stage_change dentro da pipeline conta passes anteriores.
-  // Apenas pra leads que AINDA estão na pipeline. Não conta histórico
-  // de leads que saíram (foram removidos da pipeline).
+  // Passo 2: histórico via stage_change dentro da MESMA pipeline atual do lead
   for (const a of (activitiesRes.data ?? []) as Array<{ lead_id: string; metadata: Record<string, unknown> | null }>) {
-    const pipelineId = leadInPipeline.get(a.lead_id)
-    if (!pipelineId) continue
-    const bucket = buckets.get(pipelineId)
-    if (!bucket) continue
+    const ls = leadState.get(a.lead_id)
+    if (!ls) continue
     const toName = (a.metadata as Record<string, string> | null)?.to
     if (!toName) continue
-    const innerStages = stagesByPipeline.get(pipelineId)
+    const innerStages = stagesByPipeline.get(ls.pipelineId)
     if (!innerStages) continue
     const cat = innerStages.get(toName)
-    if (cat === 'contato')    bucket.contatos.add(a.lead_id)
-    if (cat === 'reuniao')    bucket.reunioes.add(a.lead_id)
-    if (cat === 'negociacao') bucket.negociacao.add(a.lead_id)
-    if (cat === 'fechado')    bucket.fechado.add(a.lead_id)
+    if (cat && cat !== 'lost' && catRank[cat] > catRank[ls.maxCat]) {
+      ls.maxCat = cat
+    }
+  }
+
+  // Passo 3: status do lead — converted vira fechado
+  for (const [leadId, ls] of leadState) {
+    const status = leadStatus.get(leadId)
+    if (status === 'converted') ls.maxCat = 'fechado'
+    if (status === 'lost')      ls.isLost = true
+  }
+
+  // Passo 4: distribui cumulativamente nos buckets
+  for (const [leadId, ls] of leadState) {
+    const bucket = buckets.get(ls.pipelineId)
+    if (!bucket) continue
+    bucket.leadSet.add(leadId)
+    const r = catRank[ls.maxCat]
+    if (r >= 1) bucket.contatos.add(leadId)
+    if (r >= 2) bucket.reunioes.add(leadId)
+    if (r >= 3) bucket.negociacao.add(leadId)
+    if (r >= 4) bucket.fechado.add(leadId)
+    if (ls.isLost) bucket.lost.add(leadId)
   }
 
   // Resultado
