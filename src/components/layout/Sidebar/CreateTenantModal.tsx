@@ -68,22 +68,13 @@ export function CreateTenantModal({ onClose }: CreateTenantModalProps) {
 
       if (error) {
         // PostgrestError não é um Error nativo — extraímos a message diretamente
-        const msg = error.message ?? 'Erro ao criar empresa.'
-        if (msg.includes('slug') || msg.includes('unique') || msg.includes('duplicate')) {
-          setServerError('Este slug já está em uso. Escolha outro identificador.')
-        } else {
-          setServerError(msg)
-        }
+        setServerError(error.message ?? 'Erro ao criar empresa.')
         return
       }
 
-      // A RPC retorna { error: string } para erros de negócio
+      // A RPC retorna { error: string } para erros de negócio (slug, permissão, etc.)
       if (data?.error) {
-        if (data.error === 'slug_taken') {
-          setServerError('Este slug já está em uso. Escolha outro identificador.')
-        } else {
-          setServerError(data.error as string)
-        }
+        setServerError(data.error as string)
         return
       }
 
