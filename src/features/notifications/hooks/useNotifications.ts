@@ -10,10 +10,18 @@ export function useMyNotifications() {
   const userId = useAuthStore((s) => s.user?.id)
   return useQuery({
     queryKey:  ['notifications', userId],
-    queryFn:   fetchMyNotifications,
+    queryFn:   async () => {
+      try { return await fetchMyNotifications() }
+      catch (e) {
+        // Se a tabela ainda não existir, retorna array vazio em vez de propagar erro
+        console.warn('[notifications] fetch falhou (rode supabase/notifications.sql):', e)
+        return []
+      }
+    },
     enabled:   !!userId,
     staleTime: 1000 * 30,
-    refetchInterval: 1000 * 60, // refresca a cada 1 min em background
+    refetchInterval: 1000 * 60,
+    retry: false,
   })
 }
 

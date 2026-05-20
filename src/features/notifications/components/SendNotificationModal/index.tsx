@@ -43,14 +43,14 @@ export function SendNotificationModal({ open, onClose }: SendNotificationModalPr
       return
     }
     setLoadingUsers(true)
-    supabase.rpc('get_platform_users')
+    Promise.resolve(supabase.rpc('get_platform_users'))
       .then(({ data }) => {
         const list = ((data ?? []) as Array<UserLite & { account_status: string }>)
           .filter((u) => u.account_status !== 'blocked')
         setUsers(list)
       })
       .catch(() => setUsers([]))
-      .then(() => setLoadingUsers(false))
+      .finally(() => setLoadingUsers(false))
   }, [open])
 
   function toggle(id: string) {
