@@ -1,4 +1,6 @@
 import { supabase } from '@/lib/supabase'
+import { fetchFunnelSteps } from './funnelSteps'
+import type { FunnelStep } from '@/types'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -121,65 +123,76 @@ export async function fetchSellerPerformance(
 // ── Distribuição do funil por etapa ──────────────────────────────────────────
 
 export async function fetchFunnelBreakdown(tenantId: string): Promise<FunnelStageData[]> {
-  // Usa RPC com soma de valores por etapa (estado atual da pipeline)
-  const { data, error } = await supabase.rpc('get_funnel_with_values', { p_tenant_id: tenantId })
-  if (error) throw error
+  // Usa MESMA LÓGICA do funil principal (fetchFunnelTotals).
+  // Cada barra = um passo do funil, com contagem agregada da categoria.
+  const [steps, totals] = await Promise.all([
+    fetchFunnelSteps(tenantId),
+    fetchFunnelTotals(tenantId),
+  ])
 
-  const rows = ((data ?? []) as Array<{
-    stage_id: string; stage_name: string; color: string; stage_type: string;
-    stage_position: number; lead_count: number; total_value: number;
-  }>)
+  // Calcula valor R$ por categoria (soma dos leads.value cuja stage atual pertence à categoria)
+  // Mantém o valor por etapa pra mostrar no tooltip
+  const { data: cardsValueData } = await supabase
+    .from('pipeline_cards')
+    .select('lead_id, stage_id, pipeline_stages(name, stage_type), leads(value)')
+    .eq('tenant_id', tenantId)
 
-  // Agrega por NOME (case-insensitive, sem acento) pra não duplicar quando
-  // várias pipelines têm "Novo Lead", "Contato Feito", "Fechado" etc.
-  const normalize = (s: string) =>
-    s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim()
-
-  type Agg = {
-    stageId: string
-    stageName: string
-    color: string
-    stageType: string
-    position: number
-    count: number
-    totalValue: number
+  type CardRow = {
+    lead_id: string
+    stage_id: string
+    pipeline_stages: { name: string; stage_type: string | null } | { name: string; stage_type: string | null }[] | null
+    leads: { value: number | null } | { value: number | null }[] | null
   }
-  const byName = new Map<string, Agg>()
-  for (const r of rows) {
-    const key = normalize(r.stage_name)
-    const existing = byName.get(key)
-    if (existing) {
-      existing.count      += Number(r.lead_count)
-      existing.totalValue += Number(r.total_value)
-      if (r.stage_position < existing.position) existing.position = r.stage_position
-      if ((r.stage_type === 'won' || r.stage_type === 'lost') && existing.stageType !== r.stage_type) {
-        existing.stageType = r.stage_type
-      }
-    } else {
-      byName.set(key, {
-        stageId:    r.stage_id,
-        stageName:  r.stage_name,
-        color:      r.color,
-        stageType:  r.stage_type,
-        position:   r.stage_position,
-        count:      Number(r.lead_count),
-        totalValue: Number(r.total_value),
-      })
+
+  const valueByCat: Record<string, number> = { contato: 0, reuniao: 0, negociacao: 0, fechado: 0, other: 0 }
+  // Pra dedupe de valor por lead+categoria
+  const valueSeen = new Map<string, Set<string>>()
+  for (const c of (cardsValueData ?? []) as CardRow[]) {
+    const stage = Array.isArray(c.pipeline_stages) ? c.pipeline_stages[0] : c.pipeline_stages
+    const lead  = Array.isArray(c.leads) ? c.leads[0] : c.leads
+    if (!stage || !lead) continue
+    const cat = classifyStageName(stage.name, stage.stage_type)
+    const v = Number(lead.value ?? 0)
+    if (v <= 0) continue
+    let seen = valueSeen.get(cat); if (!seen) { seen = new Set(); valueSeen.set(cat, seen) }
+    if (!seen.has(c.lead_id)) {
+      seen.add(c.lead_id)
+      valueByCat[cat] = (valueByCat[cat] ?? 0) + v
     }
   }
 
-  const aggregated = Array.from(byName.values()).sort((a, b) => a.position - b.position)
-  const total = aggregated.reduce((s, r) => s + r.count, 0)
+  const catOf = (name: string): 'contato' | 'reuniao' | 'negociacao' | 'fechado' | 'other' => {
+    const n = name.toLowerCase()
+    if (/fechad|ganho|won|convertido|contrato/.test(n)) return 'fechado'
+    if (/negoci|propost|or[çc]ament/.test(n))            return 'negociacao'
+    if (/reuni|agenda|meeting/.test(n))                  return 'reuniao'
+    if (/contato|primeiro|inicial|abord/.test(n))        return 'contato'
+    return 'other'
+  }
 
-  return aggregated.map((r) => ({
-    stageId:    r.stageId,
-    stageName:  r.stageName,
-    color:      r.color,
-    stageType:  r.stageType,
-    count:      r.count,
-    totalValue: r.totalValue,
-    pct:        total > 0 ? Math.round((r.count / total) * 100) : 0,
-  }))
+  const total = totals.totalLeads
+  return steps.map((s: FunnelStep) => {
+    const cat = catOf(s.name)
+    const count =
+      cat === 'contato'    ? totals.contato :
+      cat === 'reuniao'    ? totals.reuniao :
+      cat === 'negociacao' ? totals.negociacao :
+      cat === 'fechado'    ? totals.fechado :
+      total  // primeiro passo (Leads Captados) = todos
+    const stageType =
+      cat === 'fechado' ? 'won' :
+      cat === 'other'   ? 'in_progress' :
+      'in_progress'
+    return {
+      stageId:    s.id,
+      stageName:  s.name,
+      color:      s.color,
+      stageType,
+      count,
+      totalValue: valueByCat[cat] ?? 0,
+      pct:        total > 0 ? Math.round((count / total) * 100) : 0,
+    }
+  })
 }
 
 // ── Performance por campanha de origem ───────────────────────────────────────
@@ -323,6 +336,8 @@ async function fetchLeadCategorization(tenantId: string): Promise<{
   }
 
   // Inicializa byLead com os leads que tem card (filtro de pipeline)
+  // IMPORTANTE: 'fechado' e 'lost' NÃO vêm de stages — só do status do lead.
+  // Stages "Fechado" só contribuem se o lead também estiver status='converted'.
   const byLead = new Map<string, LeadCategoryData>()
   for (const c of (cardsRes.data ?? []) as Array<{ lead_id: string; stage_id: string }>) {
     const info = stageInfo.get(c.stage_id)
@@ -333,8 +348,10 @@ async function fetchLeadCategorization(tenantId: string): Promise<{
       byLead.set(c.lead_id, entry)
     }
     entry.pipelines.add(info.pipeline_id)
-    // Stage atual contribui pra categoria
-    if (info.cat !== 'other') entry.cats.add(info.cat)
+    // Stage atual contribui pra contato/reunião/negociação (não pra fechado/lost)
+    if (info.cat === 'contato' || info.cat === 'reuniao' || info.cat === 'negociacao') {
+      entry.cats.add(info.cat)
+    }
   }
 
   // Disparos diretos contribuem (call/whatsapp/email/note → contato; meeting → reunião)
@@ -348,16 +365,18 @@ async function fetchLeadCategorization(tenantId: string): Promise<{
     } else if (['call', 'whatsapp', 'email', 'note'].includes(a.type)) {
       entry.cats.add('contato')
     } else if (a.type === 'stage_change') {
-      // Histórico: lead passou por stage de uma categoria
+      // Histórico: lead passou por stage de contato/reunião/negociação
       const toName = (a.metadata as Record<string, string> | null)?.to
       if (!toName) continue
       const cat = stageNameCatGlobal.get(toName)
-      if (cat && cat !== 'other' && cat !== 'lost') entry.cats.add(cat)
+      if (cat === 'contato' || cat === 'reuniao' || cat === 'negociacao') {
+        entry.cats.add(cat)
+      }
     }
   }
 
-  // Status: converted → fechado (não duplica — apenas marca a categoria fechado)
-  // Se lead.status='converted', ele entra em 'fechado' independente de disparos.
+  // FECHADO e LOST vem APENAS do status do lead — nunca de stage ou histórico.
+  // Garantia: 3 leads convertidos = 3 em "fechado" (não duplica via stage).
   for (const [leadId, entry] of byLead) {
     const status = leadStatus.get(leadId)
     if (status === 'converted') entry.cats.add('fechado')
