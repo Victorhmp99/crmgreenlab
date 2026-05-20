@@ -1,5 +1,4 @@
-import { AlertTriangle } from 'lucide-react'
-import { useFunnelMetrics, useFunnelVersion } from '../hooks/useFunnelSteps'
+import { useFunnelMetrics } from '../hooks/useFunnelSteps'
 import { Spinner } from '@/components/ui/Spinner'
 
 interface HorizontalFunnelProps {
@@ -9,8 +8,6 @@ interface HorizontalFunnelProps {
 
 export function HorizontalFunnel({ height = 220 }: HorizontalFunnelProps) {
   const { data: metrics = [], isLoading, error } = useFunnelMetrics()
-  const { data: version, isLoading: versionLoading } = useFunnelVersion()
-  const migrationApplied = !versionLoading && version === 'pipeline-only-v11'
 
   if (isLoading) {
     return <div className="flex justify-center py-12"><Spinner size="lg" /></div>
@@ -55,22 +52,6 @@ export function HorizontalFunnel({ height = 220 }: HorizontalFunnelProps) {
 
   return (
     <div className="flex flex-col gap-3">
-      {!versionLoading && !migrationApplied && (
-        <div className="rounded-xl p-3 flex items-start gap-2"
-          style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.3)' }}>
-          <AlertTriangle size={16} className="shrink-0 mt-0.5" style={{ color: '#fbbf24' }} />
-          <div className="flex flex-col gap-1">
-            <p className="text-xs font-semibold" style={{ color: '#fbbf24' }}>
-              Migration pendente — funil ainda no modo antigo (pipeline)
-            </p>
-            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-              Rode <code className="px-1 rounded" style={{ background: 'rgba(0,0,0,0.3)' }}>supabase/funnel_activity_based.sql</code> no Supabase SQL Editor.
-              Sem isso, os passos só contam leads convertidos pela pipeline antiga.
-            </p>
-          </div>
-        </div>
-      )}
-
       {/* SVG do funil — trapezoides horizontais */}
       <div className="relative w-full" style={{ height }}>
         <svg

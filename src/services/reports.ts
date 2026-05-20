@@ -260,13 +260,34 @@ function isNegociacaoStep(name: string): boolean {
   return /negoci|propost|or[çc]ament|reuni|agenda|meeting/i.test(name)
 }
 
-// ── Breakdown por PIPELINE — classifica cards pelo NOME DA STAGE da pipeline ─
-// Cada linha = uma pipeline. Para cada CARD ATIVO na pipeline, identifica em
-// qual categoria a stage dele se encaixa pelo nome:
-//   contato | reuniao | negociacao | fechado
-// Histórico via stage_change DENTRO da mesma pipeline também é considerado.
-// Não puxa nada de fora da pipeline — se a pipeline está vazia, retorna zeros.
-export async function fetchPipelineBreakdown(tenantId: string): Promise<PipelineBreakdown[]> {
+// Tipos compartilhados entre fetchFunnelBreakdown e fetchPipelineBreakdown
+type FunnelCat = 'contato' | 'reuniao' | 'negociacao' | 'fechado' | 'lost' | 'other'
+
+function classifyStageName(name: string, stageType: string | null): FunnelCat {
+  if (stageType === 'won')  return 'fechado'
+  if (stageType === 'lost') return 'lost'
+  const n = name.toLowerCase()
+  if (/fechad|ganho|won|convertido|contrato/.test(n))  return 'fechado'
+  if (/perdid|lost|recusad|declin|cancelado/.test(n))  return 'lost'
+  if (/negoci|propost|or[çc]ament/.test(n))             return 'negociacao'
+  if (/reuni|agenda|meeting/.test(n))                   return 'reuniao'
+  if (/contato|primeiro|inicial|abord/.test(n))         return 'contato'
+  return 'other'
+}
+
+// Categorias do lead com base em DISPAROS + HISTÓRICO + STATUS + STAGE ATUAL.
+// Cada categoria é INDEPENDENTE (lead pode ter contato + reunião sem ser cumulativo).
+// Retorna por lead: { pipelines em que tem card, cats: Set<FunnelCat> }.
+interface LeadCategoryData {
+  leadId:    string
+  pipelines: Set<string>   // pipeline_ids onde o lead tem card
+  cats:      Set<FunnelCat>
+}
+
+async function fetchLeadCategorization(tenantId: string): Promise<{
+  byLead:     Map<string, LeadCategoryData>
+  pipelines:  Array<{ id: string; name: string; color: string; position: number }>
+}> {
   const [pipelinesRes, stagesRes, cardsRes, leadsRes, activitiesRes] = await Promise.all([
     supabase.from('pipelines').select('id, name, color, position')
       .eq('tenant_id', tenantId).order('position'),
@@ -277,48 +298,84 @@ export async function fetchPipelineBreakdown(tenantId: string): Promise<Pipeline
     supabase.from('leads').select('id, status')
       .eq('tenant_id', tenantId),
     supabase.from('lead_activities').select('lead_id, type, metadata')
-      .eq('tenant_id', tenantId).eq('type', 'stage_change'),
+      .eq('tenant_id', tenantId),
   ])
-
-  if (pipelinesRes.error)   throw pipelinesRes.error
-  if (stagesRes.error)      throw stagesRes.error
-  if (cardsRes.error)       throw cardsRes.error
-  if (leadsRes.error)       throw leadsRes.error
-  if (activitiesRes.error)  throw activitiesRes.error
-
-  // Categoriza uma stage pelo NOME (e stage_type pra won/lost)
-  type Cat = 'contato' | 'reuniao' | 'negociacao' | 'fechado' | 'lost' | 'other'
-  const classify = (name: string, stageType: string | null): Cat => {
-    if (stageType === 'won')  return 'fechado'
-    if (stageType === 'lost') return 'lost'
-    const n = name.toLowerCase()
-    if (/fechad|ganho|won|convertido|contrato/.test(n))  return 'fechado'
-    if (/perdid|lost|recusad|declin|cancelado/.test(n))  return 'lost'
-    if (/negoci|propost|or[çc]ament/.test(n))             return 'negociacao'
-    if (/reuni|agenda|meeting/.test(n))                   return 'reuniao'
-    if (/contato|primeiro|inicial|abord/.test(n))         return 'contato'
-    return 'other'
+  if (pipelinesRes.error || stagesRes.error || cardsRes.error || leadsRes.error || activitiesRes.error) {
+    throw pipelinesRes.error ?? stagesRes.error ?? cardsRes.error ?? leadsRes.error ?? activitiesRes.error
   }
 
-  // stage_id → { pipeline_id, cat } + nome→cat (pra histórico)
-  const stageInfo = new Map<string, { pipeline_id: string; cat: Cat; name: string }>()
-  // Por pipeline, mapa stage_name → cat (pra olhar stage_change.metadata.to dentro da mesma pipeline)
-  const stagesByPipeline = new Map<string, Map<string, Cat>>()
+  // Mapa stage_id → { pipeline_id, cat, name } + nome→cat por pipeline
+  const stageInfo = new Map<string, { pipeline_id: string; cat: FunnelCat; name: string }>()
+  const stageNameCatGlobal = new Map<string, FunnelCat>()
   for (const s of (stagesRes.data ?? []) as Array<{
     id: string; name: string; pipeline_id: string | null; stage_type: string | null
   }>) {
     if (!s.pipeline_id) continue
-    const cat = classify(s.name, s.stage_type)
+    const cat = classifyStageName(s.name, s.stage_type)
     stageInfo.set(s.id, { pipeline_id: s.pipeline_id, cat, name: s.name })
-    let inner = stagesByPipeline.get(s.pipeline_id)
-    if (!inner) { inner = new Map(); stagesByPipeline.set(s.pipeline_id, inner) }
-    inner.set(s.name, cat)
+    stageNameCatGlobal.set(s.name, cat)
   }
 
+  // status do lead
   const leadStatus = new Map<string, string>()
   for (const l of (leadsRes.data ?? []) as Array<{ id: string; status: string }>) {
     leadStatus.set(l.id, l.status)
   }
+
+  // Inicializa byLead com os leads que tem card (filtro de pipeline)
+  const byLead = new Map<string, LeadCategoryData>()
+  for (const c of (cardsRes.data ?? []) as Array<{ lead_id: string; stage_id: string }>) {
+    const info = stageInfo.get(c.stage_id)
+    if (!info) continue
+    let entry = byLead.get(c.lead_id)
+    if (!entry) {
+      entry = { leadId: c.lead_id, pipelines: new Set(), cats: new Set() }
+      byLead.set(c.lead_id, entry)
+    }
+    entry.pipelines.add(info.pipeline_id)
+    // Stage atual contribui pra categoria
+    if (info.cat !== 'other') entry.cats.add(info.cat)
+  }
+
+  // Disparos diretos contribuem (call/whatsapp/email/note → contato; meeting → reunião)
+  for (const a of (activitiesRes.data ?? []) as Array<{
+    lead_id: string; type: string; metadata: Record<string, unknown> | null
+  }>) {
+    const entry = byLead.get(a.lead_id)
+    if (!entry) continue   // ignora leads sem pipeline
+    if (a.type === 'meeting') {
+      entry.cats.add('reuniao')
+    } else if (['call', 'whatsapp', 'email', 'note'].includes(a.type)) {
+      entry.cats.add('contato')
+    } else if (a.type === 'stage_change') {
+      // Histórico: lead passou por stage de uma categoria
+      const toName = (a.metadata as Record<string, string> | null)?.to
+      if (!toName) continue
+      const cat = stageNameCatGlobal.get(toName)
+      if (cat && cat !== 'other' && cat !== 'lost') entry.cats.add(cat)
+    }
+  }
+
+  // Status: converted → fechado (não duplica — apenas marca a categoria fechado)
+  // Se lead.status='converted', ele entra em 'fechado' independente de disparos.
+  for (const [leadId, entry] of byLead) {
+    const status = leadStatus.get(leadId)
+    if (status === 'converted') entry.cats.add('fechado')
+    if (status === 'lost')      entry.cats.add('lost')
+  }
+
+  return {
+    byLead,
+    pipelines: (pipelinesRes.data ?? []) as Array<{ id: string; name: string; color: string; position: number }>,
+  }
+}
+
+// ── Breakdown por PIPELINE — categorias por disparos + stage + status ──────
+// Cada coluna é uma categoria INDEPENDENTE (não cumulativa).
+// Lead conta uma vez por pipeline em que tem card. Mesmo lead em 2 pipelines
+// conta nas duas (por isso somar todas != total do funil).
+export async function fetchPipelineBreakdown(tenantId: string): Promise<PipelineBreakdown[]> {
+  const { byLead, pipelines } = await fetchLeadCategorization(tenantId)
 
   // Inicializa buckets por pipeline
   type Bucket = {
@@ -330,106 +387,79 @@ export async function fetchPipelineBreakdown(tenantId: string): Promise<Pipeline
     lost:       Set<string>
   }
   const buckets = new Map<string, Bucket>()
-  for (const p of (pipelinesRes.data ?? []) as Array<{ id: string }>) {
+  for (const p of pipelines) {
     buckets.set(p.id, {
       leadSet: new Set(), contatos: new Set(), reunioes: new Set(),
       negociacao: new Set(), fechado: new Set(), lost: new Set(),
     })
   }
 
-  // ── Lógica CUMULATIVA (igual ao funil) ──
-  // Pra cada lead na pipeline, calcula a CATEGORIA MAIS AVANÇADA que ele
-  // alcançou (current stage + histórico de stage_change na mesma pipeline).
-  // Depois, soma o lead em TODAS as categorias até a máxima.
-  // Ex: lead em "Negociação" → conta em Contato + Reunião + Negociação.
-  // Isso faz com que o SOMATÓRIO bata com a contagem do funil.
-  const catRank: Record<Cat, number> = {
-    other: 0, contato: 1, reuniao: 2, negociacao: 3, fechado: 4, lost: -1,
-  }
-
-  // Passo 1: identifica pipeline de cada lead + categoria atual
-  type LeadState = { pipelineId: string; maxCat: Cat; isLost: boolean }
-  const leadState = new Map<string, LeadState>()
-  for (const c of (cardsRes.data ?? []) as Array<{ lead_id: string; stage_id: string }>) {
-    const info = stageInfo.get(c.stage_id)
-    if (!info) continue
-    const existing = leadState.get(c.lead_id)
-    if (!existing) {
-      leadState.set(c.lead_id, {
-        pipelineId: info.pipeline_id,
-        maxCat: info.cat === 'lost' ? 'contato' : info.cat,
-        isLost: info.cat === 'lost' || leadStatus.get(c.lead_id) === 'lost',
-      })
-    } else {
-      // Mesmo lead em outro card — usa categoria mais avançada
-      if (catRank[info.cat] > catRank[existing.maxCat]) {
-        existing.maxCat = info.cat
-      }
+  // Distribui cada lead em CADA pipeline em que ele tem card.
+  // Categorias independentes (não cumulativo).
+  for (const [leadId, data] of byLead) {
+    for (const pipelineId of data.pipelines) {
+      const bucket = buckets.get(pipelineId)
+      if (!bucket) continue
+      bucket.leadSet.add(leadId)
+      if (data.cats.has('contato'))    bucket.contatos.add(leadId)
+      if (data.cats.has('reuniao'))    bucket.reunioes.add(leadId)
+      if (data.cats.has('negociacao')) bucket.negociacao.add(leadId)
+      if (data.cats.has('fechado'))    bucket.fechado.add(leadId)
+      if (data.cats.has('lost'))       bucket.lost.add(leadId)
     }
   }
 
-  // Passo 2: histórico via stage_change dentro da MESMA pipeline atual do lead
-  for (const a of (activitiesRes.data ?? []) as Array<{ lead_id: string; metadata: Record<string, unknown> | null }>) {
-    const ls = leadState.get(a.lead_id)
-    if (!ls) continue
-    const toName = (a.metadata as Record<string, string> | null)?.to
-    if (!toName) continue
-    const innerStages = stagesByPipeline.get(ls.pipelineId)
-    if (!innerStages) continue
-    const cat = innerStages.get(toName)
-    if (cat && cat !== 'lost' && catRank[cat] > catRank[ls.maxCat]) {
-      ls.maxCat = cat
+  return pipelines.map((p) => {
+    const b = buckets.get(p.id)
+    const leads      = b?.leadSet.size    ?? 0
+    const contatos   = b?.contatos.size   ?? 0
+    const reunioes   = b?.reunioes.size   ?? 0
+    const negociacao = b?.negociacao.size ?? 0
+    const won        = b?.fechado.size    ?? 0
+    const lost       = b?.lost.size       ?? 0
+    const txMarcacaoReuniao = contatos   > 0 ? Math.round((reunioes   / contatos)   * 100) : 0
+    const txComparecimento  = reunioes   > 0 ? Math.round((negociacao / reunioes)   * 100) : 0
+    const txConversao       = negociacao > 0 ? Math.round((won        / negociacao) * 100) : 0
+    return {
+      pipelineId:        p.id,
+      pipelineName:      p.name,
+      color:             p.color,
+      leads,
+      contatosFeitos:    contatos,
+      reunioes,
+      negociacao,
+      conversions:       won,
+      declined:          lost,
+      txMarcacaoReuniao,
+      txComparecimento,
+      txConversao,
     }
-  }
+  })
+}
 
-  // Passo 3: status do lead — converted vira fechado
-  for (const [leadId, ls] of leadState) {
-    const status = leadStatus.get(leadId)
-    if (status === 'converted') ls.maxCat = 'fechado'
-    if (status === 'lost')      ls.isLost = true
-  }
+// ── Totais GLOBAIS — soma de todas as pipelines, sem duplicar lead ──────────
+// Cada lead conta UMA VEZ em cada categoria, mesmo que tenha card em várias
+// pipelines. Usado pelo Funil de Conversão.
+export interface FunnelTotals {
+  contato:    number
+  reuniao:    number
+  negociacao: number
+  fechado:    number
+  lost:       number
+  totalLeads: number
+}
 
-  // Passo 4: distribui cumulativamente nos buckets
-  for (const [leadId, ls] of leadState) {
-    const bucket = buckets.get(ls.pipelineId)
-    if (!bucket) continue
-    bucket.leadSet.add(leadId)
-    const r = catRank[ls.maxCat]
-    if (r >= 1) bucket.contatos.add(leadId)
-    if (r >= 2) bucket.reunioes.add(leadId)
-    if (r >= 3) bucket.negociacao.add(leadId)
-    if (r >= 4) bucket.fechado.add(leadId)
-    if (ls.isLost) bucket.lost.add(leadId)
+export async function fetchFunnelTotals(tenantId: string): Promise<FunnelTotals> {
+  const { byLead } = await fetchLeadCategorization(tenantId)
+  let contato = 0, reuniao = 0, negociacao = 0, fechado = 0, lost = 0
+  for (const [, data] of byLead) {
+    if (data.cats.has('contato'))    contato++
+    if (data.cats.has('reuniao'))    reuniao++
+    if (data.cats.has('negociacao')) negociacao++
+    if (data.cats.has('fechado'))    fechado++
+    if (data.cats.has('lost'))       lost++
   }
-
-  // Resultado
-  return ((pipelinesRes.data ?? []) as Array<{ id: string; name: string; color: string; position: number }>)
-    .map((p) => {
-      const b = buckets.get(p.id)
-      const leads      = b?.leadSet.size    ?? 0
-      const contatos   = b?.contatos.size   ?? 0
-      const reunioes   = b?.reunioes.size   ?? 0
-      const negociacao = b?.negociacao.size ?? 0
-      const won        = b?.fechado.size    ?? 0
-      const lost       = b?.lost.size       ?? 0
-      const txMarcacaoReuniao = contatos   > 0 ? Math.round((reunioes   / contatos)   * 100) : 0
-      const txComparecimento  = reunioes   > 0 ? Math.round((negociacao / reunioes)   * 100) : 0
-      const txConversao       = negociacao > 0 ? Math.round((won        / negociacao) * 100) : 0
-      return {
-        pipelineId:        p.id,
-        pipelineName:      p.name,
-        color:             p.color,
-        leads,
-        contatosFeitos:    contatos,
-        reunioes,
-        negociacao,
-        conversions:       won,
-        declined:          lost,
-        txMarcacaoReuniao,
-        txComparecimento,
-        txConversao,
-      }
-    })
+  return { contato, reuniao, negociacao, fechado, lost, totalLeads: byLead.size }
 }
 
 // Tipos de atividade que ATRIBUÍMOS a cada coluna
