@@ -5,6 +5,7 @@ import {
   setUserActive,
   createInvite,
   revokeInvite,
+  setUserCompanyLimit,
 } from '@/services/users'
 import type { UserRole } from '@/types'
 
@@ -39,5 +40,11 @@ export function useUserMutations() {
     onSuccess: invalidateInvites,
   })
 
-  return { changeRole, toggleActive, invite, revoke }
+  const setLimit = useMutation({
+    mutationFn: ({ membershipId, limit }: { membershipId: string; limit: number | null }) =>
+      setUserCompanyLimit(membershipId, limit),
+    onSuccess: invalidateUsers,
+  })
+
+  return { changeRole, toggleActive, invite, revoke, setLimit }
 }

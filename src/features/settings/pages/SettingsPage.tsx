@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Save, Palette, Building2, CheckCircle, Webhook, Copy, RefreshCw, Eye, EyeOff, ShieldAlert, Trash2, Users } from 'lucide-react'
+import { Save, Palette, Building2, CheckCircle, Webhook, Copy, RefreshCw, Eye, EyeOff, ShieldAlert, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { useAuth } from '@/hooks/useAuth'
@@ -49,12 +49,6 @@ export function SettingsPage() {
   const [regenerating, setRegenerating]     = useState(false)
   const [webhookError, setWebhookError]     = useState<string | null>(null)
 
-  // Limite de empresas por gestor
-  const [maxCompanies, setMaxCompanies]     = useState<string>('')
-  const [savingLimit, setSavingLimit]       = useState(false)
-  const [limitSaved, setLimitSaved]         = useState(false)
-  const [limitError, setLimitError]         = useState<string | null>(null)
-
   // Modal de exclusão
   const [showDeleteModal, setShowDeleteModal] = useState(false)
 
@@ -85,19 +79,16 @@ export function SettingsPage() {
     }
   }, [tenant, settings, reset])
 
-  // Busca webhook_key e limite de empresas do tenant atual
+  // Busca webhook_key do tenant atual
   useEffect(() => {
     if (!tenant?.id) return
     supabase
       .from('tenant_settings')
-      .select('webhook_key, max_companies_for_managers')
+      .select('webhook_key')
       .eq('tenant_id', tenant.id)
       .maybeSingle()
       .then(({ data }) => {
         if (data?.webhook_key) setWebhookKey(data.webhook_key)
-        if (data?.max_companies_for_managers != null) {
-          setMaxCompanies(String(data.max_companies_for_managers))
-        }
       })
   }, [tenant?.id])
 
@@ -128,29 +119,6 @@ export function SettingsPage() {
     } finally {
       setRegenerating(false)
     }
-  }
-
-  async function saveLimit() {
-    if (!tenant?.id) return
-    setSavingLimit(true)
-    setLimitError(null)
-
-    const parsed = maxCompanies.trim() === '' ? null : parseInt(maxCompanies, 10)
-    if (parsed !== null && (isNaN(parsed) || parsed < 1)) {
-      setLimitError('Informe um número válido maior que zero.')
-      setSavingLimit(false)
-      return
-    }
-
-    const { error: err } = await supabase
-      .from('tenant_settings')
-      .update({ max_companies_for_managers: parsed })
-      .eq('tenant_id', tenant.id)
-
-    setSavingLimit(false)
-    if (err) { setLimitError('Erro ao salvar limite.'); return }
-    setLimitSaved(true)
-    setTimeout(() => setLimitSaved(false), 3000)
   }
 
   const primaryColor   = watch('primary_color')
@@ -379,56 +347,6 @@ export function SettingsPage() {
 
       {/* ── Integração WhatsApp (Evolution API) ─────────────────────────── */}
       <WhatsappManager />
-
-      {/* ── Controle de acesso (admin only) ─────────────────────────────── */}
-      {(isAdmin || isSuperAdmin) && (
-        <section className="rounded-xl p-5 flex flex-col gap-4"
-          style={{ background: '#141414', border: '1px solid #1e1e1e' }}>
-          <div className="flex items-center gap-2 mb-1">
-            <Users size={15} style={{ color: 'var(--tenant-primary)' }} />
-            <h3 className="text-sm font-semibold" style={{ color: '#e8e8e8' }}>Controle de acesso</h3>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium uppercase tracking-wide" style={{ color: '#888' }}>
-              Limite de empresas por gestor
-            </label>
-            <p className="text-xs" style={{ color: '#555' }}>
-              Máximo de empresas que gestores deste tenant podem criar. Deixe em branco para ilimitado.
-            </p>
-            <div className="flex items-center gap-3">
-              <input
-                type="number"
-                min={1}
-                value={maxCompanies}
-                onChange={(e) => setMaxCompanies(e.target.value)}
-                placeholder="Ilimitado"
-                className="h-10 w-36 rounded-lg px-3 text-sm focus:outline-none"
-                style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', color: '#e8e8e8' }}
-                onFocus={(e) => (e.currentTarget.style.border = '1px solid var(--tenant-primary)')}
-                onBlur={(e) => (e.currentTarget.style.border = '1px solid #2a2a2a')}
-              />
-              <Button
-                type="button"
-                loading={savingLimit}
-                onClick={saveLimit}
-                className="shrink-0"
-              >
-                <Save size={13} />
-                Salvar limite
-              </Button>
-              {limitSaved && (
-                <span className="flex items-center gap-1 text-xs" style={{ color: '#00e676' }}>
-                  <CheckCircle size={13} /> Salvo!
-                </span>
-              )}
-            </div>
-            {limitError && (
-              <p className="text-xs" style={{ color: '#ff4444' }}>{limitError}</p>
-            )}
-          </div>
-        </section>
-      )}
 
       {/* ── Webhook ──────────────────────────────────────────────────────── */}
       <section className="rounded-xl p-5 flex flex-col gap-4"

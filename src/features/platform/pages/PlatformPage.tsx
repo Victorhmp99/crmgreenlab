@@ -4,8 +4,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Building2, Users, RefreshCw, ShieldCheck, ShieldOff,
   TrendingUp, Clock, UserX, UserCheck, Star, StarOff,
-  UserPlus, ChevronDown, Trash2, Link2, Copy, CheckCircle,
+  UserPlus, ChevronDown, Trash2, Link2, Copy, CheckCircle, Save,
 } from 'lucide-react'
+import { setUserCompanyLimit } from '@/services/users'
 import { Button }  from '@/components/ui/Button'
 import { Spinner } from '@/components/ui/Spinner'
 import { Modal }   from '@/components/ui/Modal'
@@ -22,18 +23,19 @@ import type { UserRole } from '@/types'
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
 interface PlatformUser {
-  membership_id:    string
-  user_id:          string
-  tenant_id:        string
-  tenant_name:      string
-  email:            string
-  full_name:        string | null
-  role:             string
-  account_status:   string
-  is_super_admin:   boolean
-  super_admin_type: string | null
-  joined_at:        string
-  status_changed_at: string | null
+  membership_id:          string
+  user_id:                string
+  tenant_id:              string
+  tenant_name:            string
+  email:                  string
+  full_name:              string | null
+  role:                   string
+  account_status:         string
+  is_super_admin:         boolean
+  super_admin_type:       string | null
+  joined_at:              string
+  status_changed_at:      string | null
+  max_companies_override: number | null
 }
 
 interface TenantStat {
@@ -363,6 +365,68 @@ function SignupLinkModal({ open, onClose }: { open: boolean; onClose: () => void
   )
 }
 
+// ── Célula de limite de empresas (plataforma) ─────────────────────────────────
+
+function PlatformLimitCell({
+  membershipId, current, onSaved,
+}: { membershipId: string; current: number | null; onSaved: () => void }) {
+  const [editing, setEditing] = useState(false)
+  const [value, setValue]     = useState(current != null ? String(current) : '')
+  const [saving, setSaving]   = useState(false)
+
+  async function save() {
+    const parsed = value.trim() === '' ? null : parseInt(value, 10)
+    if (parsed !== null && (isNaN(parsed) || parsed < 1)) { setEditing(false); return }
+    setSaving(true)
+    try {
+      await setUserCompanyLimit(membershipId, parsed)
+      onSaved()
+      setEditing(false)
+    } finally { setSaving(false) }
+  }
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-1.5">
+        <input
+          type="number" min={1}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setEditing(false) }}
+          autoFocus placeholder="∞"
+          className="h-7 w-16 rounded px-2 text-xs focus:outline-none"
+          style={{ background: '#1a1a1a', border: '1px solid #a78bfa', color: '#e8e8e8' }}
+        />
+        <button onClick={save} disabled={saving}
+          className="text-xs rounded px-2 py-1"
+          style={{ background: 'rgba(167,139,250,0.1)', color: '#a78bfa', border: '1px solid rgba(167,139,250,0.2)' }}>
+          {saving ? '...' : <Save size={11} />}
+        </button>
+        <button onClick={() => setEditing(false)} className="text-xs" style={{ color: '#555' }}>✕</button>
+      </div>
+    )
+  }
+
+  return (
+    <button onClick={() => setEditing(true)}
+      title="Clique para definir limite"
+      className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs transition-all"
+      style={{ background: 'transparent', border: '1px solid transparent', color: current != null ? '#e8e8e8' : '#444' }}
+      onMouseEnter={(e) => {
+        ;(e.currentTarget as HTMLButtonElement).style.border = '1px solid #2a2a2a'
+        ;(e.currentTarget as HTMLButtonElement).style.background = '#1a1a1a'
+      }}
+      onMouseLeave={(e) => {
+        ;(e.currentTarget as HTMLButtonElement).style.border = '1px solid transparent'
+        ;(e.currentTarget as HTMLButtonElement).style.background = 'transparent'
+      }}
+    >
+      <Building2 size={11} style={{ color: current != null ? '#a78bfa' : '#444' }} />
+      {current != null ? current : '∞'}
+    </button>
+  )
+}
+
 // ── Aba Usuários ──────────────────────────────────────────────────────────────
 
 function UsersTab({ isMaster }: { isMaster: boolean }) {
@@ -497,7 +561,7 @@ function UsersTab({ isMaster }: { isMaster: boolean }) {
           <table className="w-full text-sm">
             <thead>
               <tr style={{ background: '#111', borderBottom: '1px solid #1a1a1a' }}>
-                {['Usuário', 'Empresa', 'Cargo', 'Status', 'Super Admin', 'Ações'].map((h, i) => (
+                {['Usuário', 'Empresa', 'Cargo', 'Status', 'Limite empresas', 'Super Admin', 'Ações'].map((h, i) => (
                   <th key={h}
                     className={`px-4 py-3 text-xs font-medium uppercase tracking-wide ${i >= 3 ? 'text-center' : 'text-left'}`}
                     style={{ color: '#444' }}>
@@ -543,6 +607,15 @@ function UsersTab({ isMaster }: { isMaster: boolean }) {
                   {/* Status */}
                   <td className="px-4 py-3 text-center">
                     <StatusBadge status={u.account_status} />
+                  </td>
+
+                  {/* Limite de empresas */}
+                  <td className="px-4 py-3 text-center">
+                    <PlatformLimitCell
+                      membershipId={u.membership_id}
+                      current={u.max_companies_override}
+                      onSaved={() => queryClient.invalidateQueries({ queryKey: ['platform-users'] })}
+                    />
                   </td>
 
                   {/* Super Admin */}
@@ -1062,80 +1135,6 @@ function TenantsTab() {
   )
 }
 
-// ── Card de configurações globais (super admin master) ───────────────────────
-
-function GlobalSettingsCard() {
-  const [globalLimit, setGlobalLimit]   = useState<string>('')
-  const [loading, setLoading]           = useState(true)
-  const [saving, setSaving]             = useState(false)
-  const [saved, setSaved]               = useState(false)
-  const [err, setErr]                   = useState<string | null>(null)
-
-  useEffect(() => {
-    Promise.resolve(supabase.rpc('get_platform_config')).then(({ data }) => {
-      const val = (data as Record<string, number | null> | null)?.max_companies_per_manager
-      if (val != null) setGlobalLimit(String(val))
-    }).finally(() => setLoading(false))
-  }, [])
-
-  async function save() {
-    setSaving(true); setErr(null)
-    const parsed = globalLimit.trim() === '' ? null : parseInt(globalLimit, 10)
-    if (parsed !== null && (isNaN(parsed) || parsed < 1)) {
-      setErr('Informe um número maior que zero.')
-      setSaving(false); return
-    }
-    const { error } = await supabase.rpc('set_platform_max_companies', { p_limit: parsed })
-    setSaving(false)
-    if (error) { setErr('Erro ao salvar.'); return }
-    setSaved(true); setTimeout(() => setSaved(false), 3000)
-  }
-
-  if (loading) return null
-
-  return (
-    <div className="rounded-xl p-5 flex flex-col gap-4"
-      style={{ background: '#141414', border: '1px solid #2a2a2a' }}>
-      <div className="flex items-center gap-2">
-        <Star size={15} style={{ color: '#fbbf24' }} />
-        <h3 className="text-sm font-semibold" style={{ color: '#e8e8e8' }}>Configurações globais da plataforma</h3>
-      </div>
-      <div className="flex flex-col gap-2">
-        <label className="text-xs font-medium uppercase tracking-wide" style={{ color: '#888' }}>
-          Limite global de empresas por gestor
-        </label>
-        <p className="text-xs" style={{ color: '#555' }}>
-          Máximo de empresas que qualquer gestor pode criar em toda a plataforma. Deixe em branco para ilimitado.
-          Este limite prevalece sobre os limites definidos por cada admin de empresa.
-        </p>
-        <div className="flex items-center gap-3">
-          <input
-            type="number" min={1}
-            value={globalLimit}
-            onChange={(e) => setGlobalLimit(e.target.value)}
-            placeholder="Ilimitado"
-            disabled={saving}
-            className="h-10 w-36 rounded-lg px-3 text-sm focus:outline-none"
-            style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', color: '#e8e8e8' }}
-            onFocus={(e) => (e.currentTarget.style.border = '1px solid #fbbf24')}
-            onBlur={(e) => (e.currentTarget.style.border = '1px solid #2a2a2a')}
-          />
-          <button
-            onClick={save} disabled={saving}
-            className="flex items-center gap-1.5 h-10 rounded-lg px-4 text-sm font-medium transition-all disabled:opacity-50"
-            style={{ background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.3)', color: '#fbbf24' }}
-          >
-            {saving ? <Spinner size="sm" /> : <Star size={13} />}
-            Salvar
-          </button>
-          {saved && <span className="text-xs" style={{ color: '#00e676' }}>✓ Salvo!</span>}
-        </div>
-        {err && <p className="text-xs" style={{ color: '#ff4444' }}>{err}</p>}
-      </div>
-    </div>
-  )
-}
-
 // ── Page principal ────────────────────────────────────────────────────────────
 
 export function PlatformPage() {
@@ -1181,9 +1180,6 @@ export function PlatformPage() {
           </button>
         </div>
       </div>
-
-      {/* Configurações globais — visível apenas para master */}
-      {isMaster && <GlobalSettingsCard />}
 
       {/* Tabs */}
       <div className="flex items-center gap-1 rounded-xl p-1"

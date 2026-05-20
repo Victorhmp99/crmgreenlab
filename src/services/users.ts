@@ -4,15 +4,16 @@ import type { UserRole } from '@/types'
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
 export interface TenantUser {
-  membershipId: string
-  userId:       string
-  email:        string
-  fullName:     string | null
-  role:         UserRole
-  active:       boolean
-  joinedAt:     string
-  tenantName:   string
-  tenantId:     string
+  membershipId:          string
+  userId:                string
+  email:                 string
+  fullName:              string | null
+  role:                  UserRole
+  active:                boolean
+  joinedAt:              string
+  tenantName:            string
+  tenantId:              string
+  maxCompaniesOverride:  number | null
 }
 
 export interface TenantInvite {
@@ -38,16 +39,18 @@ export async function fetchTenantUsers(tenantId: string): Promise<TenantUser[]> 
     full_name: string | null; role: string; active: boolean;
     account_status: string; joined_at: string;
     tenant_name: string; tenant_id: string;
+    max_companies_override: number | null;
   }>).map((row) => ({
-    membershipId: row.membership_id,
-    userId:       row.user_id,
-    email:        row.email ?? '—',
-    fullName:     row.full_name,
-    role:         row.role as UserRole,
-    active:       row.active,
-    joinedAt:     row.joined_at,
-    tenantName:   row.tenant_name,
-    tenantId:     row.tenant_id,
+    membershipId:         row.membership_id,
+    userId:               row.user_id,
+    email:                row.email ?? '—',
+    fullName:             row.full_name,
+    role:                 row.role as UserRole,
+    active:               row.active,
+    joinedAt:             row.joined_at,
+    tenantName:           row.tenant_name,
+    tenantId:             row.tenant_id,
+    maxCompaniesOverride: row.max_companies_override ?? null,
   }))
 }
 
@@ -126,6 +129,19 @@ export async function revokeInvite(inviteId: string): Promise<void> {
     .delete()
     .eq('id', inviteId)
 
+  if (error) throw error
+}
+
+// ── Definir limite de empresas por usuário ────────────────────────────────────
+
+export async function setUserCompanyLimit(
+  membershipId: string,
+  limit: number | null,
+): Promise<void> {
+  const { error } = await supabase.rpc('set_user_company_limit', {
+    p_membership_id: membershipId,
+    p_limit:         limit,
+  })
   if (error) throw error
 }
 
