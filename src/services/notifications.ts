@@ -44,18 +44,31 @@ export async function markAllAsRead(): Promise<void> {
 }
 
 export async function deleteNotification(id: string): Promise<void> {
-  const { error } = await supabase.from('notifications').delete().eq('id', id)
-  if (error) throw error
+  const { error, count } = await supabase
+    .from('notifications')
+    .delete({ count: 'exact' })
+    .eq('id', id)
+  if (error) {
+    console.error('[notifications] deleteNotification falhou:', error)
+    throw error
+  }
+  if (count === 0) {
+    throw new Error('Não foi possível excluir a notificação (sem permissão ou já removida).')
+  }
 }
 
-export async function clearAllNotifications(): Promise<void> {
+export async function clearAllNotifications(): Promise<number> {
   const { data: user } = await supabase.auth.getUser()
-  if (!user?.user) return
-  const { error } = await supabase
+  if (!user?.user) throw new Error('Não autenticado')
+  const { error, count } = await supabase
     .from('notifications')
-    .delete()
+    .delete({ count: 'exact' })
     .eq('recipient_id', user.user.id)
-  if (error) throw error
+  if (error) {
+    console.error('[notifications] clearAllNotifications falhou:', error)
+    throw error
+  }
+  return count ?? 0
 }
 
 // ── Super Admin Master only ──────────────────────────────────────────────────

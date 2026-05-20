@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { useNotificationMutations } from '../../hooks/useNotifications'
 import { supabase } from '@/lib/supabase'
+import { useAuthStore } from '@/store/authStore'
 
 interface SendNotificationModalProps {
   open:    boolean
@@ -24,6 +25,7 @@ type Audience = 'all' | 'select'
 
 export function SendNotificationModal({ open, onClose }: SendNotificationModalProps) {
   const { send, broadcast } = useNotificationMutations()
+  const currentUserId = useAuthStore((s) => s.user?.id)
 
   const [audience, setAudience] = useState<Audience>('all')
   const [title,    setTitle]    = useState('')
@@ -45,13 +47,22 @@ export function SendNotificationModal({ open, onClose }: SendNotificationModalPr
     setLoadingUsers(true)
     Promise.resolve(supabase.rpc('get_platform_users'))
       .then(({ data }) => {
-        const list = ((data ?? []) as Array<UserLite & { account_status: string }>)
-          .filter((u) => u.account_status !== 'blocked')
+        // 1) Filtra blocked + 2) exclui o próprio usuário + 3) DEDUPE por user_id
+        // (um usuário com memberships em vários tenants aparece N vezes na RPC)
+        const seen = new Set<string>()
+        const list: UserLite[] = []
+        for (const u of ((data ?? []) as Array<UserLite & { account_status: string }>)) {
+          if (u.account_status === 'blocked') continue
+          if (u.user_id === currentUserId)   continue
+          if (seen.has(u.user_id))           continue
+          seen.add(u.user_id)
+          list.push(u)
+        }
         setUsers(list)
       })
       .catch(() => setUsers([]))
       .finally(() => setLoadingUsers(false))
-  }, [open])
+  }, [open, currentUserId])
 
   function toggle(id: string) {
     setSelectedIds((prev) => {
