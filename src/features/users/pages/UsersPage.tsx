@@ -11,14 +11,15 @@ import type { TenantUser } from '@/services/users'
 
 export function UsersPage() {
   const { data: users = [], isLoading, error } = useUsers()
-  const { isAdmin, isSuperAdmin } = usePermissions()
+  const { isAdmin, isSuperAdmin, isManager } = usePermissions()
   const [changingRole, setChangingRole] = useState<TenantUser | null>(null)
   const [showInvite, setShowInvite]     = useState(false)
   const [showSignupLink, setShowSignupLink] = useState(false)
 
   const activeCount   = users.filter((u) => u.active).length
   const inactiveCount = users.filter((u) => !u.active).length
-  const canGenerateLink = isAdmin || isSuperAdmin
+  // Gestor também pode gerar link (só de vendedor)
+  const canGenerateLink = isAdmin || isSuperAdmin || isManager
 
   return (
     <div className="flex flex-col gap-5">

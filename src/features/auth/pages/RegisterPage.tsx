@@ -43,18 +43,20 @@ export function RegisterPage() {
   const [emailSent, setEmailSent]   = useState(false)
   const [isPending, setIsPending]   = useState(false)
   const [tokenInfo, setTokenInfo]   = useState<TokenInfo | null>(null)
+  const [tokenLoading, setTokenLoading] = useState<boolean>(false)
 
   const hashParams  = new URLSearchParams(window.location.hash.split('?')[1] ?? '')
   const signupToken = hashParams.get('ref') ?? undefined
 
-  // Joining existing tenant = token traz um tenant específico
   const joiningExisting = tokenInfo?.valid && !!tokenInfo.target_tenant_id
 
-  // Carrega info do token ao montar
+  // Carrega info do token ao montar — antes disso, segura o form
   useEffect(() => {
     if (!signupToken) return
+    setTokenLoading(true)
     Promise.resolve(supabase.rpc('get_signup_token_info', { p_token: signupToken }))
       .then(({ data }) => { if (data) setTokenInfo(data as TokenInfo) })
+      .finally(() => setTokenLoading(false))
   }, [signupToken])
 
   const {
@@ -137,6 +139,21 @@ export function RegisterPage() {
           <Link to="/login" className="text-sm transition-colors" style={{ color: '#555' }}>
             Voltar ao login
           </Link>
+        </div>
+      </AuthLayout>
+    )
+  }
+
+  // ── Carregando info do token ──────────────────────────────────────────────
+  if (signupToken && tokenLoading) {
+    return (
+      <AuthLayout>
+        <div className="flex flex-col items-center gap-4 py-8">
+          <div className="h-12 w-12 rounded-full flex items-center justify-center"
+            style={{ background: '#1a1a1a', border: '1px solid #2a2a2a' }}>
+            <CheckCircle size={22} style={{ color: '#555' }} />
+          </div>
+          <p className="text-sm" style={{ color: '#666' }}>Verificando link...</p>
         </div>
       </AuthLayout>
     )

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { CheckCircle, Copy, Link2, RefreshCw } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
@@ -11,50 +11,71 @@ import type { UserRole } from '@/types'
 interface SignupLinkModalProps {
   open:    boolean
   onClose: () => void
-  /** Quando true, mostra escolha de tenant (super admin only) */
+  /** Super admin: pode escolher em qual tenant um vendedor vai entrar */
   showTenantPicker?: boolean
-  /** Lista de tenants para super admin escolher (opcional) */
   availableTenants?: { id: string; name: string }[]
 }
 
 interface RoleOption {
-  value: UserRole
-  label: string
+  value:       UserRole
+  label:       string
   description: string
-  color: string
+  color:       string
 }
 
-const ALL_ROLES: RoleOption[] = [
-  { value: 'admin',   label: 'Administrador', description: 'Cria nova empresa com acesso total',     color: '#ff4444' },
-  { value: 'manager', label: 'Gestor',        description: 'Entra na empresa como gestor',           color: '#a78bfa' },
-  { value: 'seller',  label: 'Vendedor',      description: 'Entra na empresa como vendedor',         color: '#888'    },
-]
+const ROLE_DEFS: Record<UserRole, RoleOption> = {
+  admin:   { value: 'admin',   label: 'Administrador', color: '#ff4444',
+             description: 'Cria nova empresa com acesso total' },
+  manager: { value: 'manager', label: 'Gestor',        color: '#a78bfa',
+             description: 'Cria nova empresa como gestor responsável' },
+  seller:  { value: 'seller',  label: 'Vendedor',      color: '#888',
+             description: 'Entra em uma empresa como vendedor' },
+}
 
 export function SignupLinkModal({ open, onClose, showTenantPicker, availableTenants }: SignupLinkModalProps) {
-  const { isSuperAdmin } = usePermissions()
-  const currentTenant    = useAuthStore((s) => s.tenant)
+  const { isSuperAdmin, isAdmin } = usePermissions()
+  const currentTenant             = useAuthStore((s) => s.tenant)
+  const currentMembership         = useAuthStore((s) => s.membership)
 
-  // Roles permitidos: super admin tem todos; admin só manager/seller
-  const allowedRoles = isSuperAdmin
-    ? ALL_ROLES
-    : ALL_ROLES.filter((r) => r.value !== 'admin')
+  // Define os roles permitidos baseado no caller
+  // - Super admin: admin + manager + seller
+  // - Admin: manager + seller
+  // - Manager (gestor): só seller
+  const allowedRoles: UserRole[] = useMemo(() => {
+    if (isSuperAdmin) return ['admin', 'manager', 'seller']
+    if (isAdmin)      return ['manager', 'seller']
+    if (currentMembership?.role === 'manager') return ['seller']
+    return []
+  }, [isSuperAdmin, isAdmin, currentMembership])
 
-  const [role, setRole]         = useState<UserRole>(allowedRoles[0].value)
+  const [role, setRole]         = useState<UserRole>(allowedRoles[0] ?? 'seller')
   const [tenantId, setTenantId] = useState<string>('')
   const [token, setToken]       = useState<string | null>(null)
   const [loading, setLoading]   = useState(false)
   const [copied, setCopied]     = useState(false)
   const [err, setErr]           = useState<string | null>(null)
 
+  // Quando o picker de tenant deve aparecer:
+  // Apenas super admin selecionando vendedor (decide em qual tenant o vendedor entra)
+  const needsTenantPicker = isSuperAdmin && role === 'seller' && showTenantPicker
+
+  // O que o link vai fazer (descrição na UI)
+  const willJoinExisting = role === 'seller'
+  const targetTenantName = needsTenantPicker
+    ? availableTenants?.find((t) => t.id === tenantId)?.name
+    : currentTenant?.name
+
   async function handleGenerate() {
     setLoading(true); setErr(null); setToken(null)
     try {
-      // Para admin role: tenant_id null (cria nova empresa)
-      // Para manager/seller: tenant_id é o tenant escolhido ou o tenant atual
+      // target_tenant_id:
+      // - admin/manager: SEMPRE null (cria nova empresa)
+      // - seller (super admin): tenant escolhido
+      // - seller (admin/gestor): backend força o próprio tenant — passa null
       const targetTenantId =
-        role === 'admin'           ? null :
-        tenantId                   ? tenantId :
-        currentTenant?.id ?? null
+        role !== 'seller' ? null :
+        needsTenantPicker ? (tenantId || null) :
+        null  // backend força o tenant do caller
 
       const { data, error } = await supabase.rpc('create_signup_token', {
         p_role:             role,
@@ -84,11 +105,14 @@ export function SignupLinkModal({ open, onClose, showTenantPicker, availableTena
 
   function handleClose() {
     setToken(null); setCopied(false); setErr(null)
-    setRole(allowedRoles[0].value); setTenantId('')
+    setRole(allowedRoles[0] ?? 'seller'); setTenantId('')
     onClose()
   }
 
-  const selectedRole = ALL_ROLES.find((r) => r.value === role)!
+  const selectedRole = ROLE_DEFS[role]
+
+  // Sem permissão pra gerar link
+  if (allowedRoles.length === 0) return null
 
   return (
     <Modal open={open} onClose={handleClose} title="Gerar link de cadastro" size="md"
@@ -103,7 +127,8 @@ export function SignupLinkModal({ open, onClose, showTenantPicker, availableTena
         ) : (
           <>
             <Button variant="ghost" onClick={handleClose} disabled={loading}>Cancelar</Button>
-            <Button onClick={handleGenerate} loading={loading}>
+            <Button onClick={handleGenerate} loading={loading}
+              disabled={needsTenantPicker && !tenantId}>
               <Link2 size={14} /> Gerar link
             </Button>
           </>
@@ -114,29 +139,27 @@ export function SignupLinkModal({ open, onClose, showTenantPicker, availableTena
         {!token && (
           <>
             <p className="text-sm" style={{ color: '#888' }}>
-              {role === 'admin'
-                ? 'O link criará uma nova empresa. A pessoa preenche nome, email e senha — vira admin da nova empresa.'
-                : `O link adicionará a pessoa em ${tenantId
-                    ? availableTenants?.find((t) => t.id === tenantId)?.name
-                    : currentTenant?.name} como ${selectedRole.label.toLowerCase()}.`}
+              {willJoinExisting
+                ? `O link adicionará a pessoa em ${targetTenantName ?? '...'} como vendedor.`
+                : `O link permitirá criar uma nova empresa como ${selectedRole.label.toLowerCase()}.`}
             </p>
 
-            {/* Seleção de role */}
+            {/* Cards de role */}
             <div className="flex flex-col gap-2">
               <label className="text-xs font-medium uppercase tracking-wide" style={{ color: '#888' }}>
                 Cargo da nova conta
               </label>
-              <div className="grid grid-cols-1 gap-2">
-                {allowedRoles.map((opt) => (
-                  <button
-                    key={opt.value}
+              {allowedRoles.map((r) => {
+                const opt    = ROLE_DEFS[r]
+                const active = role === opt.value
+                return (
+                  <button key={opt.value}
                     onClick={() => setRole(opt.value)}
                     className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-all"
                     style={{
-                      background: role === opt.value ? 'rgba(0,230,118,0.06)' : '#0f0f0f',
-                      border:     role === opt.value ? '1px solid rgba(0,230,118,0.3)' : '1px solid #1e1e1e',
-                    }}
-                  >
+                      background: active ? 'rgba(0,230,118,0.06)' : '#0f0f0f',
+                      border:     active ? '1px solid rgba(0,230,118,0.3)' : '1px solid #1e1e1e',
+                    }}>
                     <div className="h-7 w-7 rounded-md flex items-center justify-center shrink-0 text-[10px] font-bold"
                       style={{ background: `${opt.color}22`, color: opt.color }}>
                       {opt.label[0]}
@@ -146,15 +169,15 @@ export function SignupLinkModal({ open, onClose, showTenantPicker, availableTena
                       <p className="text-[10px]" style={{ color: '#555' }}>{opt.description}</p>
                     </div>
                   </button>
-                ))}
-              </div>
+                )
+              })}
             </div>
 
-            {/* Tenant picker — só super admin com showTenantPicker E role != admin */}
-            {showTenantPicker && role !== 'admin' && availableTenants && (
+            {/* Tenant picker — só super admin escolhendo vendedor */}
+            {needsTenantPicker && availableTenants && (
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-medium uppercase tracking-wide" style={{ color: '#888' }}>
-                  Empresa de destino
+                  Empresa de destino *
                 </label>
                 <select
                   value={tenantId}
@@ -162,13 +185,13 @@ export function SignupLinkModal({ open, onClose, showTenantPicker, availableTena
                   className="h-10 rounded-lg px-3 text-sm focus:outline-none"
                   style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', color: '#e8e8e8' }}
                 >
-                  <option value="">Selecione...</option>
+                  <option value="">Selecione a empresa...</option>
                   {availableTenants.map((t) => (
                     <option key={t.id} value={t.id}>{t.name}</option>
                   ))}
                 </select>
                 <p className="text-[10px]" style={{ color: '#555' }}>
-                  A nova conta vai entrar nesta empresa como {selectedRole.label.toLowerCase()}.
+                  O vendedor vai entrar nesta empresa como integrante.
                 </p>
               </div>
             )}
@@ -187,7 +210,9 @@ export function SignupLinkModal({ open, onClose, showTenantPicker, availableTena
             <div className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs"
               style={{ background: 'rgba(0,230,118,0.06)', border: '1px solid rgba(0,230,118,0.15)', color: '#00e676' }}>
               <CheckCircle size={14} />
-              Link gerado pra criar conta de <strong>{selectedRole.label}</strong>
+              {willJoinExisting
+                ? <>Link gerado pra adicionar <strong>{selectedRole.label}</strong> em <strong>{targetTenantName}</strong></>
+                : <>Link gerado pra criar nova empresa como <strong>{selectedRole.label}</strong></>}
             </div>
 
             <div className="flex flex-col gap-1.5">
