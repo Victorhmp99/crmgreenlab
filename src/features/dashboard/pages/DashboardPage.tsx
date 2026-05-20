@@ -1,9 +1,62 @@
 import { Users, TrendingUp, DollarSign, XCircle, MessageCircle, Calendar, RefreshCw, Briefcase, Handshake, Target, Eye, EyeOff } from 'lucide-react'
 import { useDashboardMetrics } from '../hooks/useDashboardMetrics'
-import { useMyGoals } from '@/features/goals/hooks/useGoals'
+import { useDashboardGoals } from '@/features/goals/hooks/useGoals'
 import { useAuth } from '@/hooks/useAuth'
 import { usePrivacyMode } from '@/hooks/usePrivacyMode'
 import { Spinner } from '@/components/ui/Spinner'
+import type { GoalWithProgress } from '@/services/goals'
+
+// ── Card de meta reutilizável ─────────────────────────────────────────────────
+function GoalRow({ goal, hidden, showAssignee = false }: {
+  goal:         GoalWithProgress
+  hidden:       boolean
+  showAssignee?: boolean
+}) {
+  const pct = goal.progress.overallPercent
+  const color = pct >= 100 ? '#00e676' : pct >= 60 ? '#fbbf24' : 'var(--tenant-primary)'
+  return (
+    <div className="rounded-lg p-3" style={{ background: '#0d0d0d', border: '1px solid #1a1a1a' }}>
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] uppercase tracking-wide" style={{ color: '#555' }}>
+            {goal.period === 'daily' ? 'Diária' :
+             goal.period === 'weekly' ? 'Semanal' :
+             goal.period === 'monthly' ? 'Mensal' : 'Trimestral'}
+          </span>
+          {showAssignee && goal.userFullName && (
+            <span className="text-[10px] rounded-full px-1.5 py-0.5"
+              style={{ background: 'rgba(167,139,250,0.1)', color: '#a78bfa' }}>
+              {goal.userFullName}
+            </span>
+          )}
+          {showAssignee && !goal.userFullName && goal.userEmail && (
+            <span className="text-[10px] rounded-full px-1.5 py-0.5"
+              style={{ background: 'rgba(167,139,250,0.1)', color: '#a78bfa' }}>
+              {goal.userEmail.split('@')[0]}
+            </span>
+          )}
+        </div>
+        <span className="text-xs font-bold tabular-nums" style={{ color }}>
+          {hidden ? '●●%' : `${pct}%`}
+        </span>
+      </div>
+      <div className="h-1.5 w-full rounded-full mb-2" style={{ background: '#1a1a1a' }}>
+        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: color }} />
+      </div>
+      <div className="flex items-center gap-3 text-[10px]" style={{ color: '#666' }}>
+        {goal.leads_target != null && (
+          <span>Leads: <strong style={{ color: '#aaa' }}>{hidden ? '●/●' : `${goal.progress.leadsActual}/${goal.leads_target}`}</strong></span>
+        )}
+        {goal.calls_target != null && (
+          <span>Disparos: <strong style={{ color: '#aaa' }}>{hidden ? '●/●' : `${goal.progress.callsActual}/${goal.calls_target}`}</strong></span>
+        )}
+        {goal.deals_target != null && (
+          <span>Fechamentos: <strong style={{ color: '#aaa' }}>{hidden ? '●/●' : `${goal.progress.dealsActual}/${goal.deals_target}`}</strong></span>
+        )}
+      </div>
+    </div>
+  )
+}
 
 function greeting(): string {
   const h = new Date().getHours()
@@ -47,14 +100,13 @@ function KpiCard({ label, value, sublabel, icon: Icon, color }: {
 export function DashboardPage() {
   const { user, tenant } = useAuth()
   const { data, isLoading, refetch, dataUpdatedAt } = useDashboardMetrics()
-  const { data: myGoals = [] } = useMyGoals()
+  const { data: dashGoals } = useDashboardGoals()
   const { hidden, toggle, mask, maskCurrency } = usePrivacyMode()
 
   // Filtra metas ativas (período atual)
-  const today = new Date().toISOString().slice(0, 10)
-  const activeGoals = myGoals.filter((g) =>
-    g.start_date <= today && today <= g.end_date
-  )
+  const today      = new Date().toISOString().slice(0, 10)
+  const activeOwn  = (dashGoals?.mine ?? []).filter((g) => g.start_date <= today && today <= g.end_date)
+  const activeTeam = (dashGoals?.team ?? []).filter((g) => g.start_date <= today && today <= g.end_date)
 
   const name = user?.email?.split('@')[0]?.replace(/[._-]/g, ' ') ?? 'usuário'
 
@@ -222,64 +274,50 @@ export function DashboardPage() {
           </div>
         </div>
 
-        {/* ── Minhas Metas ─────────────────────────────────────────────── */}
-        <div className="rounded-xl p-5 flex flex-col gap-3"
+        {/* ── Metas ────────────────────────────────────────────────────── */}
+        <div className="rounded-xl p-5 flex flex-col gap-4"
           style={{ background: '#141414', border: '1px solid #1e1e1e' }}>
           <div className="flex items-center gap-2">
             <Target size={15} style={{ color: 'var(--tenant-primary)' }} />
-            <h3 className="text-sm font-semibold" style={{ color: '#e8e8e8' }}>Minhas Metas</h3>
+            <h3 className="text-sm font-semibold" style={{ color: '#e8e8e8' }}>Metas</h3>
           </div>
 
-          {activeGoals.length === 0 ? (
-            <div className="rounded-lg p-4 text-center mt-1"
-              style={{ background: '#0d0d0d', border: '1px dashed #1e1e1e' }}>
-              <Target size={20} className="mx-auto mb-2" style={{ color: '#333' }} />
-              <p className="text-xs" style={{ color: '#555' }}>
-                Nenhuma meta ativa no período.
-              </p>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {activeGoals.slice(0, 3).map((goal) => (
-                <div key={goal.id} className="rounded-lg p-3"
-                  style={{ background: '#0d0d0d', border: '1px solid #1a1a1a' }}>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[10px] uppercase tracking-wide" style={{ color: '#666' }}>
-                      {goal.period === 'daily' ? 'Diária' :
-                       goal.period === 'weekly' ? 'Semanal' :
-                       goal.period === 'monthly' ? 'Mensal' : 'Trimestral'}
-                    </span>
-                    <span className="text-xs font-bold tabular-nums" style={{ color: 'var(--tenant-primary)' }}>
-                      {hidden ? '●●%' : `${goal.progress.overallPercent}%`}
-                    </span>
-                  </div>
-                  {/* Barra geral */}
-                  <div className="h-1.5 w-full rounded-full mb-2" style={{ background: '#1a1a1a' }}>
-                    <div className="h-full rounded-full transition-all"
-                      style={{
-                        width: `${goal.progress.overallPercent}%`,
-                        background: 'var(--tenant-primary)',
-                      }} />
-                  </div>
-                  {/* Detalhes inline */}
-                  <div className="flex items-center gap-3 text-[10px]" style={{ color: '#666' }}>
-                    {goal.leads_target != null && (
-                      <span>Leads: <strong style={{ color: '#aaa' }}>{hidden ? '●/●' : `${goal.progress.leadsActual}/${goal.leads_target}`}</strong></span>
-                    )}
-                    {goal.calls_target != null && (
-                      <span>Disparos: <strong style={{ color: '#aaa' }}>{hidden ? '●/●' : `${goal.progress.callsActual}/${goal.calls_target}`}</strong></span>
-                    )}
-                    {goal.deals_target != null && (
-                      <span>Fechamentos: <strong style={{ color: '#aaa' }}>{hidden ? '●/●' : `${goal.progress.dealsActual}/${goal.deals_target}`}</strong></span>
-                    )}
-                  </div>
-                </div>
+          {/* Minhas metas (atribuídas a mim) */}
+          {activeOwn.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <p className="text-[10px] uppercase tracking-widest" style={{ color: '#555' }}>Minhas metas</p>
+              {activeOwn.slice(0, 3).map((goal) => (
+                <GoalRow key={goal.id} goal={goal} hidden={hidden} />
               ))}
-              {activeGoals.length > 3 && (
+              {activeOwn.length > 3 && (
                 <p className="text-[10px] text-center" style={{ color: '#444' }}>
-                  +{activeGoals.length - 3} outras metas em <a href="#/goals" style={{ color: 'var(--tenant-primary)' }}>Metas</a>
+                  +{activeOwn.length - 3} outras em <a href="#/goals" style={{ color: 'var(--tenant-primary)' }}>Metas</a>
                 </p>
               )}
+            </div>
+          )}
+
+          {/* Metas que criei para a equipe */}
+          {activeTeam.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <p className="text-[10px] uppercase tracking-widest" style={{ color: '#555' }}>Metas da equipe</p>
+              {activeTeam.slice(0, 4).map((goal) => (
+                <GoalRow key={goal.id} goal={goal} hidden={hidden} showAssignee />
+              ))}
+              {activeTeam.length > 4 && (
+                <p className="text-[10px] text-center" style={{ color: '#444' }}>
+                  +{activeTeam.length - 4} outras em <a href="#/goals" style={{ color: 'var(--tenant-primary)' }}>Metas</a>
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Nenhuma meta */}
+          {activeOwn.length === 0 && activeTeam.length === 0 && (
+            <div className="rounded-lg p-4 text-center"
+              style={{ background: '#0d0d0d', border: '1px dashed #1e1e1e' }}>
+              <Target size={20} className="mx-auto mb-2" style={{ color: '#333' }} />
+              <p className="text-xs" style={{ color: '#555' }}>Nenhuma meta ativa no período.</p>
             </div>
           )}
         </div>

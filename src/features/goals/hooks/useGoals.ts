@@ -4,6 +4,7 @@ import {
   fetchGoalsWithProgress,
   fetchUserGoals,
   fetchLeaderboard,
+  fetchDashboardGoals,
 } from '@/services/goals'
 
 export function useAllGoals(onlyActive = false) {
@@ -25,6 +26,19 @@ export function useMyGoals() {
   return useQuery({
     queryKey:  ['goals-mine', tenantId, userId],
     queryFn:   () => fetchUserGoals(tenantId!, userId!),
+    enabled:   !!tenantId && !!userId,
+    staleTime: 0,
+    refetchOnMount: true,
+  })
+}
+
+export function useDashboardGoals() {
+  const tenantId = useAuthStore((s) => s.tenant?.id)
+  const userId   = useAuthStore((s) => s.user?.id)
+
+  return useQuery({
+    queryKey:  ['goals-dashboard', tenantId, userId],
+    queryFn:   () => fetchDashboardGoals(tenantId!, userId!),
     enabled:   !!tenantId && !!userId,
     staleTime: 0,
     refetchOnMount: true,

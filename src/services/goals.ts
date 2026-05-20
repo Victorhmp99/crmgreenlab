@@ -156,11 +156,30 @@ export async function fetchGoalsWithProgress(
   return results
 }
 
-// ── Metas de um usuário específico ───────────────────────────────────────────
+// ── Metas atribuídas ao usuário ──────────────────────────────────────────────
 
 export async function fetchUserGoals(tenantId: string, userId: string): Promise<GoalWithProgress[]> {
   const all = await fetchGoalsWithProgress(tenantId, false)
   return all.filter((g) => g.user_id === userId)
+}
+
+// ── Metas para o dashboard: próprias + criadas para a equipe ─────────────────
+
+export interface DashboardGoals {
+  mine:  GoalWithProgress[]   // atribuídas a mim
+  team:  GoalWithProgress[]   // eu criei para outros
+}
+
+export async function fetchDashboardGoals(
+  tenantId: string,
+  userId: string,
+): Promise<DashboardGoals> {
+  const all = await fetchGoalsWithProgress(tenantId, false)
+
+  const mine = all.filter((g) => g.user_id === userId)
+  const team = all.filter((g) => g.created_by === userId && g.user_id !== userId)
+
+  return { mine, team }
 }
 
 // ── CRUD ─────────────────────────────────────────────────────────────────────
