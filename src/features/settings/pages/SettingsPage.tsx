@@ -2,15 +2,17 @@ import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Save, Palette, Building2, CheckCircle, Webhook, Copy, RefreshCw, Eye, EyeOff } from 'lucide-react'
+import { Save, Palette, Building2, CheckCircle, Webhook, Copy, RefreshCw, Eye, EyeOff, ShieldAlert, Trash2, Users } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { useAuth } from '@/hooks/useAuth'
+import { usePermissions } from '@/hooks/usePermissions'
 import { useTenantStore } from '@/store/tenantStore'
 import { supabase } from '@/lib/supabase'
 import { ChannelManager } from '../components/ChannelManager'
 import { LeadFieldsManager } from '../components/LeadFieldsManager'
 import { WhatsappManager } from '../components/WhatsappManager'
+import { DeleteTenantModal } from '@/components/layout/Sidebar/DeleteTenantModal'
 
 const schema = z.object({
   name:            z.string().min(2, 'Nome deve ter ao menos 2 caracteres'),
@@ -34,6 +36,7 @@ const WEBHOOK_ENDPOINT = 'https://miezatcdfldmqmxgpkwr.supabase.co/functions/v1/
 
 export function SettingsPage() {
   const { tenant }                          = useAuth()
+  const { isAdmin }                         = usePermissions()
   const settings                            = useTenantStore((s) => s.settings)
   const setSettings                         = useTenantStore((s) => s.setSettings)
   const [saved, setSaved]                   = useState(false)
@@ -45,6 +48,15 @@ export function SettingsPage() {
   const [copiedField, setCopiedField]       = useState<'url' | 'key' | 'curl' | null>(null)
   const [regenerating, setRegenerating]     = useState(false)
   const [webhookError, setWebhookError]     = useState<string | null>(null)
+
+  // Limite de empresas por gestor
+  const [maxCompanies, setMaxCompanies]     = useState<string>('')
+  const [savingLimit, setSavingLimit]       = useState(false)
+  const [limitSaved, setLimitSaved]         = useState(false)
+  const [limitError, setLimitError]         = useState<string | null>(null)
+
+  // Modal de exclusão
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
 
   const {
     register,
@@ -73,16 +85,19 @@ export function SettingsPage() {
     }
   }, [tenant, settings, reset])
 
-  // Busca a webhook_key do tenant atual
+  // Busca webhook_key e limite de empresas do tenant atual
   useEffect(() => {
     if (!tenant?.id) return
     supabase
       .from('tenant_settings')
-      .select('webhook_key')
+      .select('webhook_key, max_companies_for_managers')
       .eq('tenant_id', tenant.id)
       .maybeSingle()
       .then(({ data }) => {
         if (data?.webhook_key) setWebhookKey(data.webhook_key)
+        if (data?.max_companies_for_managers != null) {
+          setMaxCompanies(String(data.max_companies_for_managers))
+        }
       })
   }, [tenant?.id])
 
@@ -113,6 +128,29 @@ export function SettingsPage() {
     } finally {
       setRegenerating(false)
     }
+  }
+
+  async function saveLimit() {
+    if (!tenant?.id) return
+    setSavingLimit(true)
+    setLimitError(null)
+
+    const parsed = maxCompanies.trim() === '' ? null : parseInt(maxCompanies, 10)
+    if (parsed !== null && (isNaN(parsed) || parsed < 1)) {
+      setLimitError('Informe um número válido maior que zero.')
+      setSavingLimit(false)
+      return
+    }
+
+    const { error: err } = await supabase
+      .from('tenant_settings')
+      .update({ max_companies_for_managers: parsed })
+      .eq('tenant_id', tenant.id)
+
+    setSavingLimit(false)
+    if (err) { setLimitError('Erro ao salvar limite.'); return }
+    setLimitSaved(true)
+    setTimeout(() => setLimitSaved(false), 3000)
   }
 
   const primaryColor   = watch('primary_color')
@@ -342,8 +380,57 @@ export function SettingsPage() {
       {/* ── Integração WhatsApp (Evolution API) ─────────────────────────── */}
       <WhatsappManager />
 
-      {/* ── Webhook ───────────────────────────────────────────────────────── */}
-      {/* Fora do <form> pois tem lógica independente */}
+      {/* ── Controle de acesso (admin only) ─────────────────────────────── */}
+      {isAdmin && (
+        <section className="rounded-xl p-5 flex flex-col gap-4"
+          style={{ background: '#141414', border: '1px solid #1e1e1e' }}>
+          <div className="flex items-center gap-2 mb-1">
+            <Users size={15} style={{ color: 'var(--tenant-primary)' }} />
+            <h3 className="text-sm font-semibold" style={{ color: '#e8e8e8' }}>Controle de acesso</h3>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium uppercase tracking-wide" style={{ color: '#888' }}>
+              Limite de empresas por gestor
+            </label>
+            <p className="text-xs" style={{ color: '#555' }}>
+              Máximo de empresas que gestores deste tenant podem criar. Deixe em branco para ilimitado.
+            </p>
+            <div className="flex items-center gap-3">
+              <input
+                type="number"
+                min={1}
+                value={maxCompanies}
+                onChange={(e) => setMaxCompanies(e.target.value)}
+                placeholder="Ilimitado"
+                className="h-10 w-36 rounded-lg px-3 text-sm focus:outline-none"
+                style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', color: '#e8e8e8' }}
+                onFocus={(e) => (e.currentTarget.style.border = '1px solid var(--tenant-primary)')}
+                onBlur={(e) => (e.currentTarget.style.border = '1px solid #2a2a2a')}
+              />
+              <Button
+                type="button"
+                loading={savingLimit}
+                onClick={saveLimit}
+                className="shrink-0"
+              >
+                <Save size={13} />
+                Salvar limite
+              </Button>
+              {limitSaved && (
+                <span className="flex items-center gap-1 text-xs" style={{ color: '#00e676' }}>
+                  <CheckCircle size={13} /> Salvo!
+                </span>
+              )}
+            </div>
+            {limitError && (
+              <p className="text-xs" style={{ color: '#ff4444' }}>{limitError}</p>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* ── Webhook ──────────────────────────────────────────────────────── */}
       <section className="rounded-xl p-5 flex flex-col gap-4"
         style={{ background: '#141414', border: '1px solid #1e1e1e' }}>
         <div className="flex items-center justify-between">
@@ -494,6 +581,51 @@ export function SettingsPage() {
           Qualquer pessoa com ela pode criar leads no seu CRM. Use "Regenerar chave" se suspeitar de vazamento.
         </div>
       </section>
+
+      {/* ── Zona de perigo (admin only) ──────────────────────────────────── */}
+      {isAdmin && (
+        <section className="rounded-xl p-5 flex flex-col gap-4"
+          style={{ background: '#140808', border: '1px solid rgba(255,68,68,0.2)' }}>
+          <div className="flex items-center gap-2 mb-1">
+            <ShieldAlert size={15} style={{ color: '#ff4444' }} />
+            <h3 className="text-sm font-semibold" style={{ color: '#ff6666' }}>Zona de perigo</h3>
+          </div>
+
+          <div className="flex items-center justify-between gap-4 rounded-xl px-4 py-4"
+            style={{ background: 'rgba(255,68,68,0.05)', border: '1px solid rgba(255,68,68,0.15)' }}>
+            <div>
+              <p className="text-sm font-medium" style={{ color: '#e8e8e8' }}>Excluir empresa</p>
+              <p className="text-xs mt-0.5" style={{ color: '#666' }}>
+                Remove permanentemente todos os leads, usuários, dados financeiros e configurações desta empresa.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowDeleteModal(true)}
+              className="shrink-0 flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all"
+              style={{
+                background: 'rgba(255,68,68,0.12)',
+                border: '1px solid rgba(255,68,68,0.3)',
+                color: '#ff6666',
+              }}
+              onMouseEnter={(e) => {
+                ;(e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,68,68,0.25)'
+              }}
+              onMouseLeave={(e) => {
+                ;(e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,68,68,0.12)'
+              }}
+            >
+              <Trash2 size={14} />
+              Excluir empresa
+            </button>
+          </div>
+        </section>
+      )}
+
+      {/* Modal de exclusão */}
+      {showDeleteModal && (
+        <DeleteTenantModal onClose={() => setShowDeleteModal(false)} />
+      )}
 
     </div>
   )

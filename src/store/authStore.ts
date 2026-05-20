@@ -33,6 +33,12 @@ interface AuthState {
   /** Troca a empresa ativa. Cache React Query é invalidado externamente. */
   switchTenant: (option: TenantOption) => void
 
+  /**
+   * Remove empresa excluída do estado e troca para a próxima disponível.
+   * Retorna true se ainda há empresas, false se o usuário ficou sem nenhuma.
+   */
+  removeTenant: (tenantId: string) => boolean
+
   clear: () => void
 }
 
@@ -58,13 +64,27 @@ export const useAuthStore = create<AuthState>((set) => ({
   setAvailableTenants:   (availableTenants)   => set({ availableTenants }),
 
   switchTenant: ({ tenant, membership }) => {
-    // Persiste escolha para próximo login
     localStorage.setItem('lastTenantId', tenant.id)
+    set({ tenant, membership, accountStatus: membership.account_status ?? 'active' })
+  },
+
+  removeTenant: (tenantId) => {
+    const remaining = useAuthStore.getState().availableTenants.filter(
+      (o) => o.tenant.id !== tenantId,
+    )
+    if (remaining.length === 0) {
+      set({ availableTenants: [] })
+      return false
+    }
+    const next = remaining[0]
+    localStorage.setItem('lastTenantId', next.tenant.id)
     set({
-      tenant,
-      membership,
-      accountStatus: membership.account_status ?? 'active',
+      availableTenants: remaining,
+      tenant:           next.tenant,
+      membership:       next.membership,
+      accountStatus:    next.membership.account_status ?? 'active',
     })
+    return true
   },
 
   clear: () => {

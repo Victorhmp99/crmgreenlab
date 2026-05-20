@@ -72,9 +72,15 @@ export function CreateTenantModal({ onClose }: CreateTenantModalProps) {
         return
       }
 
-      // A RPC retorna { error: string } para erros de negócio (slug, permissão, etc.)
+      // A RPC retorna { error: string } para erros de negócio
       if (data?.error) {
-        setServerError(data.error as string)
+        const errMsg = data.error as string
+        if (errMsg.startsWith('limit_reached:')) {
+          const limit = errMsg.split(':')[1]
+          setServerError(`Você atingiu o limite de ${limit} empresa(s) definido pelo administrador.`)
+        } else {
+          setServerError(errMsg)
+        }
         return
       }
 
