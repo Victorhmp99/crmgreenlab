@@ -10,7 +10,7 @@ interface HorizontalFunnelProps {
 export function HorizontalFunnel({ height = 220 }: HorizontalFunnelProps) {
   const { data: metrics = [], isLoading, error } = useFunnelMetrics()
   const { data: version, isLoading: versionLoading } = useFunnelVersion()
-  const migrationApplied = !versionLoading && version === 'activity-based-v10'
+  const migrationApplied = !versionLoading && version === 'pipeline-only-v11'
 
   if (isLoading) {
     return <div className="flex justify-center py-12"><Spinner size="lg" /></div>
@@ -28,7 +28,7 @@ export function HorizontalFunnel({ height = 220 }: HorizontalFunnelProps) {
           {(error as Error).message}
         </p>
         <p className="text-xs" style={{ color: 'var(--text-dim)' }}>
-          Execute o SQL <code>supabase/funnel_activity_based.sql</code> no Supabase para habilitar o funil por disparos.
+          Execute o SQL <code>supabase/funnel_pipeline_only.sql</code> no Supabase pra atualizar a função do funil.
         </p>
       </div>
     )
