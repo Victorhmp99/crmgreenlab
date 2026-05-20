@@ -6,6 +6,7 @@ import {
   createInvite,
   revokeInvite,
   setUserCompanyLimit,
+  removeMember,
 } from '@/services/users'
 import type { UserRole } from '@/types'
 
@@ -46,5 +47,10 @@ export function useUserMutations() {
     onSuccess: invalidateUsers,
   })
 
-  return { changeRole, toggleActive, invite, revoke, setLimit }
+  const remove = useMutation({
+    mutationFn: (membershipId: string) => removeMember(membershipId),
+    onSuccess: invalidateUsers,
+  })
+
+  return { changeRole, toggleActive, invite, revoke, setLimit, remove }
 }

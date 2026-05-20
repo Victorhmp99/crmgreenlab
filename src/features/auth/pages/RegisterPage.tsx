@@ -1,33 +1,61 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Eye, EyeOff, CheckCircle, Building2, Clock } from 'lucide-react'
+import { Eye, EyeOff, CheckCircle, Building2, Clock, UserCheck } from 'lucide-react'
 import { AuthLayout } from '@/components/layout/AuthLayout'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { registerTenant } from '@/services/register'
+import { supabase } from '@/lib/supabase'
 
-const schema = z
-  .object({
-    companyName: z.string().min(2, 'Nome deve ter ao menos 2 caracteres'),
-    email:       z.string().email('E-mail inválido'),
-    password:    z.string().min(8, 'Senha deve ter ao menos 8 caracteres'),
-    confirm:     z.string(),
-  })
-  .refine((d) => d.password === d.confirm, {
-    message: 'As senhas não coincidem',
-    path:    ['confirm'],
-  })
+// Schema dinâmico: companyName só é obrigatório quando NÃO é "join existing tenant"
+const baseSchema = z.object({
+  companyName: z.string().optional(),
+  email:       z.string().email('E-mail inválido'),
+  password:    z.string().min(8, 'Senha deve ter ao menos 8 caracteres'),
+  confirm:     z.string(),
+})
+const schema = baseSchema.refine((d) => d.password === d.confirm, {
+  message: 'As senhas não coincidem',
+  path:    ['confirm'],
+})
 
 type RegisterForm = z.infer<typeof schema>
+
+interface TokenInfo {
+  valid:              boolean
+  role?:              'admin' | 'manager' | 'seller'
+  target_tenant_id?:  string | null
+  target_tenant_name?: string | null
+}
+
+const ROLE_LABEL: Record<string, string> = {
+  admin:   'Administrador',
+  manager: 'Gestor',
+  seller:  'Vendedor',
+}
 
 export function RegisterPage() {
   const [showPw, setShowPw]         = useState(false)
   const [error, setError]           = useState<string | null>(null)
   const [emailSent, setEmailSent]   = useState(false)
   const [isPending, setIsPending]   = useState(false)
+  const [tokenInfo, setTokenInfo]   = useState<TokenInfo | null>(null)
+
+  const hashParams  = new URLSearchParams(window.location.hash.split('?')[1] ?? '')
+  const signupToken = hashParams.get('ref') ?? undefined
+
+  // Joining existing tenant = token traz um tenant específico
+  const joiningExisting = tokenInfo?.valid && !!tokenInfo.target_tenant_id
+
+  // Carrega info do token ao montar
+  useEffect(() => {
+    if (!signupToken) return
+    Promise.resolve(supabase.rpc('get_signup_token_info', { p_token: signupToken }))
+      .then(({ data }) => { if (data) setTokenInfo(data as TokenInfo) })
+  }, [signupToken])
 
   const {
     register,
@@ -36,15 +64,16 @@ export function RegisterPage() {
     formState: { errors, isSubmitting },
   } = useForm<RegisterForm>({ resolver: zodResolver(schema) })
 
-  // Lê o token de pré-aprovação do query string (ex: /registrar?ref=UUID)
-  // No HashRouter o token vem no hash, então usamos location.hash
-  const hashParams = new URLSearchParams(window.location.hash.split('?')[1] ?? '')
-  const signupToken = hashParams.get('ref') ?? undefined
-
   async function onSubmit(data: RegisterForm) {
     try {
       setError(null)
-      const result = await registerTenant(data.companyName, data.email, data.password, signupToken)
+      // Quando junta a tenant existente, o backend ignora o nome da empresa
+      const companyName = joiningExisting ? 'placeholder' : (data.companyName ?? '')
+      if (!joiningExisting && (!companyName || companyName.length < 2)) {
+        setError('Informe o nome da empresa.')
+        return
+      }
+      const result = await registerTenant(companyName, data.email, data.password, signupToken)
 
       if (result.needsEmailConfirmation) {
         setEmailSent(true)
@@ -117,9 +146,28 @@ export function RegisterPage() {
   return (
     <AuthLayout>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold" style={{ color: '#e8e8e8' }}>Criar conta no Green Hub</h1>
-        <p className="text-sm mt-1" style={{ color: '#666' }}>Configure seu CRM em menos de 1 minuto</p>
+        <h1 className="text-2xl font-bold" style={{ color: '#e8e8e8' }}>
+          {joiningExisting ? 'Você foi convidado! 🎉' : 'Criar conta no Green Hub'}
+        </h1>
+        <p className="text-sm mt-1" style={{ color: '#666' }}>
+          {joiningExisting
+            ? 'Crie sua conta para entrar na empresa.'
+            : 'Configure seu CRM em menos de 1 minuto.'}
+        </p>
       </div>
+
+      {joiningExisting && tokenInfo && (
+        <div className="mb-4 rounded-xl px-4 py-3 flex items-center gap-3"
+          style={{ background: '#1a1a1a', border: '1px solid #2a2a2a' }}>
+          <UserCheck size={18} style={{ color: 'var(--tenant-primary)' }} />
+          <p className="text-sm" style={{ color: '#aaa' }}>
+            Entrando em <strong style={{ color: '#e8e8e8' }}>{tokenInfo.target_tenant_name}</strong> como{' '}
+            <strong style={{ color: 'var(--tenant-primary)' }}>
+              {ROLE_LABEL[tokenInfo.role ?? 'seller']}
+            </strong>
+          </p>
+        </div>
+      )}
 
       {error && (
         <div className="mb-4 rounded-lg px-4 py-3 text-sm"
@@ -129,29 +177,31 @@ export function RegisterPage() {
       )}
 
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-        {/* Nome da empresa */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-medium uppercase tracking-wide" style={{ color: '#888' }}>
-            Nome da empresa *
-          </label>
-          <div className="relative">
-            <Building2 size={15} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
-              style={{ color: errors.companyName ? '#ff4444' : '#444' }} />
-            <input
-              type="text"
-              placeholder="Ex: Agência Silva, Consultório Dr. João..."
-              className="h-10 w-full rounded-lg pl-9 pr-3 text-sm transition-all focus:outline-none"
-              style={{
-                background: '#1a1a1a',
-                border: `1px solid ${errors.companyName ? '#ff4444' : '#2a2a2a'}`,
-                color: '#e8e8e8',
-              }}
-              onFocus={(e) => { if (!errors.companyName) e.currentTarget.style.border = '1px solid var(--tenant-primary)' }}
-              {...register('companyName')}
-            />
+        {/* Nome da empresa — só aparece se NÃO está entrando em tenant existente */}
+        {!joiningExisting && (
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium uppercase tracking-wide" style={{ color: '#888' }}>
+              Nome da empresa *
+            </label>
+            <div className="relative">
+              <Building2 size={15} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                style={{ color: errors.companyName ? '#ff4444' : '#444' }} />
+              <input
+                type="text"
+                placeholder="Ex: Agência Silva, Consultório Dr. João..."
+                className="h-10 w-full rounded-lg pl-9 pr-3 text-sm transition-all focus:outline-none"
+                style={{
+                  background: '#1a1a1a',
+                  border: `1px solid ${errors.companyName ? '#ff4444' : '#2a2a2a'}`,
+                  color: '#e8e8e8',
+                }}
+                onFocus={(e) => { if (!errors.companyName) e.currentTarget.style.border = '1px solid var(--tenant-primary)' }}
+                {...register('companyName')}
+              />
+            </div>
+            {errors.companyName && <p className="text-xs" style={{ color: '#ff4444' }}>{errors.companyName.message}</p>}
           </div>
-          {errors.companyName && <p className="text-xs" style={{ color: '#ff4444' }}>{errors.companyName.message}</p>}
-        </div>
+        )}
 
         <Input label="E-mail *" type="email" placeholder="admin@suaempresa.com"
           autoComplete="email" error={errors.email?.message} {...register('email')} />

@@ -145,6 +145,14 @@ export async function setUserCompanyLimit(
   if (error) throw error
 }
 
+// ── Remover membership (excluir usuário da empresa) ──────────────────────────
+
+export async function removeMember(membershipId: string): Promise<void> {
+  const { data, error } = await supabase.rpc('remove_member', { p_membership_id: membershipId })
+  if (error) throw error
+  if (data?.error) throw new Error(data.error)
+}
+
 // ── Aceitar convite (chamado após o usuário se autenticar) ────────────────────
 
 export async function acceptInvite(token: string): Promise<{ tenantId: string }> {

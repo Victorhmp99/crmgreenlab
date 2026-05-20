@@ -1,19 +1,24 @@
 import { useState } from 'react'
-import { UserPlus, Users } from 'lucide-react'
+import { UserPlus, Users, Link2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { UserTable } from '../components/UserTable'
 import { ChangeRoleModal } from '../components/ChangeRoleModal'
 import { InviteModal } from '../components/InviteModal'
+import { SignupLinkModal } from '../components/SignupLinkModal'
 import { useUsers } from '../hooks/useUsers'
+import { usePermissions } from '@/hooks/usePermissions'
 import type { TenantUser } from '@/services/users'
 
 export function UsersPage() {
   const { data: users = [], isLoading, error } = useUsers()
+  const { isAdmin, isSuperAdmin } = usePermissions()
   const [changingRole, setChangingRole] = useState<TenantUser | null>(null)
   const [showInvite, setShowInvite]     = useState(false)
+  const [showSignupLink, setShowSignupLink] = useState(false)
 
   const activeCount   = users.filter((u) => u.active).length
   const inactiveCount = users.filter((u) => !u.active).length
+  const canGenerateLink = isAdmin || isSuperAdmin
 
   return (
     <div className="flex flex-col gap-5">
@@ -32,10 +37,18 @@ export function UsersPage() {
             )}
           </div>
         </div>
-        <Button onClick={() => setShowInvite(true)}>
-          <UserPlus size={15} />
-          Convidar usuário
-        </Button>
+        <div className="flex items-center gap-2">
+          {canGenerateLink && (
+            <Button variant="ghost" onClick={() => setShowSignupLink(true)}>
+              <Link2 size={15} />
+              Link de cadastro
+            </Button>
+          )}
+          <Button onClick={() => setShowInvite(true)}>
+            <UserPlus size={15} />
+            Convidar usuário
+          </Button>
+        </div>
       </div>
 
       {/* Erro real (debug) */}
@@ -95,6 +108,10 @@ export function UsersPage() {
       <InviteModal
         open={showInvite}
         onClose={() => setShowInvite(false)}
+      />
+      <SignupLinkModal
+        open={showSignupLink}
+        onClose={() => setShowSignupLink(false)}
       />
     </div>
   )

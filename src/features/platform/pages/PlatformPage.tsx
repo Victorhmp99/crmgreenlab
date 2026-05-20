@@ -16,6 +16,7 @@ import { supabase } from '@/lib/supabase'
 import { formatDate } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 import { createInvite } from '@/services/users'
+import { SignupLinkModal } from '@/features/users/components/SignupLinkModal'
 import { SendNotificationModal } from '@/features/notifications/components/SendNotificationModal'
 import { Send } from 'lucide-react'
 import type { UserRole } from '@/types'
@@ -251,120 +252,7 @@ function PlatformInviteModal({ open, onClose }: { open: boolean; onClose: () => 
   )
 }
 
-// ── Modal de Link de Cadastro Pré-Aprovado ───────────────────────────────────
-
-function SignupLinkModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const [token, setToken]   = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [copied, setCopied]   = useState(false)
-  const [err, setErr]         = useState<string | null>(null)
-
-  async function handleGenerate() {
-    setLoading(true)
-    setErr(null)
-    try {
-      const { data, error } = await supabase.rpc('create_signup_token')
-      if (error) throw error
-      setToken(data as string)
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Erro ao gerar token.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // Gera quando abre
-  function handleOpen() {
-    if (!token && !loading) handleGenerate()
-  }
-
-  // Constrói o link completo (hash router → /#/registrar?ref=TOKEN)
-  const fullUrl = token
-    ? `${window.location.origin}${window.location.pathname}#/registrar?ref=${token}`
-    : ''
-
-  async function copyUrl() {
-    if (!fullUrl) return
-    try {
-      await navigator.clipboard.writeText(fullUrl)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch {/* silencioso */}
-  }
-
-  function handleClose() {
-    setToken(null); setCopied(false); setErr(null)
-    onClose()
-  }
-
-  // Trigger inicial quando o modal abre
-  if (open && !token && !loading && !err) handleOpen()
-
-  return (
-    <Modal open={open} onClose={handleClose} title="Link de cadastro pré-aprovado" size="md"
-      footer={
-        <>
-          <Button variant="ghost" onClick={handleClose}>Fechar</Button>
-          {token && (
-            <Button onClick={handleGenerate} loading={loading} variant="ghost">
-              <RefreshCw size={14} />
-              Gerar outro
-            </Button>
-          )}
-        </>
-      }
-    >
-      <div className="flex flex-col gap-4">
-        <p className="text-sm" style={{ color: '#888' }}>
-          Compartilhe este link com a pessoa que deve criar uma nova empresa.
-          Ela preencherá empresa, nome, email e senha — e a conta será ativada
-          imediatamente, sem precisar de aprovação.
-        </p>
-
-        {loading && (
-          <div className="flex justify-center py-4"><Spinner size="sm" /></div>
-        )}
-
-        {err && (
-          <p className="text-xs rounded-lg px-3 py-2"
-            style={{ color: '#ff4444', background: 'rgba(255,68,68,0.1)' }}>{err}</p>
-        )}
-
-        {token && (
-          <>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium uppercase tracking-wide" style={{ color: '#888' }}>
-                Link completo
-              </label>
-              <div className="flex items-center gap-2">
-                <span className="flex-1 rounded-lg px-3 py-2 text-xs font-mono break-all"
-                  style={{ background: '#111', border: '1px solid #1a1a1a', color: '#aaa' }}>
-                  {fullUrl}
-                </span>
-                <button onClick={copyUrl}
-                  className="shrink-0 flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs transition-all"
-                  style={{
-                    background: copied ? 'rgba(0,230,118,0.08)' : '#1a1a1a',
-                    border:     copied ? '1px solid rgba(0,230,118,0.3)' : '1px solid #2a2a2a',
-                    color:      copied ? '#00e676' : '#888',
-                  }}>
-                  {copied ? <CheckCircle size={12} /> : <Copy size={12} />}
-                  {copied ? 'Copiado!' : 'Copiar'}
-                </button>
-              </div>
-            </div>
-
-            <div className="rounded-lg px-3 py-2 text-xs"
-              style={{ background: '#111', border: '1px solid #1a1a1a', color: '#555' }}>
-              ⏰ <strong style={{ color: '#888' }}>Validade:</strong> 7 dias ·{' '}
-              🔒 <strong style={{ color: '#888' }}>Uso único:</strong> link expira após o primeiro cadastro
-            </div>
-          </>
-        )}
-      </div>
-    </Modal>
-  )
-}
+// SignupLinkModal foi movido para src/features/users/components/SignupLinkModal (com role + tenant picker)
 
 // ── Célula de limite de empresas (plataforma) ─────────────────────────────────
 
@@ -436,6 +324,12 @@ function UsersTab({ isMaster }: { isMaster: boolean }) {
   const [showInvite, setShowInvite]           = useState(false)
   const [showSignupLink, setShowSignupLink]   = useState(false)
   const [confirmRemove, setConfirmRemove]     = useState<PlatformUser | null>(null)
+
+  // Lista de tenants pro picker do SignupLinkModal (super admin)
+  const { data: allTenants = [] } = useQuery({
+    queryKey: ['all-tenants-signup'],
+    queryFn:  fetchAllTenants,
+  })
 
   const { data: users = [], isLoading, error } = useQuery({
     queryKey: ['platform-users'],
@@ -716,7 +610,12 @@ function UsersTab({ isMaster }: { isMaster: boolean }) {
       )}
 
       <PlatformInviteModal open={showInvite} onClose={() => setShowInvite(false)} />
-      <SignupLinkModal     open={showSignupLink} onClose={() => setShowSignupLink(false)} />
+      <SignupLinkModal
+        open={showSignupLink}
+        onClose={() => setShowSignupLink(false)}
+        showTenantPicker
+        availableTenants={allTenants}
+      />
 
       {/* Modal de confirmação de remoção */}
       <Modal

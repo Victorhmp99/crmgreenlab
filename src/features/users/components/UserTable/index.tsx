@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ShieldOff, ShieldCheck, Settings, Building2 } from 'lucide-react'
+import { ShieldOff, ShieldCheck, Settings, Building2, Trash2 } from 'lucide-react'
 import { RoleBadge } from '../RoleBadge'
 import { Spinner } from '@/components/ui/Spinner'
 import { formatDate } from '@/lib/utils'
@@ -96,8 +96,10 @@ export function UserTable({ users, isLoading, onChangeRole }: UserTableProps) {
   const currentUserId            = useAuthStore((s) => s.user?.id)
   const isSuperAdmin             = useAuthStore((s) => s.isSuperAdmin)
   const { isAdmin }              = usePermissions()
-  const { toggleActive }         = useUserMutations()
+  const { toggleActive, remove } = useUserMutations()
   const canEditLimit             = isAdmin || isSuperAdmin
+  const canRemove                = isAdmin || isSuperAdmin
+  const [confirmRemove, setConfirmRemove] = useState<TenantUser | null>(null)
 
   const headers = isSuperAdmin
     ? ['Usuário', 'Empresa', 'Papel', 'Status', 'Limite empresas', 'Membro desde', 'Ações']
@@ -215,6 +217,23 @@ export function UserTable({ users, isLoading, onChangeRole }: UserTableProps) {
                         {u.active ? <ShieldOff size={15} /> : <ShieldCheck size={15} />}
                       </button>
                     )}
+                    {!isSelf && canRemove && (
+                      <button
+                        onClick={() => setConfirmRemove(u)}
+                        className="h-8 w-8 rounded-lg flex items-center justify-center transition-colors"
+                        style={{ color: '#555' }}
+                        onMouseEnter={(e) => {
+                          ;(e.currentTarget as HTMLButtonElement).style.color = '#ff4444'
+                          ;(e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,68,68,0.08)'
+                        }}
+                        onMouseLeave={(e) => {
+                          ;(e.currentTarget as HTMLButtonElement).style.color = '#555'
+                          ;(e.currentTarget as HTMLButtonElement).style.background = 'transparent'
+                        }}
+                        title="Excluir usuário da empresa">
+                        <Trash2 size={15} />
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -222,6 +241,49 @@ export function UserTable({ users, isLoading, onChangeRole }: UserTableProps) {
           })}
         </tbody>
       </table>
+
+      {/* Modal de confirmação de exclusão */}
+      {confirmRemove && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(4px)' }}
+          onClick={(e) => { if (e.target === e.currentTarget && !remove.isPending) setConfirmRemove(null) }}>
+          <div className="w-full max-w-md rounded-2xl p-6 flex flex-col gap-4"
+            style={{ background: '#111', border: '1px solid #2a1a1a' }}>
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl flex items-center justify-center"
+                style={{ background: 'rgba(255,68,68,0.12)', border: '1px solid rgba(255,68,68,0.3)' }}>
+                <Trash2 size={18} style={{ color: '#ff4444' }} />
+              </div>
+              <div>
+                <h2 className="text-base font-bold" style={{ color: '#ff6666' }}>Excluir usuário</h2>
+                <p className="text-xs" style={{ color: '#666' }}>Esta ação não pode ser desfeita</p>
+              </div>
+            </div>
+            <p className="text-sm" style={{ color: '#aaa' }}>
+              Remover <strong style={{ color: '#e8e8e8' }}>{confirmRemove.fullName ?? confirmRemove.email}</strong> de{' '}
+              <strong style={{ color: '#e8e8e8' }}>{confirmRemove.tenantName}</strong>?
+              O usuário perderá acesso aos dados desta empresa.
+            </p>
+            <div className="flex gap-3 mt-2">
+              <button onClick={() => setConfirmRemove(null)}
+                disabled={remove.isPending}
+                className="flex-1 h-10 rounded-xl text-sm transition-colors disabled:opacity-50"
+                style={{ background: 'transparent', border: '1px solid #2a2a2a', color: '#aaa' }}>
+                Cancelar
+              </button>
+              <button
+                disabled={remove.isPending}
+                onClick={() => remove.mutate(confirmRemove.membershipId, {
+                  onSuccess: () => setConfirmRemove(null),
+                })}
+                className="flex-1 h-10 rounded-xl text-sm font-semibold transition-all disabled:opacity-50"
+                style={{ background: 'rgba(255,68,68,0.9)', color: '#fff', border: '1px solid rgba(255,68,68,0.5)' }}>
+                {remove.isPending ? 'Excluindo...' : 'Excluir'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
