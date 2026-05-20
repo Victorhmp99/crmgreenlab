@@ -16,7 +16,7 @@ const DEMO_USER = {
 } as ReturnType<typeof useAuthStore.getState>['user']
 
 const DEMO_TENANT     = { id: 'demo-tenant-id', name: 'Empresa Demo', slug: 'empresa-demo', plan: 'trial', active: true, created_at: new Date().toISOString() }
-const DEMO_MEMBERSHIP = { id: 'demo-membership-id', user_id: 'demo-user-id', tenant_id: 'demo-tenant-id', role: 'admin' as const, active: true, account_status: 'active' as const, status_changed_by: null, status_changed_at: null, created_at: new Date().toISOString() }
+const DEMO_MEMBERSHIP = { id: 'demo-membership-id', user_id: 'demo-user-id', tenant_id: 'demo-tenant-id', role: 'admin' as const, active: true, account_status: 'active' as const, status_changed_by: null, status_changed_at: null, created_at: new Date().toISOString(), max_companies_override: null }
 
 export function AuthProvider({ children }: AuthProviderProps) {
   const {

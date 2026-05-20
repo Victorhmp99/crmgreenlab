@@ -39,6 +39,7 @@ export interface UserMembership {
   status_changed_by: string | null
   status_changed_at: string | null
   created_at: string
+  max_companies_override: number | null
 }
 
 export interface PipelineStage {

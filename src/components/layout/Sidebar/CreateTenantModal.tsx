@@ -85,9 +85,9 @@ export function CreateTenantModal({ onClose }: CreateTenantModalProps) {
       }
 
       const newTenant     = data.tenant     as { id: string; name: string; slug: string; plan: string; active: boolean; created_at: string }
-      const newMembership = data.membership as { id: string; user_id: string; tenant_id: string; role: 'admin' | 'manager' | 'seller'; active: boolean; account_status: 'pending' | 'active' | 'blocked'; status_changed_by: string | null; status_changed_at: string | null; created_at: string }
+      const newMembership = data.membership as { id: string; user_id: string; tenant_id: string; role: 'admin' | 'manager' | 'seller'; active: boolean; account_status: 'pending' | 'active' | 'blocked'; status_changed_by: string | null; status_changed_at: string | null; created_at: string; max_companies_override: null }
 
-      const newOption = { tenant: newTenant, membership: newMembership }
+      const newOption = { tenant: newTenant, membership: { ...newMembership, max_companies_override: null } }
 
       // Atualiza lista de empresas disponíveis + troca para a nova
       setAvailableTenants([...availableTenants, newOption])

@@ -30,8 +30,19 @@ export function TenantSwitcher({ collapsed, onCreateTenant }: TenantSwitcherProp
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Não mostra switcher se só tem 1 empresa E não pode criar
+  const isSuperAdmin = useAuthStore((s) => s.isSuperAdmin)
+
+  // Pode criar empresa se for admin ou manager
   const canCreate = membership?.role === 'admin' || membership?.role === 'manager'
+
+  // Calcula se o usuário atingiu o limite de empresas (super admins sempre podem criar)
+  const adminCount = availableTenants.filter((o) => o.membership.role === 'admin').length
+  const overrides  = availableTenants
+    .map((o) => o.membership.max_companies_override)
+    .filter((v): v is number => v != null)
+  const limit      = overrides.length > 0 ? Math.min(...overrides) : null
+  const atLimit    = !isSuperAdmin && limit !== null && adminCount >= limit
+
   if (availableTenants.length <= 1 && !canCreate) return null
 
   function handleSwitch(option: TenantOption) {
@@ -68,7 +79,9 @@ export function TenantSwitcher({ collapsed, onCreateTenant }: TenantSwitcherProp
             currentTenantId={tenant?.id ?? ''}
             onSwitch={handleSwitch}
             onCreateTenant={() => { setOpen(false); onCreateTenant() }}
-            canCreate={canCreate}
+            canCreate={canCreate && !atLimit}
+            atLimit={atLimit}
+            limit={limit}
             side="right"
           />
         )}
@@ -117,7 +130,9 @@ export function TenantSwitcher({ collapsed, onCreateTenant }: TenantSwitcherProp
           currentTenantId={tenant?.id ?? ''}
           onSwitch={handleSwitch}
           onCreateTenant={() => { setOpen(false); onCreateTenant() }}
-          canCreate={canCreate}
+          canCreate={canCreate && !atLimit}
+          atLimit={atLimit}
+          limit={limit}
           side="bottom"
         />
       )}
@@ -133,12 +148,14 @@ interface DropdownProps {
   onSwitch:         (option: TenantOption) => void
   onCreateTenant:   () => void
   canCreate:        boolean
+  atLimit:          boolean
+  limit:            number | null
   side:             'bottom' | 'right'
 }
 
 function TenantDropdown({
   availableTenants, currentTenantId,
-  onSwitch, onCreateTenant, canCreate, side,
+  onSwitch, onCreateTenant, canCreate, atLimit, limit, side,
 }: DropdownProps) {
   const posStyle = side === 'right'
     ? { left: '100%', top: 0, marginLeft: '8px' }
@@ -192,29 +209,46 @@ function TenantDropdown({
         )
       })}
 
-      {/* Criar nova empresa */}
-      {canCreate && (
+      {/* Criar nova empresa — oculto quando atingiu o limite */}
+      {(canCreate || atLimit) && (
         <>
           <div className="mx-3 my-1 h-px" style={{ background: '#2a2a2a' }} />
-          <button
-            onClick={onCreateTenant}
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors"
-            style={{ color: '#666' }}
-            onMouseEnter={(e) => {
-              ;(e.currentTarget as HTMLButtonElement).style.background = '#1e1e1e'
-              ;(e.currentTarget as HTMLButtonElement).style.color = '#e8e8e8'
-            }}
-            onMouseLeave={(e) => {
-              ;(e.currentTarget as HTMLButtonElement).style.background = 'transparent'
-              ;(e.currentTarget as HTMLButtonElement).style.color = '#666'
-            }}
-          >
-            <div className="h-6 w-6 rounded flex items-center justify-center shrink-0"
-              style={{ background: '#1e1e1e', border: '1px dashed #3a3a3a' }}>
-              <Plus size={11} style={{ color: '#666' }} />
+
+          {atLimit ? (
+            /* Limite atingido — exibe mensagem, não o botão */
+            <div className="flex items-center gap-2.5 px-3 py-2 opacity-50 cursor-not-allowed">
+              <div className="h-6 w-6 rounded flex items-center justify-center shrink-0"
+                style={{ background: '#1a0a0a', border: '1px dashed #3a1a1a' }}>
+                <Plus size={11} style={{ color: '#ff4444' }} />
+              </div>
+              <div>
+                <p className="text-xs" style={{ color: '#ff6666' }}>Limite atingido</p>
+                <p className="text-[10px]" style={{ color: '#555' }}>
+                  Máximo de {limit} empresa{limit !== 1 ? 's' : ''} para esta conta
+                </p>
+              </div>
             </div>
-            <p className="text-xs">Criar nova empresa</p>
-          </button>
+          ) : (
+            <button
+              onClick={onCreateTenant}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors"
+              style={{ color: '#666' }}
+              onMouseEnter={(e) => {
+                ;(e.currentTarget as HTMLButtonElement).style.background = '#1e1e1e'
+                ;(e.currentTarget as HTMLButtonElement).style.color = '#e8e8e8'
+              }}
+              onMouseLeave={(e) => {
+                ;(e.currentTarget as HTMLButtonElement).style.background = 'transparent'
+                ;(e.currentTarget as HTMLButtonElement).style.color = '#666'
+              }}
+            >
+              <div className="h-6 w-6 rounded flex items-center justify-center shrink-0"
+                style={{ background: '#1e1e1e', border: '1px dashed #3a3a3a' }}>
+                <Plus size={11} style={{ color: '#666' }} />
+              </div>
+              <p className="text-xs">Criar nova empresa</p>
+            </button>
+          )}
         </>
       )}
     </div>
