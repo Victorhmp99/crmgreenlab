@@ -15,6 +15,8 @@ import { supabase } from '@/lib/supabase'
 import { formatDate } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 import { createInvite } from '@/services/users'
+import { SendNotificationModal } from '@/features/notifications/components/SendNotificationModal'
+import { Send } from 'lucide-react'
 import type { UserRole } from '@/types'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
@@ -1066,6 +1068,7 @@ export function PlatformPage() {
   const queryClient    = useQueryClient()
   const isMaster       = useAuthStore((s) => s.isSuperAdminMaster)
   const [tab, setTab]  = useState<'users' | 'tenants'>('users')
+  const [showNotifModal, setShowNotifModal] = useState(false)
 
   return (
     <div className="flex flex-col gap-5">
@@ -1084,19 +1087,25 @@ export function PlatformPage() {
             )}
           </p>
         </div>
-        <button
-          onClick={() => {
-            queryClient.invalidateQueries({ queryKey: ['platform-users'] })
-            queryClient.invalidateQueries({ queryKey: ['platform-stats'] })
-          }}
-          className="h-9 w-9 rounded-lg flex items-center justify-center transition-colors"
-          style={{ border: '1px solid #2a2a2a', color: '#555' }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = '#1a1a1a' }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent' }}
-          title="Atualizar"
-        >
-          <RefreshCw size={15} />
-        </button>
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" onClick={() => setShowNotifModal(true)}>
+            <Send size={14} />
+            Enviar Notificação
+          </Button>
+          <button
+            onClick={() => {
+              queryClient.invalidateQueries({ queryKey: ['platform-users'] })
+              queryClient.invalidateQueries({ queryKey: ['platform-stats'] })
+            }}
+            className="h-9 w-9 rounded-lg flex items-center justify-center transition-colors"
+            style={{ border: '1px solid #2a2a2a', color: '#555' }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = '#1a1a1a' }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent' }}
+            title="Atualizar"
+          >
+            <RefreshCw size={15} />
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -1127,6 +1136,8 @@ export function PlatformPage() {
         ? <UsersTab isMaster={isMaster} />
         : <TenantsTab />
       }
+
+      <SendNotificationModal open={showNotifModal} onClose={() => setShowNotifModal(false)} />
     </div>
   )
 }

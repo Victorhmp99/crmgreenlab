@@ -138,7 +138,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
         {/* Scripts — link externo, visível para TODOS os usuários */}
         <a
-          href="https://scripts-platform-m63z3ccaj-vhvictor2015-1502s-projects.vercel.app"
+          href="https://scripts.assessoriagreenlab.com.br/#/login"
           target="_blank"
           rel="noopener noreferrer"
           title={collapsed ? 'Scripts' : undefined}
