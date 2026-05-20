@@ -1,10 +1,13 @@
-import { useState } from 'react'
-import { UserPlus, Users } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { UserPlus, Users, Building2, Save, CheckCircle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { UserTable } from '../components/UserTable'
 import { ChangeRoleModal } from '../components/ChangeRoleModal'
 import { InviteModal } from '../components/InviteModal'
 import { useUsers } from '../hooks/useUsers'
+import { usePermissions } from '@/hooks/usePermissions'
+import { useAuth } from '@/hooks/useAuth'
+import { supabase } from '@/lib/supabase'
 import type { TenantUser } from '@/services/users'
 
 export function UsersPage() {
@@ -12,8 +15,51 @@ export function UsersPage() {
   const [changingRole, setChangingRole] = useState<TenantUser | null>(null)
   const [showInvite, setShowInvite]     = useState(false)
 
+  const { isAdmin, isSuperAdmin } = usePermissions()
+  const { tenant }                = useAuth()
+  const canManageLimit            = isAdmin || isSuperAdmin
+
+  // Estado do limite de empresas
+  const [maxCompanies, setMaxCompanies] = useState<string>('')
+  const [editingLimit, setEditingLimit] = useState(false)
+  const [savingLimit, setSavingLimit]   = useState(false)
+  const [limitSaved, setLimitSaved]     = useState(false)
+  const [limitErr, setLimitErr]         = useState<string | null>(null)
+
   const activeCount   = users.filter((u) => u.active).length
   const inactiveCount = users.filter((u) => !u.active).length
+
+  useEffect(() => {
+    if (!tenant?.id) return
+    supabase
+      .from('tenant_settings')
+      .select('max_companies_for_managers')
+      .eq('tenant_id', tenant.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.max_companies_for_managers != null) {
+          setMaxCompanies(String(data.max_companies_for_managers))
+        }
+      })
+  }, [tenant?.id])
+
+  async function saveLimit() {
+    if (!tenant?.id) return
+    setSavingLimit(true); setLimitErr(null)
+    const parsed = maxCompanies.trim() === '' ? null : parseInt(maxCompanies, 10)
+    if (parsed !== null && (isNaN(parsed) || parsed < 1)) {
+      setLimitErr('Número inválido.')
+      setSavingLimit(false); return
+    }
+    const { error: err } = await supabase
+      .from('tenant_settings')
+      .update({ max_companies_for_managers: parsed })
+      .eq('tenant_id', tenant.id)
+    setSavingLimit(false)
+    if (err) { setLimitErr('Erro ao salvar.'); return }
+    setLimitSaved(true); setEditingLimit(false)
+    setTimeout(() => setLimitSaved(false), 3000)
+  }
 
   return (
     <div className="flex flex-col gap-5">
@@ -38,13 +84,77 @@ export function UsersPage() {
         </Button>
       </div>
 
+      {/* Limite de empresas por gestor (admin only) */}
+      {canManageLimit && (
+        <div className="rounded-xl px-4 py-3 flex items-center justify-between gap-4"
+          style={{ background: '#141414', border: '1px solid #1e1e1e' }}>
+          <div className="flex items-center gap-2.5">
+            <Building2 size={14} style={{ color: 'var(--tenant-primary)' }} />
+            <div>
+              <p className="text-xs font-medium" style={{ color: '#e8e8e8' }}>
+                Limite de empresas por gestor
+              </p>
+              {!editingLimit && (
+                <p className="text-xs mt-0.5" style={{ color: '#555' }}>
+                  {maxCompanies
+                    ? `Gestores podem criar até ${maxCompanies} empresa(s)`
+                    : 'Sem limite definido (ilimitado)'}
+                  {limitSaved && (
+                    <span className="ml-2" style={{ color: '#00e676' }}>
+                      <CheckCircle size={11} className="inline mr-0.5" />Salvo!
+                    </span>
+                  )}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {!editingLimit ? (
+            <button
+              onClick={() => setEditingLimit(true)}
+              className="text-xs rounded-lg px-3 py-1.5 transition-all"
+              style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', color: '#888' }}
+            >
+              Editar
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <input
+                type="number" min={1}
+                value={maxCompanies}
+                onChange={(e) => setMaxCompanies(e.target.value)}
+                placeholder="Ilimitado"
+                autoFocus
+                className="h-8 w-24 rounded-lg px-2 text-sm focus:outline-none"
+                style={{ background: '#1a1a1a', border: '1px solid var(--tenant-primary)', color: '#e8e8e8' }}
+              />
+              <button
+                onClick={saveLimit}
+                disabled={savingLimit}
+                className="flex items-center gap-1 h-8 rounded-lg px-3 text-xs font-medium transition-all disabled:opacity-50"
+                style={{ background: 'rgba(0,230,118,0.1)', border: '1px solid rgba(0,230,118,0.3)', color: '#00e676' }}
+              >
+                <Save size={11} />
+                Salvar
+              </button>
+              <button
+                onClick={() => { setEditingLimit(false); setLimitErr(null) }}
+                className="h-8 rounded-lg px-3 text-xs"
+                style={{ color: '#555' }}
+              >
+                Cancelar
+              </button>
+              {limitErr && <p className="text-xs" style={{ color: '#ff4444' }}>{limitErr}</p>}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Erro real (debug) */}
       {error && (
         <div className="rounded-xl p-4 flex flex-col gap-2"
           style={{ background: '#141414', border: '1px solid rgba(255,68,68,0.2)' }}>
-          <p className="text-sm font-medium" style={{ color: '#ff4444' }}>
-            Erro ao carregar usuários
-          </p>
+          <p className="text-sm font-medium" style={{ color: '#ff4444' }}>Erro ao carregar usuários</p>
           <p className="text-xs font-mono rounded px-2 py-1 break-all"
             style={{ background: '#0d0d0d', color: '#ff6666' }}>
             {(error as Error).message}
@@ -71,11 +181,7 @@ export function UsersPage() {
           </Button>
         </div>
       ) : !error ? (
-        <UserTable
-          users={users}
-          isLoading={isLoading}
-          onChangeRole={setChangingRole}
-        />
+        <UserTable users={users} isLoading={isLoading} onChangeRole={setChangingRole} />
       ) : null}
 
       {/* Aviso de permissões */}
@@ -88,14 +194,8 @@ export function UsersPage() {
       </div>
 
       {/* Modais */}
-      <ChangeRoleModal
-        user={changingRole}
-        onClose={() => setChangingRole(null)}
-      />
-      <InviteModal
-        open={showInvite}
-        onClose={() => setShowInvite(false)}
-      />
+      <ChangeRoleModal user={changingRole} onClose={() => setChangingRole(null)} />
+      <InviteModal open={showInvite} onClose={() => setShowInvite(false)} />
     </div>
   )
 }

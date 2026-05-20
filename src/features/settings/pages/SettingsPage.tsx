@@ -36,7 +36,7 @@ const WEBHOOK_ENDPOINT = 'https://miezatcdfldmqmxgpkwr.supabase.co/functions/v1/
 
 export function SettingsPage() {
   const { tenant }                          = useAuth()
-  const { isAdmin }                         = usePermissions()
+  const { isAdmin, isSuperAdmin }           = usePermissions()
   const settings                            = useTenantStore((s) => s.settings)
   const setSettings                         = useTenantStore((s) => s.setSettings)
   const [saved, setSaved]                   = useState(false)
@@ -381,7 +381,7 @@ export function SettingsPage() {
       <WhatsappManager />
 
       {/* ── Controle de acesso (admin only) ─────────────────────────────── */}
-      {isAdmin && (
+      {(isAdmin || isSuperAdmin) && (
         <section className="rounded-xl p-5 flex flex-col gap-4"
           style={{ background: '#141414', border: '1px solid #1e1e1e' }}>
           <div className="flex items-center gap-2 mb-1">
@@ -583,7 +583,7 @@ export function SettingsPage() {
       </section>
 
       {/* ── Zona de perigo (admin only) ──────────────────────────────────── */}
-      {isAdmin && (
+      {(isAdmin || isSuperAdmin) && (
         <section className="rounded-xl p-5 flex flex-col gap-4"
           style={{ background: '#140808', border: '1px solid rgba(255,68,68,0.2)' }}>
           <div className="flex items-center gap-2 mb-1">

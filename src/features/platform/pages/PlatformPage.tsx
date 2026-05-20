@@ -1062,6 +1062,80 @@ function TenantsTab() {
   )
 }
 
+// ── Card de configurações globais (super admin master) ───────────────────────
+
+function GlobalSettingsCard() {
+  const [globalLimit, setGlobalLimit]   = useState<string>('')
+  const [loading, setLoading]           = useState(true)
+  const [saving, setSaving]             = useState(false)
+  const [saved, setSaved]               = useState(false)
+  const [err, setErr]                   = useState<string | null>(null)
+
+  useEffect(() => {
+    Promise.resolve(supabase.rpc('get_platform_config')).then(({ data }) => {
+      const val = (data as Record<string, number | null> | null)?.max_companies_per_manager
+      if (val != null) setGlobalLimit(String(val))
+    }).finally(() => setLoading(false))
+  }, [])
+
+  async function save() {
+    setSaving(true); setErr(null)
+    const parsed = globalLimit.trim() === '' ? null : parseInt(globalLimit, 10)
+    if (parsed !== null && (isNaN(parsed) || parsed < 1)) {
+      setErr('Informe um número maior que zero.')
+      setSaving(false); return
+    }
+    const { error } = await supabase.rpc('set_platform_max_companies', { p_limit: parsed })
+    setSaving(false)
+    if (error) { setErr('Erro ao salvar.'); return }
+    setSaved(true); setTimeout(() => setSaved(false), 3000)
+  }
+
+  if (loading) return null
+
+  return (
+    <div className="rounded-xl p-5 flex flex-col gap-4"
+      style={{ background: '#141414', border: '1px solid #2a2a2a' }}>
+      <div className="flex items-center gap-2">
+        <Star size={15} style={{ color: '#fbbf24' }} />
+        <h3 className="text-sm font-semibold" style={{ color: '#e8e8e8' }}>Configurações globais da plataforma</h3>
+      </div>
+      <div className="flex flex-col gap-2">
+        <label className="text-xs font-medium uppercase tracking-wide" style={{ color: '#888' }}>
+          Limite global de empresas por gestor
+        </label>
+        <p className="text-xs" style={{ color: '#555' }}>
+          Máximo de empresas que qualquer gestor pode criar em toda a plataforma. Deixe em branco para ilimitado.
+          Este limite prevalece sobre os limites definidos por cada admin de empresa.
+        </p>
+        <div className="flex items-center gap-3">
+          <input
+            type="number" min={1}
+            value={globalLimit}
+            onChange={(e) => setGlobalLimit(e.target.value)}
+            placeholder="Ilimitado"
+            disabled={saving}
+            className="h-10 w-36 rounded-lg px-3 text-sm focus:outline-none"
+            style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', color: '#e8e8e8' }}
+            onFocus={(e) => (e.currentTarget.style.border = '1px solid #fbbf24')}
+            onBlur={(e) => (e.currentTarget.style.border = '1px solid #2a2a2a')}
+          />
+          <button
+            onClick={save} disabled={saving}
+            className="flex items-center gap-1.5 h-10 rounded-lg px-4 text-sm font-medium transition-all disabled:opacity-50"
+            style={{ background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.3)', color: '#fbbf24' }}
+          >
+            {saving ? <Spinner size="sm" /> : <Star size={13} />}
+            Salvar
+          </button>
+          {saved && <span className="text-xs" style={{ color: '#00e676' }}>✓ Salvo!</span>}
+        </div>
+        {err && <p className="text-xs" style={{ color: '#ff4444' }}>{err}</p>}
+      </div>
+    </div>
+  )
+}
+
 // ── Page principal ────────────────────────────────────────────────────────────
 
 export function PlatformPage() {
@@ -1107,6 +1181,9 @@ export function PlatformPage() {
           </button>
         </div>
       </div>
+
+      {/* Configurações globais — visível apenas para master */}
+      {isMaster && <GlobalSettingsCard />}
 
       {/* Tabs */}
       <div className="flex items-center gap-1 rounded-xl p-1"
