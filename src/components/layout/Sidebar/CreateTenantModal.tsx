@@ -66,8 +66,26 @@ export function CreateTenantModal({ onClose }: CreateTenantModalProps) {
         p_slug: formData.slug,
       })
 
-      if (error) throw error
-      if (data?.error) throw new Error(data.error)
+      if (error) {
+        // PostgrestError não é um Error nativo — extraímos a message diretamente
+        const msg = error.message ?? 'Erro ao criar empresa.'
+        if (msg.includes('slug') || msg.includes('unique') || msg.includes('duplicate')) {
+          setServerError('Este slug já está em uso. Escolha outro identificador.')
+        } else {
+          setServerError(msg)
+        }
+        return
+      }
+
+      // A RPC retorna { error: string } para erros de negócio
+      if (data?.error) {
+        if (data.error === 'slug_taken') {
+          setServerError('Este slug já está em uso. Escolha outro identificador.')
+        } else {
+          setServerError(data.error as string)
+        }
+        return
+      }
 
       const newTenant     = data.tenant     as { id: string; name: string; slug: string; plan: string; active: boolean; created_at: string }
       const newMembership = data.membership as { id: string; user_id: string; tenant_id: string; role: 'admin' | 'manager' | 'seller'; active: boolean; account_status: 'pending' | 'active' | 'blocked'; status_changed_by: string | null; status_changed_at: string | null; created_at: string }
@@ -83,12 +101,8 @@ export function CreateTenantModal({ onClose }: CreateTenantModalProps) {
 
       onClose()
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Erro ao criar empresa.'
-      if (msg.includes('slug')) {
-        setServerError('Este slug já está em uso. Escolha outro.')
-      } else {
-        setServerError(msg)
-      }
+      const msg = (err as { message?: string })?.message ?? 'Erro inesperado ao criar empresa.'
+      setServerError(msg)
     }
   }
 
