@@ -63,20 +63,10 @@ export function AcceptInvitePage() {
 
       setInviteData(data)
 
-      // Tenta detectar se o e-mail já tem conta via signUp com senha fake
-      // Supabase retorna "already registered" se sim
-      const testSignUp = await supabase.auth.signUp({
-        email:    data.email,
-        password: '!!probe-only-not-a-real-password!!',
-        options:  { data: { _probe: true } },
-      })
+      // Verifica se o e-mail já tem conta via RPC (sem criar conta fantasma)
+      const { data: exists } = await supabase.rpc('check_email_exists', { p_email: data.email })
 
-      const alreadyExists =
-        testSignUp.error?.message?.toLowerCase().includes('already registered') ||
-        testSignUp.error?.message?.toLowerCase().includes('already been registered') ||
-        testSignUp.error?.message?.toLowerCase().includes('user already registered')
-
-      setPageState(alreadyExists ? 'form-existing' : 'form-new')
+      setPageState(exists ? 'form-existing' : 'form-new')
     })()
   }, [token])
 
