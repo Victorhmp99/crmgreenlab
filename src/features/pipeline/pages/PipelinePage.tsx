@@ -77,6 +77,8 @@ export function PipelinePage() {
   const [addToStage,    setAddToStage]    = useState<{ id: string; name: string; position: number } | null>(null)
   const [selectedLead,  setSelectedLead]  = useState<Lead | null>(null)
   const [editingLead,   setEditingLead]   = useState<Lead | null | undefined>(undefined)
+  const [confirmRemove, setConfirmRemove] = useState<{ cardId: string; leadName: string } | null>(null)
+  const [removeError,   setRemoveError]   = useState<string | null>(null)
 
   const isLoading = pipelinesLoading || stagesLoading || cardsLoading
 
@@ -175,7 +177,10 @@ export function PipelinePage() {
                 cards={cards}
                 pipelineId={selectedPipelineId}
                 onAddLead={handleAddLead}
-                onRemoveCard={(cardId) => remove.mutate(cardId)}
+                onRemoveCard={(cardId) => {
+                  const card = cards.find((c) => c.card.id === cardId)
+                  setConfirmRemove({ cardId, leadName: card?.lead.name ?? 'lead' })
+                }}
                 onSelectLead={setSelectedLead}
               />
             )}
@@ -204,6 +209,57 @@ export function PipelinePage() {
         onClose={() => setEditingLead(undefined)}
         lead={editingLead ?? null}
       />
+
+      {/* Confirmação pra retirar card da pipeline (não exclui o lead) */}
+      {confirmRemove && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center px-4"
+          style={{ background: 'rgba(0,0,0,0.7)' }}
+          onClick={() => !remove.isPending && setConfirmRemove(null)}>
+          <div className="w-full max-w-md rounded-2xl p-6 flex flex-col gap-4"
+            onClick={(e) => e.stopPropagation()}
+            style={{ background: '#141414', border: '1px solid #2a2a2a' }}>
+            <div>
+              <h3 className="text-lg font-semibold" style={{ color: '#fbbf24' }}>
+                Retirar da pipeline?
+              </h3>
+              <p className="text-sm mt-1" style={{ color: '#aaa' }}>
+                Você está prestes a remover <strong style={{ color: '#e8e8e8' }}>{confirmRemove.leadName}</strong> da pipeline atual.
+              </p>
+              <p className="text-xs mt-1" style={{ color: '#666' }}>
+                O lead <strong>não</strong> será excluído — ele apenas sai desta pipeline e pode ser adicionado em outra depois.
+              </p>
+            </div>
+            {removeError && (
+              <p className="text-sm rounded-lg px-3 py-2"
+                style={{ color: '#ff4444', background: 'rgba(255,68,68,0.1)' }}>
+                {removeError}
+              </p>
+            )}
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setConfirmRemove(null)} disabled={remove.isPending}
+                className="rounded-lg px-4 py-2 text-sm transition-colors disabled:opacity-40"
+                style={{ color: '#aaa', border: '1px solid #2a2a2a' }}>
+                Cancelar
+              </button>
+              <button
+                disabled={remove.isPending}
+                onClick={async () => {
+                  setRemoveError(null)
+                  try {
+                    await remove.mutateAsync(confirmRemove.cardId)
+                    setConfirmRemove(null)
+                  } catch (err) {
+                    setRemoveError((err as Error).message ?? 'Erro ao remover')
+                  }
+                }}
+                className="rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-40"
+                style={{ background: 'rgba(251,191,36,0.15)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.4)' }}>
+                {remove.isPending ? 'Removendo...' : 'Retirar da pipeline'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -15,16 +15,23 @@ const CONFIRM_WORD = 'deletar'
 export function DeleteConfirmModal({ lead, onClose }: DeleteConfirmModalProps) {
   const { remove } = useLeadMutations()
   const [typed, setTyped] = useState('')
+  const [error, setError] = useState<string | null>(null)
 
   // Limpa o input toda vez que abre/troca de lead
-  useEffect(() => { setTyped('') }, [lead?.id])
+  useEffect(() => { setTyped(''); setError(null) }, [lead?.id])
 
   const canDelete = typed.trim().toLowerCase() === CONFIRM_WORD
 
   async function handleDelete() {
     if (!lead || !canDelete) return
-    await remove.mutateAsync(lead.id)
-    onClose()
+    setError(null)
+    try {
+      await remove.mutateAsync(lead.id)
+      onClose()
+    } catch (err) {
+      console.error('[DeleteConfirmModal] erro:', err)
+      setError((err as Error).message ?? 'Erro ao excluir lead.')
+    }
   }
 
   return (
@@ -76,6 +83,13 @@ export function DeleteConfirmModal({ lead, onClose }: DeleteConfirmModalProps) {
             }}
           />
         </div>
+
+        {error && (
+          <div className="rounded-lg px-3 py-2 text-sm"
+            style={{ background: 'rgba(255,68,68,0.1)', border: '1px solid rgba(255,68,68,0.25)', color: '#ff4444' }}>
+            <strong>Erro:</strong> {error}
+          </div>
+        )}
       </div>
     </Modal>
   )

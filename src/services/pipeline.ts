@@ -132,8 +132,17 @@ export async function addLeadToPipeline(
 // ── Remover lead do pipeline ─────────────────────────────────────────────────
 
 export async function removeFromPipeline(cardId: string): Promise<void> {
-  const { error } = await supabase.from('pipeline_cards').delete().eq('id', cardId)
-  if (error) throw error
+  const { error, count } = await supabase
+    .from('pipeline_cards')
+    .delete({ count: 'exact' })
+    .eq('id', cardId)
+  if (error) {
+    console.error('[pipeline] removeFromPipeline falhou:', error)
+    throw error
+  }
+  if (count === 0) {
+    throw new Error('Não foi possível remover. Verifique sua permissão (RLS) ou rode o SQL fixes_delete_and_notifications.sql.')
+  }
 }
 
 // ── Leads que ainda não estão no pipeline ────────────────────────────────────

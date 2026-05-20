@@ -130,8 +130,17 @@ export async function updateLead(id: string, formData: Partial<LeadFormData>): P
 }
 
 export async function deleteLead(id: string): Promise<void> {
-  const { error } = await supabase.from('leads').delete().eq('id', id)
-  if (error) throw error
+  const { error, count } = await supabase
+    .from('leads')
+    .delete({ count: 'exact' })
+    .eq('id', id)
+  if (error) {
+    console.error('[leads] deleteLead falhou:', error)
+    throw error
+  }
+  if (count === 0) {
+    throw new Error('Não foi possível excluir. Verifique sua permissão (RLS) ou rode o SQL fixes_delete_and_notifications.sql.')
+  }
 }
 
 // Bulk delete — RLS aplica linha a linha, então só vai apagar o que o usuário tem permissão.
