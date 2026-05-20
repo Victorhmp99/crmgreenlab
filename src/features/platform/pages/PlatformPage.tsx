@@ -783,10 +783,18 @@ function RoleDropdown({ currentRole, onChange, disabled }: {
   const current = roles.find((r) => r.value === currentRole) ?? roles[0]
 
   // Calcula a posição do dropdown baseado no botão (renderizado em portal)
+  // Abre para cima se não houver espaço suficiente abaixo
   useEffect(() => {
     if (open && btnRef.current) {
-      const rect = btnRef.current.getBoundingClientRect()
-      setPos({ top: rect.bottom + 4, left: rect.left })
+      const rect       = btnRef.current.getBoundingClientRect()
+      const menuHeight = 110  // estimativa: 3 opções × ~36px
+      const spaceBelow = window.innerHeight - rect.bottom
+      const openUp     = spaceBelow < menuHeight + 8
+      setPos(
+        openUp
+          ? { top: rect.top - menuHeight - 4, left: rect.left }
+          : { top: rect.bottom + 4,           left: rect.left },
+      )
     }
   }, [open])
 

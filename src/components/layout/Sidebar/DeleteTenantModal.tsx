@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { AlertTriangle, Trash2, X } from 'lucide-react'
+import { AlertTriangle, Trash2, X, CheckCircle } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
 import { Button } from '@/components/ui/Button'
@@ -18,15 +19,17 @@ interface DeleteTenantModalProps {
 }
 
 export function DeleteTenantModal({ onClose }: DeleteTenantModalProps) {
-  const queryClient = useQueryClient()
-  const tenant      = useAuthStore((s) => s.tenant)
+  const queryClient  = useQueryClient()
+  const navigate     = useNavigate()
+  const tenant       = useAuthStore((s) => s.tenant)
   const removeTenant = useAuthStore((s) => s.removeTenant)
 
-  const [stats, setStats]         = useState<DeleteStats | null>(null)
+  const [stats, setStats]               = useState<DeleteStats | null>(null)
   const [loadingStats, setLoadingStats] = useState(true)
   const [statsError, setStatsError]     = useState<string | null>(null)
+  const [deletedName, setDeletedName]   = useState<string | null>(null)
 
-  const [understood, setUnderstood] = useState(false)
+  const [understood, setUnderstood]   = useState(false)
   const [confirmName, setConfirmName] = useState('')
   const [deleting, setDeleting]       = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
@@ -60,17 +63,53 @@ export function DeleteTenantModal({ onClose }: DeleteTenantModalProps) {
       return
     }
 
-    // Remove empresa do estado e troca para outra (ou redireciona)
+    // Guarda o nome antes de remover
+    const name = tenant.name
     queryClient.clear()
     const hasMore = removeTenant(tenant.id)
 
     if (!hasMore) {
-      // Sem mais empresas — faz logout
-      await supabase.auth.signOut()
-      window.location.href = window.location.origin + window.location.pathname + '#/login'
+      // Sem mais empresas — mostra sucesso e faz logout
+      setDeletedName(name)
+      setTimeout(async () => {
+        await supabase.auth.signOut()
+        window.location.href = window.location.origin + window.location.pathname + '#/login'
+      }, 2500)
     } else {
-      onClose()
+      // Tem outras empresas — mostra sucesso e navega pro dashboard
+      setDeletedName(name)
+      setTimeout(() => {
+        onClose()
+        navigate('/dashboard')
+      }, 2000)
     }
+  }
+
+  // Tela de sucesso após exclusão
+  if (deletedName) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(6px)' }}>
+        <div className="flex flex-col items-center gap-4 text-center">
+          <div className="h-16 w-16 rounded-full flex items-center justify-center"
+            style={{ background: 'rgba(0,230,118,0.15)', border: '2px solid rgba(0,230,118,0.4)' }}>
+            <CheckCircle size={32} style={{ color: '#00e676' }} />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold" style={{ color: '#e8e8e8' }}>
+              Empresa excluída
+            </h2>
+            <p className="text-sm mt-1" style={{ color: '#555' }}>
+              <span style={{ color: '#888' }}>"{deletedName}"</span> foi removida permanentemente.
+            </p>
+            <p className="text-xs mt-2" style={{ color: '#444' }}>
+              Redirecionando para o dashboard...
+            </p>
+          </div>
+          <Spinner size="sm" />
+        </div>
+      </div>
+    )
   }
 
   return (
