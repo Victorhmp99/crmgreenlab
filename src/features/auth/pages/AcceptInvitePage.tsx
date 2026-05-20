@@ -266,9 +266,9 @@ export function AcceptInvitePage() {
                   border: `1px solid ${existingUserForm.formState.errors.password ? '#ff4444' : '#2a2a2a'}`,
                   color: '#e8e8e8',
                 }}
+                {...existingUserForm.register('password')}
                 onFocus={(e) => { if (!existingUserForm.formState.errors.password) e.currentTarget.style.border = '1px solid var(--tenant-primary)' }}
                 onBlur={(e) => { e.currentTarget.style.border = `1px solid ${existingUserForm.formState.errors.password ? '#ff4444' : '#2a2a2a'}` }}
-                {...existingUserForm.register('password')}
               />
               <button type="button" onClick={() => setShowPw((v) => !v)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
@@ -335,9 +335,9 @@ export function AcceptInvitePage() {
                 border: `1px solid ${newUserForm.formState.errors.password ? '#ff4444' : '#2a2a2a'}`,
                 color: '#e8e8e8',
               }}
+              {...newUserForm.register('password')}
               onFocus={(e) => { if (!newUserForm.formState.errors.password) e.currentTarget.style.border = '1px solid var(--tenant-primary)' }}
               onBlur={(e) => { e.currentTarget.style.border = `1px solid ${newUserForm.formState.errors.password ? '#ff4444' : '#2a2a2a'}` }}
-              {...newUserForm.register('password')}
             />
             <button type="button" onClick={() => setShowPw((v) => !v)}
               className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
@@ -364,9 +364,9 @@ export function AcceptInvitePage() {
               border: `1px solid ${newUserForm.formState.errors.confirm ? '#ff4444' : '#2a2a2a'}`,
               color: '#e8e8e8',
             }}
+            {...newUserForm.register('confirm')}
             onFocus={(e) => { if (!newUserForm.formState.errors.confirm) e.currentTarget.style.border = '1px solid var(--tenant-primary)' }}
             onBlur={(e) => { e.currentTarget.style.border = `1px solid ${newUserForm.formState.errors.confirm ? '#ff4444' : '#2a2a2a'}` }}
-            {...newUserForm.register('confirm')}
           />
           {newUserForm.formState.errors.confirm && (
             <p className="text-xs" style={{ color: '#ff4444' }}>{newUserForm.formState.errors.confirm.message}</p>

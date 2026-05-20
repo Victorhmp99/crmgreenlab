@@ -201,12 +201,12 @@ function TenantDropdown({
             className="w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors"
             style={{ color: '#666' }}
             onMouseEnter={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.background = '#1e1e1e'
-              (e.currentTarget as HTMLButtonElement).style.color = '#e8e8e8'
+              ;(e.currentTarget as HTMLButtonElement).style.background = '#1e1e1e'
+              ;(e.currentTarget as HTMLButtonElement).style.color = '#e8e8e8'
             }}
             onMouseLeave={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.background = 'transparent'
-              (e.currentTarget as HTMLButtonElement).style.color = '#666'
+              ;(e.currentTarget as HTMLButtonElement).style.background = 'transparent'
+              ;(e.currentTarget as HTMLButtonElement).style.color = '#666'
             }}
           >
             <div className="h-6 w-6 rounded flex items-center justify-center shrink-0"
