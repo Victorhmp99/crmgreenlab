@@ -36,6 +36,7 @@ interface PlatformUser {
   joined_at:              string
   status_changed_at:      string | null
   max_companies_override: number | null
+  company_count:          number
 }
 
 interface TenantStat {
@@ -571,23 +572,36 @@ function UsersTab({ isMaster }: { isMaster: boolean }) {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((u) => (
+              {filtered.map((u, idx) => {
+                // Agrupa visualmente: só mostra avatar/email na primeira membership do usuário
+                const isFirstOfUser = idx === 0 || filtered[idx - 1].user_id !== u.user_id
+                return (
                 <tr key={u.membership_id}
-                  style={{ borderBottom: '1px solid #191919' }}
+                  style={{ borderBottom: '1px solid #191919', background: isFirstOfUser ? 'transparent' : 'rgba(255,255,255,0.01)' }}
                   onMouseEnter={(e) => (e.currentTarget.style.background = '#191919')}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
+                  onMouseLeave={(e) => (e.currentTarget.style.background = isFirstOfUser ? 'transparent' : 'rgba(255,255,255,0.01)')}>
 
-                  {/* Usuário */}
+                  {/* Usuário — só mostra na primeira linha do usuário */}
                   <td className="px-4 py-3">
-                    <p className="font-medium text-xs" style={{ color: '#e8e8e8' }}>
-                      {u.full_name ?? u.email}
-                    </p>
-                    {u.full_name && (
-                      <p className="text-[11px] mt-0.5" style={{ color: '#444' }}>{u.email}</p>
+                    {isFirstOfUser ? (
+                      <>
+                        <p className="font-medium text-xs flex items-center gap-1.5" style={{ color: '#e8e8e8' }}>
+                          {u.full_name ?? u.email}
+                          {u.company_count > 1 && (
+                            <span className="text-[9px] rounded-full px-1.5 py-0.5"
+                              style={{ background: 'rgba(0,230,118,0.1)', color: '#00e676' }}>
+                              {u.company_count} empresas
+                            </span>
+                          )}
+                        </p>
+                        {u.full_name && <p className="text-[11px] mt-0.5" style={{ color: '#444' }}>{u.email}</p>}
+                        <p className="text-[10px] mt-0.5" style={{ color: '#333' }}>desde {formatDate(u.joined_at)}</p>
+                      </>
+                    ) : (
+                      <p className="text-[10px] pl-3" style={{ color: '#333', borderLeft: '2px solid #222' }}>
+                        ↳ mesma conta
+                      </p>
                     )}
-                    <p className="text-[10px] mt-0.5" style={{ color: '#333' }}>
-                      desde {formatDate(u.joined_at)}
-                    </p>
                   </td>
 
                   {/* Empresa */}
@@ -694,7 +708,8 @@ function UsersTab({ isMaster }: { isMaster: boolean }) {
                     </div>
                   </td>
                 </tr>
-              ))}
+                )
+              })}
             </tbody>
           </table>
         </div>
