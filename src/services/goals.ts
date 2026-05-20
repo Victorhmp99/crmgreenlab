@@ -57,18 +57,17 @@ async function fetchProgress(tenantId: string, goal: Goal): Promise<GoalProgress
           .lte('created_at', goal.end_date + 'T23:59:59')
       : Promise.resolve({ count: 0 }),
 
-    // Disparos do usuário no período — inclui:
-    //   call/whatsapp/email/meeting/note registrados na aba Disparos
-    //   stage_change (movimentações de card na pipeline feitas pelo usuário)
-    // Exclui apenas 'import' (entrada em massa, não conta como ação manual)
+    // Disparos do usuário no período — DEDUP por lead.
+    // Ou seja, 10 ligações pro mesmo lead = 1 disparo na meta.
+    // Inclui call/whatsapp/email/meeting/note + stage_change. Exclui 'import'.
     goal.calls_target
-      ? supabase.from('lead_activities').select('*', { count: 'exact', head: true })
+      ? supabase.from('lead_activities').select('lead_id')
           .eq('tenant_id', tenantId)
           .eq('user_id', goal.user_id)
           .neq('type', 'import')
           .gte('created_at', goal.start_date)
           .lte('created_at', goal.end_date + 'T23:59:59')
-      : Promise.resolve({ count: 0 }),
+      : Promise.resolve({ data: [] as Array<{ lead_id: string }> }),
 
     // Leads convertidos pelo usuário no período
     goal.deals_target
@@ -82,7 +81,10 @@ async function fetchProgress(tenantId: string, goal: Goal): Promise<GoalProgress
   ])
 
   const leadsActual = leadsRes.count ?? 0
-  const callsActual = callsRes.count ?? 0
+  // callsRes vem com .data (não .count) porque agora deduplica por lead
+  const callsActual = callsRes && 'data' in callsRes
+    ? new Set(((callsRes.data ?? []) as Array<{ lead_id: string }>).map((r) => r.lead_id)).size
+    : 0
   const dealsActual = dealsRes.count ?? 0
 
   console.log('[Goals] progresso da meta:', {
@@ -236,9 +238,9 @@ export async function fetchLeaderboard(
           .eq('tenant_id', tenantId).eq('assigned_to', userId)
           .gte('created_at', startDate).lte('created_at', endDate + 'T23:59:59'),
 
-        supabase.from('lead_activities').select('*', { count: 'exact', head: true })
+        supabase.from('lead_activities').select('lead_id')
           .eq('tenant_id', tenantId).eq('user_id', userId)
-          .neq('type', 'import')  // inclui stage_change (movimentação na pipeline)
+          .neq('type', 'import')
           .gte('created_at', startDate).lte('created_at', endDate + 'T23:59:59'),
 
         supabase.from('leads').select('*', { count: 'exact', head: true })
@@ -248,7 +250,7 @@ export async function fetchLeaderboard(
       ])
 
       const leads = leadsRes.count ?? 0
-      const calls = callsRes.count ?? 0
+      const calls = new Set(((callsRes.data ?? []) as Array<{ lead_id: string }>).map((r) => r.lead_id)).size
       const deals = dealsRes.count ?? 0
 
       return {

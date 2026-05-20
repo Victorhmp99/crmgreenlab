@@ -321,7 +321,7 @@ export function ReportsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ borderBottom: '1px solid #2a2a2a' }}>
-                  {['Pipeline', 'Leads', 'Contatos Feitos', 'Reuniões', 'Conversões', 'Declinaram', 'Tx Reunião', 'Tx Conv.'].map((h, i) => (
+                  {['Pipeline', 'Leads', 'Contato', 'Reunião', 'Negociação', 'Fechado', 'Tx Marcação', 'Tx Comparec.', 'Tx Conv.'].map((h, i) => (
                     <th key={h} className={`pb-2 px-2 text-xs font-medium uppercase tracking-wide ${i > 0 ? 'text-right' : 'text-left'}`}
                       style={{ color: '#888' }}>
                       {h}
@@ -343,36 +343,28 @@ export function ReportsPage() {
                     <td className="py-3 px-2 text-right tabular-nums font-semibold" style={{ color: '#e8e8e8' }}>{p.leads}</td>
                     <td className="py-3 px-2 text-right tabular-nums" style={{ color: '#a78bfa' }}>{p.contatosFeitos}</td>
                     <td className="py-3 px-2 text-right tabular-nums" style={{ color: '#40a0ff' }}>{p.reunioes}</td>
+                    <td className="py-3 px-2 text-right tabular-nums" style={{ color: '#fbbf24' }}>{p.negociacao}</td>
                     <td className="py-3 px-2 text-right tabular-nums" style={{ color: '#00e676' }}>{p.conversions}</td>
-                    <td className="py-3 px-2 text-right tabular-nums" style={{ color: '#ff4444' }}>{p.declined}</td>
                     <td className="py-3 px-2 text-right">
-                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
-                        style={{ background: 'rgba(64,160,255,0.12)', color: '#40a0ff' }}>
-                        {p.meetingRate}%
-                      </span>
+                      <RatePill value={p.txMarcacaoReuniao} />
                     </td>
                     <td className="py-3 px-2 text-right">
-                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
-                        style={
-                          p.convRate >= 30
-                            ? { background: 'rgba(0,230,118,0.15)', color: '#00e676' }
-                            : p.convRate >= 15
-                            ? { background: 'rgba(251,191,36,0.15)', color: '#fbbf24' }
-                            : { background: 'rgba(255,255,255,0.05)', color: '#888' }
-                        }>
-                        {p.convRate}%
-                      </span>
+                      <RatePill value={p.txComparecimento} />
+                    </td>
+                    <td className="py-3 px-2 text-right">
+                      <RatePill value={p.txConversao} highlight />
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            <p className="text-[11px] mt-3" style={{ color: '#666' }}>
-              Calculado pelos <strong>disparos</strong> de cada lead na pipeline ·{' '}
-              <strong>Contatos Feitos</strong> = leads com call/whatsapp/email/nota ·{' '}
-              <strong>Reuniões</strong> = leads com disparo "Reunião" ·{' '}
-              <strong>Conversões/Declinaram</strong> = leads com status convertido/perdido
-            </p>
+            <div className="text-[11px] mt-3 leading-relaxed" style={{ color: '#666' }}>
+              <strong style={{ color: '#aaa' }}>Como as taxas são calculadas:</strong><br />
+              <strong style={{ color: '#40a0ff' }}>Tx Marcação</strong> = Reunião / Contato (% de quem foi contatado e marcou reunião)<br />
+              <strong style={{ color: '#fbbf24' }}>Tx Comparecimento</strong> = Negociação / Reunião (% de quem marcou e foi pra negociação)<br />
+              <strong style={{ color: '#00e676' }}>Tx Conv.</strong> = Fechado / Negociação (% de quem negociou e fechou)<br />
+              <em>Cada fase usa os passos do funil em <a href="#/reports" style={{ color: 'var(--tenant-primary)' }}>Configuração do Funil</a> — você define quais disparos e etapas contam em cada coluna.</em>
+            </div>
           </div>
         )}
       </DarkCard>
@@ -404,5 +396,20 @@ export function ReportsPage() {
       </DarkCard>
       </>)}
     </div>
+  )
+}
+
+// Pill colorida pra taxa percentual — verde (≥30), amarelo (≥15), cinza (resto)
+function RatePill({ value, highlight = false }: { value: number; highlight?: boolean }) {
+  const style =
+    value >= 50 ? { background: 'rgba(0,230,118,0.18)', color: '#00e676' } :
+    value >= 25 ? { background: 'rgba(251,191,36,0.18)', color: '#fbbf24' } :
+    value >  0  ? { background: 'rgba(255,255,255,0.05)', color: '#aaa' } :
+                  { background: 'rgba(255,255,255,0.03)', color: '#555' }
+  return (
+    <span className="text-xs font-semibold px-2 py-0.5 rounded-full tabular-nums inline-block"
+      style={{ ...style, ...(highlight && value >= 50 ? { boxShadow: '0 0 8px rgba(0,230,118,0.25)' } : {}) }}>
+      {value}%
+    </span>
   )
 }
