@@ -57,12 +57,15 @@ async function fetchProgress(tenantId: string, goal: Goal): Promise<GoalProgress
           .lte('created_at', goal.end_date + 'T23:59:59')
       : Promise.resolve({ count: 0 }),
 
-    // Disparos feitos pelo usuário no período (exclui eventos de sistema)
+    // Disparos do usuário no período — inclui:
+    //   call/whatsapp/email/meeting/note registrados na aba Disparos
+    //   stage_change (movimentações de card na pipeline feitas pelo usuário)
+    // Exclui apenas 'import' (entrada em massa, não conta como ação manual)
     goal.calls_target
       ? supabase.from('lead_activities').select('*', { count: 'exact', head: true })
           .eq('tenant_id', tenantId)
           .eq('user_id', goal.user_id)
-          .not('type', 'in', '("stage_change","import")')
+          .neq('type', 'import')
           .gte('created_at', goal.start_date)
           .lte('created_at', goal.end_date + 'T23:59:59')
       : Promise.resolve({ count: 0 }),
@@ -235,7 +238,7 @@ export async function fetchLeaderboard(
 
         supabase.from('lead_activities').select('*', { count: 'exact', head: true })
           .eq('tenant_id', tenantId).eq('user_id', userId)
-          .not('type', 'in', '("stage_change","import")')
+          .neq('type', 'import')  // inclui stage_change (movimentação na pipeline)
           .gte('created_at', startDate).lte('created_at', endDate + 'T23:59:59'),
 
         supabase.from('leads').select('*', { count: 'exact', head: true })
