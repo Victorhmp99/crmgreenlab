@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { CheckCircle, AlertTriangle, Eye, EyeOff, Mail } from 'lucide-react'
+import { CheckCircle, AlertTriangle, Eye, EyeOff, Mail, UserCheck } from 'lucide-react'
 import { AuthLayout } from '@/components/layout/AuthLayout'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -18,7 +18,8 @@ const ROLE_LABELS: Record<UserRole, string> = {
   seller:  'Vendedor',
 }
 
-const schema = z
+// Esquema para novo usuário (precisa de nome + criar senha)
+const newUserSchema = z
   .object({
     fullName: z.string().min(2, 'Nome muito curto'),
     password: z.string().min(8, 'Mínimo 8 caracteres'),
@@ -28,9 +29,16 @@ const schema = z
     message: 'As senhas não coincidem',
     path:    ['confirm'],
   })
-type FormData = z.infer<typeof schema>
 
-type PageState = 'loading' | 'form' | 'invalid' | 'success'
+// Esquema para usuário existente (só precisa da senha atual)
+const existingUserSchema = z.object({
+  password: z.string().min(1, 'Informe sua senha'),
+})
+
+type NewUserForm      = z.infer<typeof newUserSchema>
+type ExistingUserForm = z.infer<typeof existingUserSchema>
+
+type PageState = 'loading' | 'form-new' | 'form-existing' | 'invalid' | 'success'
 
 export function AcceptInvitePage() {
   const { token } = useParams<{ token: string }>()
@@ -42,75 +50,106 @@ export function AcceptInvitePage() {
   const [showPw, setShowPw] = useState(false)
   const [error, setError]   = useState<string | null>(null)
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-  } = useForm<FormData>({ resolver: zodResolver(schema) })
-
-  // Faz logout de qualquer sessão atual e carrega dados do convite
+  // Carrega dados do convite e detecta se o e-mail já tem conta
   useEffect(() => {
-    if (!token) {
-      setPageState('invalid')
-      return
-    }
+    if (!token) { setPageState('invalid'); return }
 
     ;(async () => {
       // Limpa sessão para não confundir o fluxo
       await supabase.auth.signOut().catch(() => {})
 
       const data = await fetchInviteByToken(token)
-      if (!data) {
-        setPageState('invalid')
-        return
-      }
+      if (!data) { setPageState('invalid'); return }
+
       setInviteData(data)
-      setPageState('form')
+
+      // Tenta detectar se o e-mail já tem conta via signUp com senha fake
+      // Supabase retorna "already registered" se sim
+      const testSignUp = await supabase.auth.signUp({
+        email:    data.email,
+        password: '!!probe-only-not-a-real-password!!',
+        options:  { data: { _probe: true } },
+      })
+
+      const alreadyExists =
+        testSignUp.error?.message?.toLowerCase().includes('already registered') ||
+        testSignUp.error?.message?.toLowerCase().includes('already been registered') ||
+        testSignUp.error?.message?.toLowerCase().includes('user already registered')
+
+      setPageState(alreadyExists ? 'form-existing' : 'form-new')
     })()
   }, [token])
 
-  // Cria a conta + aceita o convite
-  async function onSubmit(data: FormData) {
+  // ── Formulário para NOVO usuário ──────────────────────────────────────────
+  const newUserForm = useForm<NewUserForm>({
+    resolver: zodResolver(newUserSchema),
+  })
+
+  async function onSubmitNew(data: NewUserForm) {
     if (!inviteData || !token) return
     setError(null)
 
     try {
-      // 1. Cria usuário no Auth
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email:    inviteData.email,
         password: data.password,
+        options:  { data: { full_name: data.fullName } },
       })
 
       if (signUpError) {
-        // Se já tem conta com esse email, tenta fazer login
+        // Usuário criou conta antes de aceitar — muda para fluxo existente
         if (signUpError.message.toLowerCase().includes('already registered')) {
-          const { error: signInError } = await supabase.auth.signInWithPassword({
-            email:    inviteData.email,
-            password: data.password,
-          })
-          if (signInError) {
-            setError('Já existe uma conta com este e-mail. Senha incorreta — entre pelo login e tente o link novamente.')
-            return
-          }
-        } else {
-          throw signUpError
+          setPageState('form-existing')
+          return
         }
-      } else if (!authData.session) {
+        throw signUpError
+      }
+
+      if (!authData.session) {
         setError('Verifique seu e-mail para confirmar a conta antes de aceitar o convite.')
         return
       }
 
-      // 2. Aceita o convite (adiciona ao tenant)
       await acceptInvite(token)
-
-      // 3. Redireciona para o dashboard com hard reload
       setPageState('success')
-      setTimeout(() => {
-        window.location.href = window.location.origin + window.location.pathname + '#/dashboard'
-      }, 1500)
+      setTimeout(() => { window.location.href = window.location.origin + window.location.pathname + '#/dashboard' }, 1500)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao aceitar convite.')
+    }
+  }
+
+  // ── Formulário para usuário EXISTENTE ─────────────────────────────────────
+  const existingUserForm = useForm<ExistingUserForm>({
+    resolver: zodResolver(existingUserSchema),
+  })
+
+  async function onSubmitExisting(data: ExistingUserForm) {
+    if (!inviteData || !token) return
+    setError(null)
+
+    try {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email:    inviteData.email,
+        password: data.password,
+      })
+
+      if (signInError) {
+        setError('Senha incorreta. Use a senha da sua conta existente.')
+        return
+      }
+
+      await acceptInvite(token)
+      setPageState('success')
+      setTimeout(() => { window.location.href = window.location.origin + window.location.pathname + '#/dashboard' }, 1500)
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erro ao aceitar convite.'
-      setError(msg)
+      // Membro já existe neste tenant
+      if (msg.includes('already a member') || msg.includes('já é membro')) {
+        setPageState('success')
+        setTimeout(() => { window.location.href = window.location.origin + window.location.pathname + '#/dashboard' }, 1500)
+      } else {
+        setError(msg)
+      }
     }
   }
 
@@ -163,7 +202,7 @@ export function AcceptInvitePage() {
               Bem-vindo ao Green Hub!
             </h2>
             <p className="text-sm mt-1" style={{ color: '#666' }}>
-              Conta criada. Redirecionando para o dashboard...
+              Acesso garantido. Redirecionando para o dashboard...
             </p>
           </div>
           <Spinner size="sm" />
@@ -172,45 +211,115 @@ export function AcceptInvitePage() {
     )
   }
 
-  // ── Formulário de cadastro ────────────────────────────────────────────────
+  // ── Cabeçalho comum ao formulário ─────────────────────────────────────────
+  const inviteHeader = inviteData && (
+    <div className="rounded-xl px-4 py-3 mt-3"
+      style={{ background: '#1a1a1a', border: '1px solid #2a2a2a' }}>
+      <p className="text-sm" style={{ color: '#aaa' }}>
+        Para entrar em <strong style={{ color: '#e8e8e8' }}>{inviteData.tenantName}</strong> como{' '}
+        <strong style={{ color: 'var(--tenant-primary)' }}>{ROLE_LABELS[inviteData.role]}</strong>
+      </p>
+      <div className="flex items-center gap-1.5 mt-2 text-xs" style={{ color: '#666' }}>
+        <Mail size={12} />
+        <span>{inviteData.email}</span>
+      </div>
+    </div>
+  )
+
+  const errorBlock = error && (
+    <div className="mb-4 rounded-lg px-4 py-3 text-sm"
+      style={{ background: 'rgba(255,68,68,0.1)', border: '1px solid rgba(255,68,68,0.2)', color: '#ff4444' }}>
+      {error}
+    </div>
+  )
+
+  // ── Formulário usuário EXISTENTE ──────────────────────────────────────────
+  if (pageState === 'form-existing') {
+    return (
+      <AuthLayout>
+        <div className="mb-6">
+          <div className="flex items-center gap-2">
+            <UserCheck size={20} style={{ color: 'var(--tenant-primary)' }} />
+            <h1 className="text-2xl font-bold" style={{ color: '#e8e8e8' }}>Você foi convidado! 🎉</h1>
+          </div>
+          {inviteHeader}
+          <p className="text-sm mt-3" style={{ color: '#888' }}>
+            Você já tem uma conta com este e-mail. Informe sua senha para confirmar o acesso.
+          </p>
+        </div>
+
+        {errorBlock}
+
+        <form onSubmit={existingUserForm.handleSubmit(onSubmitExisting)} className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium uppercase tracking-wide" style={{ color: '#888' }}>
+              Sua senha *
+            </label>
+            <div className="relative">
+              <input
+                type={showPw ? 'text' : 'password'}
+                placeholder="Sua senha atual"
+                autoComplete="current-password"
+                className="h-10 w-full rounded-lg px-3 pr-10 text-sm focus:outline-none"
+                style={{
+                  background: '#1a1a1a',
+                  border: `1px solid ${existingUserForm.formState.errors.password ? '#ff4444' : '#2a2a2a'}`,
+                  color: '#e8e8e8',
+                }}
+                onFocus={(e) => { if (!existingUserForm.formState.errors.password) e.currentTarget.style.border = '1px solid var(--tenant-primary)' }}
+                onBlur={(e) => { e.currentTarget.style.border = `1px solid ${existingUserForm.formState.errors.password ? '#ff4444' : '#2a2a2a'}` }}
+                {...existingUserForm.register('password')}
+              />
+              <button type="button" onClick={() => setShowPw((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
+                style={{ color: '#555' }}>
+                {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+            {existingUserForm.formState.errors.password && (
+              <p className="text-xs" style={{ color: '#ff4444' }}>
+                {existingUserForm.formState.errors.password.message}
+              </p>
+            )}
+          </div>
+
+          <Button type="submit" loading={existingUserForm.formState.isSubmitting} className="mt-2 w-full">
+            Confirmar e entrar
+          </Button>
+
+          <p className="text-center text-xs" style={{ color: '#555' }}>
+            Esqueceu sua senha?{' '}
+            <button type="button" className="underline" style={{ color: '#888' }}
+              onClick={() => window.location.hash = '#/login'}>
+              Entre pelo login e redefina
+            </button>
+          </p>
+        </form>
+      </AuthLayout>
+    )
+  }
+
+  // ── Formulário novo usuário ───────────────────────────────────────────────
   return (
     <AuthLayout>
       <div className="mb-6">
         <h1 className="text-2xl font-bold" style={{ color: '#e8e8e8' }}>Você foi convidado! 🎉</h1>
-        {inviteData && (
-          <div className="mt-3 rounded-xl px-4 py-3"
-            style={{ background: '#1a1a1a', border: '1px solid #2a2a2a' }}>
-            <p className="text-sm" style={{ color: '#aaa' }}>
-              Para entrar em <strong style={{ color: '#e8e8e8' }}>{inviteData.tenantName}</strong> como{' '}
-              <strong style={{ color: 'var(--tenant-primary)' }}>{ROLE_LABELS[inviteData.role]}</strong>
-            </p>
-            <div className="flex items-center gap-1.5 mt-2 text-xs" style={{ color: '#666' }}>
-              <Mail size={12} />
-              <span>{inviteData.email}</span>
-            </div>
-          </div>
-        )}
+        {inviteHeader}
         <p className="text-sm mt-3" style={{ color: '#666' }}>
           Crie sua senha para finalizar o cadastro.
         </p>
       </div>
 
-      {error && (
-        <div className="mb-4 rounded-lg px-4 py-3 text-sm"
-          style={{ background: 'rgba(255,68,68,0.1)', border: '1px solid rgba(255,68,68,0.2)', color: '#ff4444' }}>
-          {error}
-        </div>
-      )}
+      {errorBlock}
 
-      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+      <form onSubmit={newUserForm.handleSubmit(onSubmitNew)} className="flex flex-col gap-4">
         <Input
           label="Seu nome *"
           placeholder="Como devemos te chamar?"
-          error={errors.fullName?.message}
-          {...register('fullName')}
+          error={newUserForm.formState.errors.fullName?.message}
+          {...newUserForm.register('fullName')}
         />
 
-        {/* Senha */}
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-medium uppercase tracking-wide" style={{ color: '#888' }}>
             Criar senha *
@@ -223,11 +332,12 @@ export function AcceptInvitePage() {
               className="h-10 w-full rounded-lg px-3 pr-10 text-sm focus:outline-none"
               style={{
                 background: '#1a1a1a',
-                border: `1px solid ${errors.password ? '#ff4444' : '#2a2a2a'}`,
+                border: `1px solid ${newUserForm.formState.errors.password ? '#ff4444' : '#2a2a2a'}`,
                 color: '#e8e8e8',
               }}
-              onFocus={(e) => { if (!errors.password) e.currentTarget.style.border = '1px solid var(--tenant-primary)' }}
-              {...register('password')}
+              onFocus={(e) => { if (!newUserForm.formState.errors.password) e.currentTarget.style.border = '1px solid var(--tenant-primary)' }}
+              onBlur={(e) => { e.currentTarget.style.border = `1px solid ${newUserForm.formState.errors.password ? '#ff4444' : '#2a2a2a'}` }}
+              {...newUserForm.register('password')}
             />
             <button type="button" onClick={() => setShowPw((v) => !v)}
               className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
@@ -235,10 +345,11 @@ export function AcceptInvitePage() {
               {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
             </button>
           </div>
-          {errors.password && <p className="text-xs" style={{ color: '#ff4444' }}>{errors.password.message}</p>}
+          {newUserForm.formState.errors.password && (
+            <p className="text-xs" style={{ color: '#ff4444' }}>{newUserForm.formState.errors.password.message}</p>
+          )}
         </div>
 
-        {/* Confirmar senha */}
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-medium uppercase tracking-wide" style={{ color: '#888' }}>
             Confirmar senha *
@@ -250,16 +361,19 @@ export function AcceptInvitePage() {
             className="h-10 w-full rounded-lg px-3 text-sm focus:outline-none"
             style={{
               background: '#1a1a1a',
-              border: `1px solid ${errors.confirm ? '#ff4444' : '#2a2a2a'}`,
+              border: `1px solid ${newUserForm.formState.errors.confirm ? '#ff4444' : '#2a2a2a'}`,
               color: '#e8e8e8',
             }}
-            onFocus={(e) => { if (!errors.confirm) e.currentTarget.style.border = '1px solid var(--tenant-primary)' }}
-            {...register('confirm')}
+            onFocus={(e) => { if (!newUserForm.formState.errors.confirm) e.currentTarget.style.border = '1px solid var(--tenant-primary)' }}
+            onBlur={(e) => { e.currentTarget.style.border = `1px solid ${newUserForm.formState.errors.confirm ? '#ff4444' : '#2a2a2a'}` }}
+            {...newUserForm.register('confirm')}
           />
-          {errors.confirm && <p className="text-xs" style={{ color: '#ff4444' }}>{errors.confirm.message}</p>}
+          {newUserForm.formState.errors.confirm && (
+            <p className="text-xs" style={{ color: '#ff4444' }}>{newUserForm.formState.errors.confirm.message}</p>
+          )}
         </div>
 
-        <Button type="submit" loading={isSubmitting} className="mt-2 w-full">
+        <Button type="submit" loading={newUserForm.formState.isSubmitting} className="mt-2 w-full">
           Criar conta e entrar
         </Button>
       </form>

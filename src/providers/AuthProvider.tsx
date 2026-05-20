@@ -1,6 +1,8 @@
 import { useEffect, type ReactNode } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
+import type { TenantOption } from '@/store/authStore'
+import type { Tenant, UserMembership } from '@/types'
 
 // Email hardcoded como fallback de segurança — nunca pode ser bloqueado
 const MASTER_EMAIL = 'assessoriagreenlab@gmail.com'
@@ -18,7 +20,7 @@ const DEMO_MEMBERSHIP = { id: 'demo-membership-id', user_id: 'demo-user-id', ten
 
 export function AuthProvider({ children }: AuthProviderProps) {
   const {
-    setUser, setSession, setMembership, setTenant,
+    setUser, setSession, setMembership, setTenant, setAvailableTenants,
     setAccountStatus, setIsSuperAdmin, setIsSuperAdminMaster,
     setLoading, clear,
   } = useAuthStore()
@@ -31,6 +33,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setAccountStatus('active')
       setIsSuperAdmin(false)
       setIsSuperAdminMaster(false)
+      setAvailableTenants([{ tenant: DEMO_TENANT, membership: DEMO_MEMBERSHIP }])
       setLoading(false)
       return
     }
@@ -64,7 +67,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [])
 
   /**
-   * Carrega membership + tenant + super_admin.
+   * Carrega TODAS as memberships do usuário, seleciona a empresa ativa
+   * (respeitando lastTenantId salvo no localStorage) e popula o store.
    *
    * CRÍTICO: o flag de Super Admin Master é definido IMEDIATAMENTE pelo email,
    * antes de qualquer query ao banco. Isso garante que o master nunca é
@@ -80,48 +84,64 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.log('[Auth] Master reconhecido pelo email hardcoded:', email)
       setIsSuperAdmin(true)
       setIsSuperAdminMaster(true)
-      setAccountStatus('active')  // Master nunca fica pendente/bloqueado
+      setAccountStatus('active')
     }
 
     try {
-      // ── PASSO 1: Membership ──────────────────────────────────────────────
-      const { data: membership, error: mErr } = await supabase
+      // ── PASSO 1: Todas as memberships ativas do usuário ──────────────────
+      const { data: memberships, error: mErr } = await supabase
         .from('user_memberships')
         .select('*')
         .eq('user_id', userId)
         .eq('active', true)
-        .maybeSingle()
 
       if (mErr) {
         console.error('[Auth] membership query error:', mErr)
-        // Não retorna se for master pelo email — continua tentando
-        if (!isMasterByEmail) {
-          setLoading(false)
-          return
-        }
+        if (!isMasterByEmail) { setLoading(false); return }
       }
 
-      // Sem membership ainda — race condition do registro
-      if (!membership) {
+      // Race condition pós-registro — retenta
+      if (!memberships || memberships.length === 0) {
         if (attempt < MAX_ATTEMPTS) {
           await new Promise(r => setTimeout(r, DELAY_MS))
           return loadUserContext(userId, email, attempt + 1)
         }
-        // Esgotou tentativas — se for master pelo email mantém acesso
         setLoading(false)
         return
       }
 
-      // ── PASSO 2: Tenant ──────────────────────────────────────────────────
-      const { data: tenant, error: tErr } = await supabase
+      // ── PASSO 2: Todos os tenants das memberships ────────────────────────
+      const tenantIds = memberships.map((m) => m.tenant_id)
+      const { data: tenants, error: tErr } = await supabase
         .from('tenants')
         .select('*')
-        .eq('id', membership.tenant_id)
-        .maybeSingle()
+        .in('id', tenantIds)
 
-      if (tErr) console.error('[Auth] tenant query error:', tErr)
+      if (tErr) console.error('[Auth] tenants query error:', tErr)
 
-      // ── PASSO 3: Super admin via banco (suplementa o check por email) ───
+      const tenantMap = new Map<string, Tenant>((tenants ?? []).map((t) => [t.id, t]))
+
+      // Monta lista de opções disponíveis
+      const options: TenantOption[] = (memberships as UserMembership[])
+        .filter((m) => tenantMap.has(m.tenant_id))
+        .map((m) => ({ tenant: tenantMap.get(m.tenant_id)!, membership: m }))
+
+      setAvailableTenants(options)
+
+      // ── PASSO 3: Escolhe empresa ativa ───────────────────────────────────
+      const lastTenantId = localStorage.getItem('lastTenantId')
+      const preferred    = lastTenantId
+        ? options.find((o) => o.tenant.id === lastTenantId)
+        : null
+      const active = preferred ?? options[0]
+
+      if (!active) { setLoading(false); return }
+
+      setMembership(active.membership)
+      setTenant(active.tenant)
+      localStorage.setItem('lastTenantId', active.tenant.id)
+
+      // ── PASSO 4: Super admin via banco ───────────────────────────────────
       let superAdminType: string | null = null
       let isInSuperAdmins = false
 
@@ -145,24 +165,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
         superAdminType  = saFallback ? 'master' : null
       }
 
-      // ── PASSO 4: Reduz os flags finais ──────────────────────────────────
+      // ── PASSO 5: Flags finais ────────────────────────────────────────────
       const isMasterByDb = superAdminType === 'master'
       const isMaster     = isMasterByEmail || isMasterByDb
-      const isSuperAdmin = isInSuperAdmins || isMasterByEmail
+      const isSA         = isInSuperAdmins || isMasterByEmail
 
-      setMembership(membership)
-      setTenant(tenant ?? null)
-      // Master nunca é pending/blocked — força active
-      setAccountStatus(isMaster ? 'active' : (membership.account_status ?? 'active'))
-      setIsSuperAdmin(isSuperAdmin)
+      setAccountStatus(isMaster ? 'active' : (active.membership.account_status ?? 'active'))
+      setIsSuperAdmin(isSA)
       setIsSuperAdminMaster(isMaster)
 
       console.log('[Auth] Contexto carregado:', {
         email,
-        role: membership.role,
+        role:          active.membership.role,
+        activeTenant:  active.tenant.name,
+        totalTenants:  options.length,
         isMaster,
-        isSuperAdmin,
-        accountStatus: membership.account_status,
+        isSuperAdmin:  isSA,
       })
 
     } catch (err) {
