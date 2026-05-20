@@ -112,7 +112,7 @@ export function AcceptInvitePage() {
 
       await acceptInvite(token)
       setPageState('success')
-      setTimeout(() => { window.location.href = window.location.origin + window.location.pathname + '#/dashboard' }, 1500)
+      setTimeout(() => { window.location.href = window.location.origin + window.location.pathname + '?t=' + Date.now() + '#/dashboard' }, 1500)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao aceitar convite.')
     }
@@ -140,13 +140,13 @@ export function AcceptInvitePage() {
 
       await acceptInvite(token)
       setPageState('success')
-      setTimeout(() => { window.location.href = window.location.origin + window.location.pathname + '#/dashboard' }, 1500)
+      setTimeout(() => { window.location.href = window.location.origin + window.location.pathname + '?t=' + Date.now() + '#/dashboard' }, 1500)
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erro ao aceitar convite.'
       // Membro já existe neste tenant
       if (msg.includes('already a member') || msg.includes('já é membro')) {
         setPageState('success')
-        setTimeout(() => { window.location.href = window.location.origin + window.location.pathname + '#/dashboard' }, 1500)
+        setTimeout(() => { window.location.href = window.location.origin + window.location.pathname + '?t=' + Date.now() + '#/dashboard' }, 1500)
       } else {
         setError(msg)
       }
