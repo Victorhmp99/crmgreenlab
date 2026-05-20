@@ -3,6 +3,7 @@ import { LeadStatusBadge } from '../LeadStatusBadge'
 import { LeadSourceBadge } from '../LeadSourceBadge'
 import { Spinner } from '@/components/ui/Spinner'
 import { formatDate, formatPhone, formatCurrency } from '@/lib/utils'
+import { useAuthStore } from '@/store/authStore'
 import type { Lead } from '@/types'
 import type { PaginatedLeads } from '@/services/leads'
 
@@ -86,6 +87,11 @@ export function LeadTable({
   const leads = result?.data ?? []
   const allSelectedOnPage = leads.length > 0 && leads.every((l) => selectedIds?.has(l.id))
   const totalCols = selectionMode ? 9 : 8
+
+  // Permissão de excluir: admin, gestor ou super admin. Vendedor não vê o botão.
+  const role         = useAuthStore((s) => s.membership?.role)
+  const isSuperAdmin = useAuthStore((s) => s.isSuperAdmin)
+  const canDeleteLead = role === 'admin' || role === 'manager' || isSuperAdmin
 
   return (
     <div className="rounded-xl overflow-hidden" style={{ background: '#141414', border: '1px solid #1e1e1e' }}>
@@ -216,22 +222,24 @@ export function LeadTable({
                       >
                         <Pencil size={15} />
                       </button>
-                      <button
-                        onClick={() => onDelete(lead)}
-                        className="h-8 w-8 rounded-lg flex items-center justify-center transition-colors"
-                        style={{ color: '#555' }}
-                        onMouseEnter={(e) => {
-                          (e.currentTarget as HTMLButtonElement).style.color = '#ff4444'
-                          ;(e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,68,68,0.08)'
-                        }}
-                        onMouseLeave={(e) => {
-                          (e.currentTarget as HTMLButtonElement).style.color = '#555'
-                          ;(e.currentTarget as HTMLButtonElement).style.background = 'transparent'
-                        }}
-                        title="Excluir lead"
-                      >
-                        <Trash2 size={15} />
-                      </button>
+                      {canDeleteLead && (
+                        <button
+                          onClick={() => onDelete(lead)}
+                          className="h-8 w-8 rounded-lg flex items-center justify-center transition-colors"
+                          style={{ color: '#555' }}
+                          onMouseEnter={(e) => {
+                            (e.currentTarget as HTMLButtonElement).style.color = '#ff4444'
+                            ;(e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,68,68,0.08)'
+                          }}
+                          onMouseLeave={(e) => {
+                            (e.currentTarget as HTMLButtonElement).style.color = '#555'
+                            ;(e.currentTarget as HTMLButtonElement).style.background = 'transparent'
+                          }}
+                          title="Excluir lead"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
