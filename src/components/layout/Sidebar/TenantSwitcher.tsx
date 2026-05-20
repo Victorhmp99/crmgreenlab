@@ -30,18 +30,17 @@ export function TenantSwitcher({ collapsed, onCreateTenant }: TenantSwitcherProp
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const isSuperAdmin = useAuthStore((s) => s.isSuperAdmin)
-
   // Pode criar empresa se for admin ou manager
   const canCreate = membership?.role === 'admin' || membership?.role === 'manager'
 
-  // Calcula se o usuário atingiu o limite de empresas (super admins sempre podem criar)
-  const adminCount = availableTenants.filter((o) => o.membership.role === 'admin').length
+  // Limite: conta TODAS as empresas do usuário (independente de role)
+  // e pega o menor override entre todas as memberships
+  const totalCount = availableTenants.length
   const overrides  = availableTenants
     .map((o) => o.membership.max_companies_override)
     .filter((v): v is number => v != null)
-  const limit      = overrides.length > 0 ? Math.min(...overrides) : null
-  const atLimit    = !isSuperAdmin && limit !== null && adminCount >= limit
+  const limit   = overrides.length > 0 ? Math.min(...overrides) : null
+  const atLimit = limit !== null && totalCount >= limit
 
   if (availableTenants.length <= 1 && !canCreate) return null
 
