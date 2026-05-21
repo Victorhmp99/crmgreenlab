@@ -95,11 +95,21 @@ function LimitCell({ user, canEdit }: { user: TenantUser; canEdit: boolean }) {
 export function UserTable({ users, isLoading, onChangeRole }: UserTableProps) {
   const currentUserId            = useAuthStore((s) => s.user?.id)
   const isSuperAdmin             = useAuthStore((s) => s.isSuperAdmin)
-  const { isAdmin }              = usePermissions()
+  const { isAdmin, isManager }   = usePermissions()
   const { toggleActive, remove } = useUserMutations()
   const canEditLimit             = isAdmin || isSuperAdmin
-  const canRemove                = isAdmin || isSuperAdmin
   const [confirmRemove, setConfirmRemove] = useState<TenantUser | null>(null)
+
+  // Quem pode excluir QUEM:
+  // - Super admin / Admin: qualquer um (exceto si mesmo)
+  // - Gestor: somente vendedores (exceto si mesmo)
+  // - Vendedor: ninguém
+  function canRemoveTarget(target: TenantUser): boolean {
+    if (target.userId === currentUserId) return false
+    if (isSuperAdmin || isAdmin) return true
+    if (isManager) return target.role === 'seller'
+    return false
+  }
 
   const headers = isSuperAdmin
     ? ['Usuário', 'Empresa', 'Papel', 'Status', 'Limite empresas', 'Membro desde', 'Ações']
@@ -217,7 +227,7 @@ export function UserTable({ users, isLoading, onChangeRole }: UserTableProps) {
                         {u.active ? <ShieldOff size={15} /> : <ShieldCheck size={15} />}
                       </button>
                     )}
-                    {!isSelf && canRemove && (
+                    {canRemoveTarget(u) && (
                       <button
                         onClick={() => setConfirmRemove(u)}
                         className="h-8 w-8 rounded-lg flex items-center justify-center transition-colors"
