@@ -7,11 +7,14 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Variáveis VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY são obrigatórias.')
 }
 
-// Sem o generic Database por ora — os tipos do schema são mantidos em @/types.
-// Substituir pelo output de `supabase gen types typescript` após conectar o projeto.
+// flowType: 'pkce' → reset de senha vem como ?code=XXX (não como #access_token=),
+// compatível com HashRouter (URL fica /?code=XXX#/reset-password).
+// detectSessionInUrl: true → SDK lê o code da URL automaticamente e estabelece a sessão.
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    persistSession: true,
-    autoRefreshToken: true,
+    persistSession:     true,
+    autoRefreshToken:   true,
+    detectSessionInUrl: true,
+    flowType:           'pkce',
   },
 })
