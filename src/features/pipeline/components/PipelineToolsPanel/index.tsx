@@ -1,17 +1,12 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   X, Zap, Pencil, ArrowLeftRight, MessageCircle, Globe,
   Code2, Bot, Upload, Download, ScanSearch, Trash2,
-  ChevronRight, Check,
+  ChevronRight, BarChart2, Target, Users,
+  GitBranch, ListChecks,
 } from 'lucide-react'
-import { usePipelineManagement } from '../../hooks/usePipelineManagement'
 import type { Pipeline } from '@/services/pipelineManagement'
-
-// ── Cores predefinidas ────────────────────────────────────────────────────────
-const PRESET_COLORS = [
-  '#00e676','#40a0ff','#a78bfa','#fbbf24',
-  '#ec4899','#ff4444','#14B8A6','#f97316',
-]
 
 // ── Item de ferramenta ────────────────────────────────────────────────────────
 interface ToolItem {
@@ -84,83 +79,6 @@ function Section({ title, items }: { title: string; items: ToolItem[] }) {
   )
 }
 
-// ── Formulário inline de editar pipeline ────────────────────────────────────
-function EditPipelineForm({
-  pipeline,
-  onClose,
-}: {
-  pipeline: Pipeline
-  onClose:  () => void
-}) {
-  const { renamePipeline } = usePipelineManagement()
-  const [name,  setName]  = useState(pipeline.name)
-  const [color, setColor] = useState(pipeline.color)
-  const [saving, setSaving] = useState(false)
-
-  async function handleSave() {
-    if (!name.trim()) return
-    setSaving(true)
-    try {
-      await renamePipeline.mutateAsync({ id: pipeline.id, name: name.trim(), color })
-      onClose()
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <div className="px-4 py-3 flex flex-col gap-3"
-      style={{ borderBottom: '1px solid #1e1e1e' }}>
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold" style={{ color: '#888' }}>Editar Pipeline</span>
-        <button onClick={onClose} className="transition-colors" style={{ color: '#444' }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = '#888')}
-          onMouseLeave={(e) => (e.currentTarget.style.color = '#444')}>
-          <X size={13} />
-        </button>
-      </div>
-
-      <input
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        onKeyDown={(e) => { if (e.key === 'Enter') handleSave() }}
-        placeholder="Nome da pipeline"
-        className="w-full h-8 rounded-lg px-2.5 text-sm focus:outline-none"
-        style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', color: '#e8e8e8' }}
-        onFocus={(e) => (e.currentTarget.style.border = '1px solid var(--tenant-primary)')}
-        onBlur={(e) => (e.currentTarget.style.border = '1px solid #2a2a2a')}
-        autoFocus
-      />
-
-      <div className="flex flex-wrap gap-1.5">
-        {PRESET_COLORS.map((c) => (
-          <button key={c} onClick={() => setColor(c)}
-            className="h-5 w-5 rounded-full border-2 transition-transform"
-            style={{
-              backgroundColor: c,
-              borderColor: color === c ? '#e8e8e8' : 'transparent',
-              transform:   color === c ? 'scale(1.2)' : undefined,
-            }} />
-        ))}
-      </div>
-
-      <div className="flex gap-2">
-        <button onClick={onClose}
-          className="flex-1 h-7 rounded-lg text-xs"
-          style={{ border: '1px solid #2a2a2a', color: '#666' }}>
-          Cancelar
-        </button>
-        <button onClick={handleSave} disabled={!name.trim() || saving}
-          className="flex-1 h-7 rounded-lg text-xs text-black flex items-center justify-center gap-1 disabled:opacity-50"
-          style={{ background: 'var(--tenant-primary)' }}>
-          <Check size={11} />
-          {saving ? 'Salvando...' : 'Salvar'}
-        </button>
-      </div>
-    </div>
-  )
-}
-
 // ── Painel principal ──────────────────────────────────────────────────────────
 
 interface PipelineToolsPanelProps {
@@ -169,6 +87,7 @@ interface PipelineToolsPanelProps {
   pipeline:         Pipeline | null
   stages?:          unknown[]
   onOpenAutomations:() => void
+  onEdit:           () => void
   onImport:         () => void
   onExport:         () => void
   onDelete:         () => void
@@ -176,11 +95,16 @@ interface PipelineToolsPanelProps {
 
 export function PipelineToolsPanel({
   open, onClose, pipeline,
-  onOpenAutomations, onImport, onExport, onDelete,
+  onOpenAutomations, onEdit, onImport, onExport, onDelete,
 }: PipelineToolsPanelProps) {
-  const [editingPipeline, setEditingPipeline] = useState(false)
+  const navigate = useNavigate()
 
   if (!open || !pipeline) return null
+
+  function goTo(path: string) {
+    onClose()
+    navigate(path)
+  }
 
   const configItems: ToolItem[] = [
     {
@@ -194,8 +118,15 @@ export function PipelineToolsPanel({
       icon:        <Pencil size={16} style={{ color: '#e8e8e8' }} />,
       iconBg:      '#2a2a2a',
       label:       'Editar Pipeline',
-      description: 'Nome, cor e configurações gerais',
-      onClick:     () => setEditingPipeline(true),
+      description: 'Nome, cor, etapas e configurações',
+      onClick:     () => { onClose(); onEdit() },
+    },
+    {
+      icon:        <GitBranch size={16} style={{ color: '#a78bfa' }} />,
+      iconBg:      'rgba(167,139,250,0.12)',
+      label:       'Etapas do Funil',
+      description: 'Configure as etapas e métricas',
+      onClick:     () => goTo('/settings?tab=funnel'),
     },
     {
       icon:        <ArrowLeftRight size={16} style={{ color: '#f97316' }} />,
@@ -206,27 +137,58 @@ export function PipelineToolsPanel({
     },
   ]
 
+  const analyticsItems: ToolItem[] = [
+    {
+      icon:        <BarChart2 size={16} style={{ color: '#40a0ff' }} />,
+      iconBg:      'rgba(64,160,255,0.12)',
+      label:       'Relatórios',
+      description: 'Funil de conversão e análises',
+      onClick:     () => goTo('/reports'),
+    },
+    {
+      icon:        <Target size={16} style={{ color: '#00e676' }} />,
+      iconBg:      'rgba(0,230,118,0.12)',
+      label:       'Metas da Equipe',
+      description: 'Acompanhe metas de leads e vendas',
+      onClick:     () => goTo('/goals'),
+    },
+    {
+      icon:        <Users size={16} style={{ color: '#fbbf24' }} />,
+      iconBg:      'rgba(251,191,36,0.12)',
+      label:       'Leads desta Pipeline',
+      description: 'Ver todos os leads no módulo',
+      onClick:     () => goTo('/leads'),
+    },
+    {
+      icon:        <ListChecks size={16} style={{ color: '#ec4899' }} />,
+      iconBg:      'rgba(236,72,153,0.12)',
+      label:       'Tarefas',
+      description: 'Tarefas vinculadas a leads',
+      onClick:     () => goTo('/tasks'),
+    },
+  ]
+
   const integrationItems: ToolItem[] = [
     {
       icon:        <MessageCircle size={16} style={{ color: '#25D366' }} />,
       iconBg:      'rgba(37,211,102,0.12)',
-      label:       'WhatsApp Não Oficial',
-      description: 'Conecte um canal não oficial',
+      label:       'WhatsApp (Evolution)',
+      description: 'Conecte e configure o canal',
+      onClick:     () => { onClose(); onOpenAutomations() },
+    },
+    {
+      icon:        <Globe size={16} style={{ color: '#40a0ff' }} />,
+      iconBg:      'rgba(64,160,255,0.12)',
+      label:       'Webhook / Formulário',
+      description: 'Receba leads de outros sistemas',
       onClick:     () => { onClose(); onOpenAutomations() },
     },
     {
       icon:        <Code2 size={16} style={{ color: '#a78bfa' }} />,
       iconBg:      'rgba(167,139,250,0.12)',
-      label:       'API Oficial',
-      description: 'API Oficial para alta escala',
+      label:       'API Oficial WhatsApp',
+      description: 'Meta Business API — alta escala',
       comingSoon:  true,
-    },
-    {
-      icon:        <Globe size={16} style={{ color: '#40a0ff' }} />,
-      iconBg:      'rgba(64,160,255,0.12)',
-      label:       'Webhook',
-      description: 'Receba dados de outros sistemas',
-      onClick:     () => { onClose(); onOpenAutomations() },
     },
     {
       icon:        <Bot size={16} style={{ color: '#f97316' }} />,
@@ -309,17 +271,11 @@ export function PipelineToolsPanel({
           </button>
         </div>
 
-        {/* Formulário de edição inline (quando ativo) */}
-        {editingPipeline && (
-          <EditPipelineForm
-            pipeline={pipeline}
-            onClose={() => setEditingPipeline(false)}
-          />
-        )}
-
         {/* Lista de ferramentas */}
         <div className="flex-1 overflow-y-auto">
           <Section title="Configuração & Automação" items={configItems} />
+          <div style={{ height: 1, background: '#1a1a1a', margin: '4px 0' }} />
+          <Section title="Analytics & Metas" items={analyticsItems} />
           <div style={{ height: 1, background: '#1a1a1a', margin: '4px 0' }} />
           <Section title="Integrações Externas" items={integrationItems} />
           <div style={{ height: 1, background: '#1a1a1a', margin: '4px 0' }} />

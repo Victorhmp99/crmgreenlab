@@ -34,8 +34,14 @@ export function usePipelineManagement() {
   })
 
   const removePipeline = useMutation({
-    mutationFn: (id: string) => deletePipeline(id),
-    onSuccess:  invalidatePipelines,
+    mutationFn: (id: string) => deletePipeline(id, tenantId!),
+    onSuccess: () => {
+      invalidatePipelines()
+      queryClient.invalidateQueries({ queryKey: ['pipeline-stages',    tenantId] })
+      queryClient.invalidateQueries({ queryKey: ['all-pipeline-stages', tenantId] })
+      queryClient.invalidateQueries({ queryKey: ['pipeline-cards',      tenantId] })
+      queryClient.invalidateQueries({ queryKey: ['pipeline-automation-config', tenantId] })
+    },
   })
 
   // ── Etapas ─────────────────────────────────────────────────────────────────

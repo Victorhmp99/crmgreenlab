@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Save, Palette, Building2, CheckCircle, Webhook, Copy, RefreshCw, Eye, EyeOff, ShieldAlert, Trash2 } from 'lucide-react'
+import { Save, Palette, Building2, CheckCircle, ShieldAlert, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { useAuth } from '@/hooks/useAuth'
@@ -11,7 +11,6 @@ import { useTenantStore } from '@/store/tenantStore'
 import { supabase } from '@/lib/supabase'
 import { ChannelManager } from '../components/ChannelManager'
 import { LeadFieldsManager } from '../components/LeadFieldsManager'
-import { WhatsappManager } from '../components/WhatsappManager'
 import { DeleteTenantModal } from '@/components/layout/Sidebar/DeleteTenantModal'
 
 const schema = z.object({
@@ -31,25 +30,13 @@ const COLOR_PRESETS = [
   { label: 'Ciano',       primary: '#14b8a6', secondary: '#0f766e' },
 ]
 
-// URL base da Edge Function (a SUPABASE_URL é pública e pode ficar aqui)
-const WEBHOOK_ENDPOINT = 'https://miezatcdfldmqmxgpkwr.supabase.co/functions/v1/receive-lead'
-
 export function SettingsPage() {
-  const { tenant }                          = useAuth()
-  const { isAdmin, isSuperAdmin }           = usePermissions()
-  const settings                            = useTenantStore((s) => s.settings)
-  const setSettings                         = useTenantStore((s) => s.setSettings)
-  const [saved, setSaved]                   = useState(false)
-  const [error, setError]                   = useState<string | null>(null)
-
-  // Estado do webhook
-  const [webhookKey, setWebhookKey]         = useState<string | null>(null)
-  const [showKey, setShowKey]               = useState(false)
-  const [copiedField, setCopiedField]       = useState<'url' | 'key' | 'curl' | null>(null)
-  const [regenerating, setRegenerating]     = useState(false)
-  const [webhookError, setWebhookError]     = useState<string | null>(null)
-
-  // Modal de exclusão
+  const { tenant }                = useAuth()
+  const { isAdmin, isSuperAdmin } = usePermissions()
+  const settings                  = useTenantStore((s) => s.settings)
+  const setSettings               = useTenantStore((s) => s.setSettings)
+  const [saved, setSaved]         = useState(false)
+  const [error, setError]         = useState<string | null>(null)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
 
   const {
@@ -78,48 +65,6 @@ export function SettingsPage() {
       })
     }
   }, [tenant, settings, reset])
-
-  // Busca webhook_key do tenant atual
-  useEffect(() => {
-    if (!tenant?.id) return
-    supabase
-      .from('tenant_settings')
-      .select('webhook_key')
-      .eq('tenant_id', tenant.id)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data?.webhook_key) setWebhookKey(data.webhook_key)
-      })
-  }, [tenant?.id])
-
-  // Copia texto para o clipboard e exibe feedback brevemente
-  async function copyToClipboard(text: string, field: 'url' | 'key' | 'curl') {
-    try {
-      await navigator.clipboard.writeText(text)
-      setCopiedField(field)
-      setTimeout(() => setCopiedField(null), 2000)
-    } catch {
-      // fallback silencioso
-    }
-  }
-
-  // Regenera a webhook_key via RPC
-  async function handleRegenerateKey() {
-    if (!tenant?.id) return
-    setRegenerating(true)
-    setWebhookError(null)
-    try {
-      const { data, error } = await supabase
-        .rpc('regenerate_webhook_key', { p_tenant_id: tenant.id })
-      if (error) throw error
-      setWebhookKey(data as string)
-      setShowKey(true)
-    } catch (err) {
-      setWebhookError(err instanceof Error ? err.message : 'Erro ao regenerar chave.')
-    } finally {
-      setRegenerating(false)
-    }
-  }
 
   const primaryColor   = watch('primary_color')
   const secondaryColor = watch('secondary_color')
@@ -153,13 +98,13 @@ export function SettingsPage() {
         secondary_color: data.secondary_color,
         logo_url:        settings?.logo_url ?? null,
         custom_domain:   settings?.custom_domain ?? null,
-        webhook_key:     settings?.webhook_key ?? webhookKey ?? '',
+        webhook_key:     settings?.webhook_key ?? '',
         updated_at:      new Date().toISOString(),
       })
 
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
-      reset(data)  // marca o form como não-sujo
+      reset(data)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao salvar.')
     }
@@ -174,7 +119,7 @@ export function SettingsPage() {
         </p>
       </div>
 
-      {/* ── Dados + Cores (único form de save) ─────────────────────────── */}
+      {/* ── Dados + Cores ───────────────────────────────────────────────── */}
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-6">
         {/* ── Dados da clínica ──────────────────────────────────────────── */}
         <section className="rounded-xl p-5 flex flex-col gap-4"
@@ -194,9 +139,7 @@ export function SettingsPage() {
           <div className="rounded-lg px-3 py-2 text-xs"
             style={{ background: '#111', border: '1px solid #1a1a1a', color: '#555' }}>
             <span style={{ color: '#444' }}>Slug: </span>
-            <span style={{ color: '#888' }}>
-              {tenant?.slug ?? '—'}
-            </span>
+            <span style={{ color: '#888' }}>{tenant?.slug ?? '—'}</span>
             <span className="ml-2" style={{ color: '#333' }}>· Plano: {tenant?.plan ?? '—'}</span>
           </div>
         </section>
@@ -336,7 +279,6 @@ export function SettingsPage() {
           <Save size={15} />
           Salvar configurações
         </Button>
-
       </form>
 
       {/* ── Gestão de canais de lead (Inbound/Outbound/custom) ───────────── */}
@@ -344,161 +286,6 @@ export function SettingsPage() {
 
       {/* ── Gestão de campos personalizados do lead ─────────────────────── */}
       <LeadFieldsManager />
-
-      {/* ── Integração WhatsApp (Evolution API) ─────────────────────────── */}
-      <WhatsappManager />
-
-      {/* ── Webhook ──────────────────────────────────────────────────────── */}
-      <section className="rounded-xl p-5 flex flex-col gap-4"
-        style={{ background: '#141414', border: '1px solid #1e1e1e' }}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Webhook size={15} style={{ color: 'var(--tenant-primary)' }} />
-            <h3 className="text-sm font-semibold" style={{ color: '#e8e8e8' }}>Webhook de formulários externos</h3>
-          </div>
-          <button
-            type="button"
-            onClick={handleRegenerateKey}
-            disabled={regenerating}
-            title="Gerar nova chave (invalida a anterior)"
-            className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs transition-all disabled:opacity-50"
-            style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', color: '#888' }}
-          >
-            <RefreshCw size={12} className={regenerating ? 'animate-spin' : ''} />
-            Regenerar chave
-          </button>
-        </div>
-
-        <p className="text-xs" style={{ color: '#555' }}>
-          Envie um POST para este endpoint a partir de qualquer formulário externo (Meta Ads,
-          Google, site próprio) e o lead será criado automaticamente no CRM.
-        </p>
-
-        {/* URL do endpoint */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-medium uppercase tracking-wide" style={{ color: '#888' }}>
-            URL do endpoint
-          </label>
-          <div className="flex items-center gap-2">
-            <span
-              className="flex-1 rounded-lg px-3 py-2 text-xs font-mono truncate"
-              style={{ background: '#111', border: '1px solid #1a1a1a', color: '#aaa' }}
-            >
-              {WEBHOOK_ENDPOINT}
-            </span>
-            <button
-              type="button"
-              onClick={() => copyToClipboard(WEBHOOK_ENDPOINT, 'url')}
-              className="shrink-0 flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs transition-all"
-              style={{
-                background: copiedField === 'url' ? 'rgba(0,230,118,0.08)' : '#1a1a1a',
-                border:     copiedField === 'url' ? '1px solid rgba(0,230,118,0.3)' : '1px solid #2a2a2a',
-                color:      copiedField === 'url' ? '#00e676' : '#888',
-              }}
-            >
-              <Copy size={12} />
-              {copiedField === 'url' ? 'Copiado!' : 'Copiar'}
-            </button>
-          </div>
-        </div>
-
-        {/* Webhook Key */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-medium uppercase tracking-wide" style={{ color: '#888' }}>
-            Chave secreta (webhook_key)
-          </label>
-          <div className="flex items-center gap-2">
-            <span
-              className="flex-1 rounded-lg px-3 py-2 text-xs font-mono truncate"
-              style={{ background: '#111', border: '1px solid #1a1a1a', color: '#aaa' }}
-            >
-              {webhookKey
-                ? (showKey ? webhookKey : '••••••••-••••-••••-••••-••••••••••••')
-                : '— carregando...'}
-            </span>
-            <button
-              type="button"
-              onClick={() => setShowKey((v) => !v)}
-              className="shrink-0 flex items-center gap-1 rounded-lg px-2.5 py-2 text-xs transition-all"
-              style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', color: '#555' }}
-              title={showKey ? 'Ocultar' : 'Mostrar'}
-            >
-              {showKey ? <EyeOff size={13} /> : <Eye size={13} />}
-            </button>
-            <button
-              type="button"
-              onClick={() => webhookKey && copyToClipboard(webhookKey, 'key')}
-              disabled={!webhookKey}
-              className="shrink-0 flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs transition-all disabled:opacity-40"
-              style={{
-                background: copiedField === 'key' ? 'rgba(0,230,118,0.08)' : '#1a1a1a',
-                border:     copiedField === 'key' ? '1px solid rgba(0,230,118,0.3)' : '1px solid #2a2a2a',
-                color:      copiedField === 'key' ? '#00e676' : '#888',
-              }}
-            >
-              <Copy size={12} />
-              {copiedField === 'key' ? 'Copiado!' : 'Copiar'}
-            </button>
-          </div>
-        </div>
-
-        {/* Exemplo de uso */}
-        {webhookKey && tenant?.id && (() => {
-          const curlExample = `curl -X POST ${WEBHOOK_ENDPOINT} \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "tenant_id":   "${tenant.id}",
-    "webhook_key": "${webhookKey}",
-    "name":        "João Silva",
-    "phone":       "(11) 99999-9999",
-    "email":       "joao@email.com",
-    "source":      "meta_ads",
-    "source_campaign": "Black Friday"
-  }'`
-
-          return (
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-medium uppercase tracking-wide" style={{ color: '#888' }}>
-                  Exemplo (cURL)
-                </label>
-                <button
-                  type="button"
-                  onClick={() => copyToClipboard(curlExample, 'curl')}
-                  className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs transition-all"
-                  style={{
-                    background: copiedField === 'curl' ? 'rgba(0,230,118,0.08)' : 'transparent',
-                    border:     copiedField === 'curl' ? '1px solid rgba(0,230,118,0.3)' : '1px solid transparent',
-                    color:      copiedField === 'curl' ? '#00e676' : '#555',
-                  }}
-                >
-                  <Copy size={11} />
-                  {copiedField === 'curl' ? 'Copiado!' : 'Copiar'}
-                </button>
-              </div>
-              <pre
-                className="rounded-lg px-4 py-3 text-xs overflow-x-auto"
-                style={{ background: '#0d0d0d', border: '1px solid #1a1a1a', color: '#888', lineHeight: 1.6 }}
-              >
-                {curlExample}
-              </pre>
-            </div>
-          )
-        })()}
-
-        {webhookError && (
-          <p className="text-xs rounded-lg px-3 py-2"
-            style={{ color: '#ff4444', background: 'rgba(255,68,68,0.1)' }}>
-            {webhookError}
-          </p>
-        )}
-
-        <div className="rounded-lg px-3 py-2 text-xs"
-          style={{ background: '#111', border: '1px solid #1a1a1a', color: '#555' }}>
-          ⚠️ Mantenha a <span style={{ color: '#888' }}>webhook_key</span> em segredo.
-          Qualquer pessoa com ela pode criar leads no seu CRM. Use "Regenerar chave" se suspeitar de vazamento.
-        </div>
-      </section>
 
       {/* ── Zona de perigo (admin only) ──────────────────────────────────── */}
       {(isAdmin || isSuperAdmin) && (
@@ -544,7 +331,6 @@ export function SettingsPage() {
       {showDeleteModal && (
         <DeleteTenantModal onClose={() => setShowDeleteModal(false)} />
       )}
-
     </div>
   )
 }

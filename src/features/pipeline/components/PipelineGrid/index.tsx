@@ -1,6 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
-import { Plus, MoreHorizontal, Users, LayoutList, Calendar, ArrowRight, Pencil, Trash2, Check, X } from 'lucide-react'
+import { Plus, MoreHorizontal, Users, LayoutList, Calendar, ArrowRight, Pencil, Trash2, Check, X, TrendingUp } from 'lucide-react'
 import { usePipelineManagement } from '../../hooks/usePipelineManagement'
+import { PipelineCreationWizard } from '../PipelineCreationWizard'
+import { DeletePipelineModal } from '../DeletePipelineModal'
+import { formatCurrencyCompact } from '@/lib/utils'
 import type { Pipeline } from '@/services/pipelineManagement'
 import type { PipelineStage } from '@/types'
 import type { KanbanCardData } from '@/services/pipeline'
@@ -26,10 +29,12 @@ function pipelineStats(
   allStages:  PipelineStage[],
   allCards:   KanbanCardData[],
 ) {
-  const stages    = allStages.filter((s) => s.pipeline_id === pipelineId)
-  const stageIds  = new Set(stages.map((s) => s.id))
-  const leadCount = allCards.filter((c) => stageIds.has(c.card.stage_id)).length
-  return { stageCount: stages.length, leadCount }
+  const stages     = allStages.filter((s) => s.pipeline_id === pipelineId)
+  const stageIds   = new Set(stages.map((s) => s.id))
+  const pipeCards  = allCards.filter((c) => stageIds.has(c.card.stage_id))
+  const leadCount  = pipeCards.length
+  const totalValue = pipeCards.reduce((sum, c) => sum + (Number(c.lead.value) || 0), 0)
+  return { stageCount: stages.length, leadCount, totalValue }
 }
 
 // ── Menu de contexto por card ─────────────────────────────────────────────────
@@ -44,9 +49,10 @@ function PipelineCardMenu({
   onClose:   () => void
 }) {
   const { renamePipeline, removePipeline } = usePipelineManagement()
-  const [editing, setEditing] = useState(false)
-  const [name,    setName]    = useState(pipeline.name)
-  const [color,   setColor]   = useState(pipeline.color)
+  const [editing,        setEditing]        = useState(false)
+  const [name,           setName]           = useState(pipeline.name)
+  const [color,          setColor]          = useState(pipeline.color)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
   const menuRef  = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -73,7 +79,6 @@ function PipelineCardMenu({
   }
 
   async function handleDelete() {
-    if (!confirm(`Excluir pipeline "${pipeline.name}"? Todos os cards serão removidos.`)) return
     await removePipeline.mutateAsync(pipeline.id)
     onClose()
   }
@@ -132,7 +137,7 @@ function PipelineCardMenu({
             onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
             <Pencil size={13} /> Renomear
           </button>
-          <button onClick={handleDelete}
+          <button onClick={() => setShowDeleteModal(true)}
             className="w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors"
             style={{ color: '#ff4444' }}
             onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,68,68,0.08)')}
@@ -141,74 +146,20 @@ function PipelineCardMenu({
           </button>
         </div>
       )}
-    </div>
-  )
-}
 
-// ── Modal de criação de pipeline ──────────────────────────────────────────────
-
-function CreatePipelineModal({ onClose }: { onClose: () => void }) {
-  const { addPipeline } = usePipelineManagement()
-  const [name,  setName]  = useState('')
-  const [color, setColor] = useState('#00e676')
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => { inputRef.current?.focus() }, [])
-
-  async function handleCreate() {
-    if (!name.trim()) return
-    await addPipeline.mutateAsync({ name: name.trim(), color })
-    onClose()
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      onClick={onClose}>
-      <div className="absolute inset-0 backdrop-blur-sm" style={{ background: 'rgba(0,0,0,0.7)' }} />
-      <div className="relative z-10 rounded-2xl p-5 w-80"
-        style={{ background: '#111', border: '1px solid #2a2a2a', boxShadow: '0 0 40px rgba(0,0,0,0.6)' }}
-        onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-sm font-semibold mb-4" style={{ color: '#e8e8e8' }}>Nova Pipeline</h3>
-        <input
-          ref={inputRef}
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') handleCreate(); if (e.key === 'Escape') onClose() }}
-          placeholder="Ex: Inbound, Outbound, Pós-venda..."
-          className="w-full h-9 rounded-lg px-3 text-sm mb-3 focus:outline-none"
-          style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', color: '#e8e8e8' }}
-          onFocus={(e) => (e.currentTarget.style.border = '1px solid var(--tenant-primary)')}
-          onBlur={(e) => (e.currentTarget.style.border = '1px solid #2a2a2a')}
+      {showDeleteModal && (
+        <DeletePipelineModal
+          pipelineName={pipeline.name}
+          isPending={removePipeline.isPending}
+          onConfirm={handleDelete}
+          onClose={() => setShowDeleteModal(false)}
         />
-        <div className="flex flex-wrap gap-2 mb-4">
-          {PRESET_COLORS.map((c) => (
-            <button key={c} onClick={() => setColor(c)}
-              className="h-6 w-6 rounded-full border-2 transition-transform"
-              style={{
-                backgroundColor: c,
-                borderColor: color === c ? '#e8e8e8' : 'transparent',
-                transform:   color === c ? 'scale(1.2)' : undefined,
-              }} />
-          ))}
-        </div>
-        <div className="flex gap-2">
-          <button onClick={onClose}
-            className="flex-1 h-9 rounded-lg text-sm transition-colors"
-            style={{ border: '1px solid #2a2a2a', color: '#666' }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = '#1a1a1a')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
-            Cancelar
-          </button>
-          <button onClick={handleCreate} disabled={!name.trim() || addPipeline.isPending}
-            className="flex-1 h-9 rounded-lg text-sm text-black font-medium disabled:opacity-50"
-            style={{ background: 'var(--tenant-primary)' }}>
-            {addPipeline.isPending ? 'Criando...' : 'Criar Pipeline'}
-          </button>
-        </div>
-      </div>
+      )}
     </div>
   )
 }
+
+// CreatePipelineModal substituído pelo PipelineCreationWizard (importado acima)
 
 // ── Card de pipeline ──────────────────────────────────────────────────────────
 
@@ -225,7 +176,7 @@ function PipelineCard({
 }) {
   const [showMenu, setShowMenu] = useState(false)
   const menuBtnRef = useRef<HTMLButtonElement>(null)
-  const { stageCount, leadCount } = pipelineStats(pipeline.id, allStages, allCards)
+  const { stageCount, leadCount, totalValue } = pipelineStats(pipeline.id, allStages, allCards)
 
   return (
     <div
@@ -292,6 +243,13 @@ function PipelineCard({
             <LayoutList size={11} style={{ color: pipeline.color }} />
             {stageCount} Etapa{stageCount !== 1 ? 's' : ''}
           </span>
+          {totalValue > 0 && (
+            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium"
+              style={{ background: '#1e1e1e', color: '#aaa', border: '1px solid #2a2a2a' }}>
+              <TrendingUp size={11} style={{ color: pipeline.color }} />
+              Valor da Pipeline {formatCurrencyCompact(totalValue)}
+            </span>
+          )}
         </div>
 
         {/* Footer */}
@@ -326,7 +284,7 @@ interface PipelineGridProps {
 }
 
 export function PipelineGrid({ pipelines, allStages, allCards, isLoading, onSelect }: PipelineGridProps) {
-  const [showCreate, setShowCreate] = useState(false)
+  const [showWizard, setShowWizard] = useState(false)
 
   if (isLoading) {
     return (
@@ -351,7 +309,7 @@ export function PipelineGrid({ pipelines, allStages, allCards, isLoading, onSele
       <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}>
         {/* Card de criar nova pipeline */}
         <button
-          onClick={() => setShowCreate(true)}
+          onClick={() => setShowWizard(true)}
           className="flex items-center gap-3 rounded-2xl p-5 transition-all text-left"
           style={{
             background: '#111',
@@ -387,7 +345,12 @@ export function PipelineGrid({ pipelines, allStages, allCards, isLoading, onSele
         ))}
       </div>
 
-      {showCreate && <CreatePipelineModal onClose={() => setShowCreate(false)} />}
+      {showWizard && (
+        <PipelineCreationWizard
+          onClose={() => setShowWizard(false)}
+          onCreated={(id) => { setShowWizard(false); onSelect(id) }}
+        />
+      )}
     </div>
   )
 }

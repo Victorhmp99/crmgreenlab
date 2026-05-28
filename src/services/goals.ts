@@ -87,12 +87,7 @@ async function fetchProgress(tenantId: string, goal: Goal): Promise<GoalProgress
     : 0
   const dealsActual = dealsRes.count ?? 0
 
-  console.log('[Goals] progresso da meta:', {
-    user_id: goal.user_id,
-    period: `${goal.start_date} → ${goal.end_date}`,
-    targets: { leads: goal.leads_target, calls: goal.calls_target, deals: goal.deals_target },
-    actuals: { leads: leadsActual, calls: callsActual, deals: dealsActual },
-  })
+
 
   return {
     leadsActual,

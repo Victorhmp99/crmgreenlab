@@ -65,8 +65,6 @@ export async function fetchPipelineCards(tenantId: string): Promise<KanbanCardDa
 
   if (error) throw error
 
-  console.log('[fetchPipelineCards] data bruto do banco:', data?.slice(0, 3))
-
   return (data ?? [])
     .filter((row) => row.leads !== null)
     .map((row) => ({

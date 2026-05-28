@@ -70,6 +70,32 @@ export async function createPipeline(
   return pipeline as Pipeline
 }
 
+/** Cria pipeline sem etapas padrão (usado pelo wizard) */
+export async function createPipelineEmpty(
+  tenantId: string,
+  name:     string,
+  color:    string,
+): Promise<Pipeline> {
+  // pega a maior posição existente para ordenar ao final
+  const { data: existing } = await supabase
+    .from('pipelines')
+    .select('position')
+    .eq('tenant_id', tenantId)
+    .order('position', { ascending: false })
+    .limit(1)
+
+  const nextPosition = ((existing?.[0]?.position ?? -1) as number) + 1
+
+  const { data, error } = await supabase
+    .from('pipelines')
+    .insert({ tenant_id: tenantId, name, color, position: nextPosition })
+    .select()
+    .single()
+
+  if (error) throw error
+  return data as Pipeline
+}
+
 export async function updatePipeline(
   id:   string,
   data: Partial<Pick<Pipeline, 'name' | 'color' | 'description' | 'start_stage_id'>>,
@@ -78,8 +104,11 @@ export async function updatePipeline(
   if (error) throw error
 }
 
-export async function deletePipeline(id: string): Promise<void> {
-  const { error } = await supabase.from('pipelines').delete().eq('id', id)
+export async function deletePipeline(id: string, tenantId: string): Promise<void> {
+  const { error } = await supabase.rpc('delete_pipeline', {
+    p_pipeline_id: id,
+    p_tenant_id:   tenantId,
+  })
   if (error) throw error
 }
 

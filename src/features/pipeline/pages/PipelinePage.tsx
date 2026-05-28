@@ -1,8 +1,10 @@
-import { useState } from 'react'
-import { ArrowLeft, Settings, RefreshCw } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { ArrowLeft, Settings, RefreshCw, Pencil } from 'lucide-react'
 import { KanbanBoard } from '../components/KanbanBoard'
 import { PipelineGrid } from '../components/PipelineGrid'
 import { PipelineToolsPanel } from '../components/PipelineToolsPanel'
+import { PipelineCreationWizard } from '../components/PipelineCreationWizard'
+import { DeletePipelineModal } from '../components/DeletePipelineModal'
 import { PipelineAutomationsModal } from '../components/PipelineAutomationsModal'
 import { QuickAddLeadModal } from '../components/QuickAddLeadModal'
 import { LeadDrawer } from '@/features/activities/components/LeadDrawer'
@@ -12,6 +14,7 @@ import { ExportModal } from '@/features/leads/components/ExportModal'
 import { usePipelines, usePipelineStagesByPipeline, useAllPipelineStages } from '../hooks/usePipelines'
 import { usePipelineCards } from '../hooks/usePipelineCards'
 import { usePipelineMutations } from '../hooks/usePipelineMutations'
+import { usePipelineManagement } from '../hooks/usePipelineManagement'
 import { Spinner } from '@/components/ui/Spinner'
 import type { Lead } from '@/types'
 
@@ -52,14 +55,21 @@ export function PipelinePage() {
   const isDemo = import.meta.env.VITE_DEMO_MODE === 'true'
 
   // ── Estado de navegação ───────────────────────────────────────────────────
-  const [view,               setView]               = useState<View>('grid')
-  const [selectedPipelineId, setSelectedPipelineId] = useState<string | null>(null)
+  const [view,               setView]               = useState<View>(() => {
+    return sessionStorage.getItem('selectedPipelineId') ? 'board' : 'grid'
+  })
+  const [selectedPipelineId, setSelectedPipelineId] = useState<string | null>(() => {
+    return sessionStorage.getItem('selectedPipelineId')
+  })
 
   // ── Estado de modais ──────────────────────────────────────────────────────
-  const [showTools,       setShowTools]       = useState(false)
-  const [showAutomations, setShowAutomations] = useState(false)
-  const [showImport,      setShowImport]      = useState(false)
-  const [showExport,      setShowExport]      = useState(false)
+  const [showTools,            setShowTools]            = useState(false)
+  const [showAutomations,      setShowAutomations]      = useState(false)
+  const [showEditWizard,       setShowEditWizard]       = useState(false)
+  const [showDeletePipeline,   setShowDeletePipeline]   = useState(false)
+  const [showImport,           setShowImport]           = useState(false)
+  const [showExport,           setShowExport]           = useState(false)
+  const [successMsg,           setSuccessMsg]           = useState<string | null>(null)
   const [addToStage,      setAddToStage]      = useState<{ id: string; name: string; position: number } | null>(null)
   const [selectedLead,    setSelectedLead]    = useState<Lead | null>(null)
   const [editingLead,     setEditingLead]     = useState<Lead | null | undefined>(undefined)
@@ -86,6 +96,16 @@ export function PipelinePage() {
   const selectedPipeline = pipelines.find((p) => p.id === selectedPipelineId) ?? null
 
   const { remove } = usePipelineMutations()
+  const { removePipeline } = usePipelineManagement()
+
+  // ── Sincroniza sessionStorage com selectedPipelineId ─────────────────────
+  useEffect(() => {
+    if (selectedPipelineId) {
+      sessionStorage.setItem('selectedPipelineId', selectedPipelineId)
+    } else {
+      sessionStorage.removeItem('selectedPipelineId')
+    }
+  }, [selectedPipelineId])
 
   // ── Navegação ─────────────────────────────────────────────────────────────
   function handleSelectPipeline(id: string) {
@@ -121,26 +141,45 @@ export function PipelinePage() {
     refetchCards()
   }
 
-  function handleDeletePipeline() {
+  async function handleDeletePipeline() {
     if (!selectedPipeline) return
-    if (!confirm(`Excluir pipeline "${selectedPipeline.name}"? Todos os cards serão removidos.`)) return
-    import('@/services/pipelineManagement').then(({ deletePipeline }) => {
-      deletePipeline(selectedPipeline.id).then(() => {
-        handleBack()
-      })
-    })
+    const name = selectedPipeline.name
+    await removePipeline.mutateAsync(selectedPipeline.id)
+    setShowDeletePipeline(false)
+    handleBack()
+    setSuccessMsg(`Pipeline "${name}" excluída com sucesso.`)
+    setTimeout(() => setSuccessMsg(null), 4000)
   }
 
   // ── Grid view ─────────────────────────────────────────────────────────────
   if (view === 'grid') {
     return (
-      <PipelineGrid
-        pipelines={pipelines}
-        allStages={allStages}
-        allCards={allCards}
-        isLoading={pipelinesLoading}
-        onSelect={handleSelectPipeline}
-      />
+      <div className="relative">
+        <PipelineGrid
+          pipelines={pipelines}
+          allStages={allStages}
+          allCards={allCards}
+          isLoading={pipelinesLoading}
+          onSelect={handleSelectPipeline}
+        />
+
+        {/* Toast de sucesso */}
+        {successMsg && (
+          <div
+            className="fixed bottom-6 right-6 z-[300] flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium shadow-2xl"
+            style={{
+              background:  'rgba(0,230,118,0.12)',
+              border:      '1px solid rgba(0,230,118,0.3)',
+              color:       '#00e676',
+              backdropFilter: 'blur(8px)',
+              animation:   'fadeIn 0.2s ease',
+            }}
+          >
+            <span className="text-base">✓</span>
+            {successMsg}
+          </div>
+        )}
+      </div>
     )
   }
 
@@ -183,6 +222,26 @@ export function PipelinePage() {
 
         {/* Direita: ações */}
         <div className="flex items-center gap-2 shrink-0">
+          {/* ✏️ Editar Pipeline */}
+          <button
+            onClick={() => setShowEditWizard(true)}
+            className="flex items-center gap-1.5 h-9 px-3 rounded-lg text-sm font-medium transition-all"
+            style={{ border: '1px solid #2a2a2a', color: '#888' }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = '#1a1a1a'
+              ;(e.currentTarget as HTMLButtonElement).style.color = '#e8e8e8'
+              ;(e.currentTarget as HTMLButtonElement).style.borderColor = '#3a3a3a'
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = 'transparent'
+              ;(e.currentTarget as HTMLButtonElement).style.color = '#888'
+              ;(e.currentTarget as HTMLButtonElement).style.borderColor = '#2a2a2a'
+            }}
+            title="Editar pipeline">
+            <Pencil size={14} />
+            Editar
+          </button>
+
           {/* ⚙️ Ferramentas */}
           <button
             onClick={() => setShowTools(true)}
@@ -275,9 +334,10 @@ export function PipelinePage() {
         pipeline={selectedPipeline}
         stages={stages}
         onOpenAutomations={() => setShowAutomations(true)}
+        onEdit={() => setShowEditWizard(true)}
         onImport={() => setShowImport(true)}
         onExport={() => setShowExport(true)}
-        onDelete={handleDeletePipeline}
+        onDelete={() => setShowDeletePipeline(true)}
       />
 
       {/* ── Automações ───────────────────────────────────────────────────── */}
@@ -296,11 +356,43 @@ export function PipelinePage() {
       <ImportModal open={showImport} onClose={() => setShowImport(false)} />
       <ExportModal open={showExport} onClose={() => setShowExport(false)} />
 
+      {/* ── Modal de exclusão da pipeline ────────────────────────────────── */}
+      {showDeletePipeline && selectedPipeline && (
+        <DeletePipelineModal
+          pipelineName={selectedPipeline.name}
+          isPending={removePipeline.isPending}
+          onConfirm={handleDeletePipeline}
+          onClose={() => setShowDeletePipeline(false)}
+        />
+      )}
+
+      {/* ── Wizard de edição da pipeline ──────────────────────────────────── */}
+      {showEditWizard && selectedPipeline && (
+        <PipelineCreationWizard
+          onClose={() => setShowEditWizard(false)}
+          onSaved={() => {
+            setShowEditWizard(false)
+            refetchStages()
+            refetchCards()
+          }}
+          editData={{
+            pipeline: {
+              id:             selectedPipeline.id,
+              name:           selectedPipeline.name,
+              color:          selectedPipeline.color,
+              start_stage_id: selectedPipeline.start_stage_id ?? null,
+            },
+            stages,
+          }}
+        />
+      )}
+
       {/* ── QuickAdd + Drawer + LeadForm ──────────────────────────────────── */}
       <QuickAddLeadModal
         stageId={addToStage?.id ?? null}
         stageName={addToStage?.name}
         stagePosition={addToStage?.position ?? 0}
+        pipelineName={selectedPipeline?.name}
         onClose={() => setAddToStage(null)}
       />
 
@@ -308,12 +400,14 @@ export function PipelinePage() {
         lead={selectedLead}
         onClose={() => setSelectedLead(null)}
         onEdit={(lead) => { setSelectedLead(null); setEditingLead(lead) }}
+        pipelineName={selectedPipeline?.name}
       />
 
       <LeadForm
         open={editingLead !== undefined}
         onClose={() => setEditingLead(undefined)}
         lead={editingLead ?? null}
+        pipelineName={selectedPipeline?.name}
       />
 
       {/* ── Confirmação remover card ──────────────────────────────────────── */}

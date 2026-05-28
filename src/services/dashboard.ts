@@ -204,8 +204,6 @@ export async function fetchDashboardMetrics(tenantId: string): Promise<Dashboard
     avg_ticket:        Number(rawFin.avg_ticket ?? 0),
     conversion_rate:   Number(rawFin.conversion_rate ?? 0),
   }
-  console.log('[Dashboard] financial metrics:', financial)
-
   return {
     totalLeads:           totalLeadsRes.count ?? 0,
     totalLeadsPrev:       totalLeadsPrevRes.count ?? 0,

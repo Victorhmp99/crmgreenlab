@@ -576,18 +576,6 @@ export async function fetchChannelBreakdown(tenantId: string): Promise<ChannelBr
     if (negociacaoStepIds.has(fsId)) leadMatchesNegociacao.add(a.lead_id)
   }
 
-  // DEBUG — abra o console (F12) pra ver o que foi contado
-  if (typeof window !== 'undefined') {
-    console.log('[ChannelBreakdown] funnelSteps:', funnelSteps.map(s => `${s.position} "${s.name}"`))
-    console.log('[ChannelBreakdown] contatoStepIds (passos casados):',
-      funnelSteps.filter(s => contatoStepIds.has(s.id)).map(s => s.name))
-    console.log('[ChannelBreakdown] negociacaoStepIds (passos casados):',
-      funnelSteps.filter(s => negociacaoStepIds.has(s.id)).map(s => s.name))
-    console.log('[ChannelBreakdown] leads valid (não-archived):', validLeadIds.size)
-    console.log('[ChannelBreakdown] leads matched Contatos:', leadMatchesContato.size)
-    console.log('[ChannelBreakdown] leads matched Negociação:', leadMatchesNegociacao.size)
-  }
-
   // 4. Agrupa por canal e conta
   const buckets = new Map<string | null, {
     leads: number; contatos: number; reunioes: number; conversions: number; declined: number
