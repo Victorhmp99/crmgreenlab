@@ -74,10 +74,13 @@ vhvictor2015@gmail.com — hardcoded como fallback de segurança
 - .claude/agents/qa.md → antes de entregar qualquer feature
 
 ## Skills disponíveis — usar sempre
-- clean-code-skills → em toda escrita de código
-- api-design-reviewer → ao criar ou alterar endpoints
-- spec-driven-workflow → antes de implementar qualquer feature
-- pr-review-expert → antes de entregar qualquer mudança
+
+@C:\Users\Admin\.claude\skills-biblioteca\clean-general\SKILL.md
+@C:\Users\Admin\.claude\skills-biblioteca\api-design-reviewer\SKILL.md
+@C:\Users\Admin\.claude\skills-biblioteca\spec-driven-workflow\SKILL.md
+@C:\Users\Admin\.claude\skills-biblioteca\pr-review-expert\SKILL.md
+@C:\Users\Admin\.claude\skills-biblioteca\system-architect\SKILL.md
+@C:\Users\Admin\.claude\skills-biblioteca\security-reviewer\SKILL.md
 
 ---
 

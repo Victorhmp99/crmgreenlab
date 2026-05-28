@@ -1,29 +1,25 @@
-import { useState, useEffect } from 'react'
-import { RefreshCw } from 'lucide-react'
+import { useState } from 'react'
+import { ArrowLeft, Settings, RefreshCw } from 'lucide-react'
 import { KanbanBoard } from '../components/KanbanBoard'
-import { PipelineSelector } from '../components/PipelineSelector'
+import { PipelineGrid } from '../components/PipelineGrid'
+import { PipelineToolsPanel } from '../components/PipelineToolsPanel'
+import { PipelineAutomationsModal } from '../components/PipelineAutomationsModal'
 import { QuickAddLeadModal } from '../components/QuickAddLeadModal'
 import { LeadDrawer } from '@/features/activities/components/LeadDrawer'
 import { LeadForm } from '@/features/leads/components/LeadForm'
-import { usePipelines, usePipelineStagesByPipeline } from '../hooks/usePipelines'
+import { ImportModal } from '@/features/leads/components/ImportModal'
+import { ExportModal } from '@/features/leads/components/ExportModal'
+import { usePipelines, usePipelineStagesByPipeline, useAllPipelineStages } from '../hooks/usePipelines'
 import { usePipelineCards } from '../hooks/usePipelineCards'
 import { usePipelineMutations } from '../hooks/usePipelineMutations'
 import { Spinner } from '@/components/ui/Spinner'
 import type { Lead } from '@/types'
 
-// Demo cards por pipeline
-const DEMO_CARDS_MAP: Record<string, import('@/services/pipeline').KanbanCardData[]> = {
-  'pipeline-1': [
-    { card: { id: 'card-1', tenant_id: 'demo', lead_id: 'l1', stage_id: 'stage-1', position: 0, moved_at: new Date(Date.now() - 2*86400000).toISOString(), moved_by: null }, lead: { id: 'l1', tenant_id: 'demo', assigned_to: null, name: 'Ana Costa',     phone: '11991234567', email: 'ana@email.com',  status: 'active', source: 'meta_ads', source_campaign: 'Black Friday', notes: null, tags: ['implante'],    custom_fields: {}, created_at: new Date().toISOString(), updated_at: new Date().toISOString() } },
-    { card: { id: 'card-2', tenant_id: 'demo', lead_id: 'l2', stage_id: 'stage-2', position: 0, moved_at: new Date(Date.now() - 5*86400000).toISOString(), moved_by: null }, lead: { id: 'l2', tenant_id: 'demo', assigned_to: null, name: 'Carlos Mendes', phone: '11982345678', email: null,            status: 'active', source: 'referral', source_campaign: null,           notes: null, tags: [],             custom_fields: {}, created_at: new Date().toISOString(), updated_at: new Date().toISOString() } },
-    { card: { id: 'card-3', tenant_id: 'demo', lead_id: 'l3', stage_id: 'stage-3', position: 0, moved_at: new Date(Date.now() - 8*86400000).toISOString(), moved_by: null }, lead: { id: 'l3', tenant_id: 'demo', assigned_to: null, name: 'Fernanda Lima', phone: '11973456789', email: 'fe@email.com', status: 'active', source: 'google',   source_campaign: 'Clareamento',  notes: null, tags: ['clareamento'], custom_fields: {}, created_at: new Date().toISOString(), updated_at: new Date().toISOString() } },
-  ],
-  'pipeline-2': [
-    { card: { id: 'card-4', tenant_id: 'demo', lead_id: 'l4', stage_id: 'stage-6', position: 0, moved_at: new Date(Date.now() - 1*86400000).toISOString(), moved_by: null }, lead: { id: 'l4', tenant_id: 'demo', assigned_to: null, name: 'Roberto Souza', phone: '11964567890', email: null,            status: 'active', source: 'manual',   source_campaign: null,           notes: null, tags: [],             custom_fields: {}, created_at: new Date().toISOString(), updated_at: new Date().toISOString() } },
-  ],
-}
+// ── Dados demo ────────────────────────────────────────────────────────────────
+import type { KanbanCardData } from '@/services/pipeline'
+import type { PipelineStage } from '@/types'
 
-const DEMO_STAGES_MAP: Record<string, import('@/types').PipelineStage[]> = {
+const DEMO_STAGES_MAP: Record<string, PipelineStage[]> = {
   'pipeline-1': [
     { id: 'stage-1', tenant_id: 'demo', name: 'Novo Lead',     color: '#6366F1', position: 0, is_final: false, created_at: '' },
     { id: 'stage-2', tenant_id: 'demo', name: 'Contatado',     color: '#3B82F6', position: 1, is_final: false, created_at: '' },
@@ -38,50 +34,74 @@ const DEMO_STAGES_MAP: Record<string, import('@/types').PipelineStage[]> = {
   ],
 }
 
+const DEMO_CARDS_MAP: Record<string, KanbanCardData[]> = {
+  'pipeline-1': [
+    { card: { id: 'card-1', tenant_id: 'demo', lead_id: 'l1', stage_id: 'stage-1', position: 0, moved_at: new Date(Date.now() - 2*86400000).toISOString(), moved_by: null }, lead: { id: 'l1', tenant_id: 'demo', assigned_to: null, name: 'Ana Costa',     phone: '11991234567', email: 'ana@email.com',  status: 'active', source: 'meta_ads', source_campaign: 'Black Friday', notes: null, tags: ['implante'],    custom_fields: {}, created_at: new Date().toISOString(), updated_at: new Date().toISOString() } },
+    { card: { id: 'card-2', tenant_id: 'demo', lead_id: 'l2', stage_id: 'stage-2', position: 0, moved_at: new Date(Date.now() - 5*86400000).toISOString(), moved_by: null }, lead: { id: 'l2', tenant_id: 'demo', assigned_to: null, name: 'Carlos Mendes', phone: '11982345678', email: null,            status: 'active', source: 'referral', source_campaign: null,           notes: null, tags: [],             custom_fields: {}, created_at: new Date().toISOString(), updated_at: new Date().toISOString() } },
+  ],
+  'pipeline-2': [
+    { card: { id: 'card-4', tenant_id: 'demo', lead_id: 'l4', stage_id: 'stage-6', position: 0, moved_at: new Date(Date.now() - 1*86400000).toISOString(), moved_by: null }, lead: { id: 'l4', tenant_id: 'demo', assigned_to: null, name: 'Roberto Souza', phone: '11964567890', email: null,            status: 'active', source: 'manual',   source_campaign: null,           notes: null, tags: [],             custom_fields: {}, created_at: new Date().toISOString(), updated_at: new Date().toISOString() } },
+  ],
+}
+
+// ── Componente principal ──────────────────────────────────────────────────────
+
+type View = 'grid' | 'board'
+
 export function PipelinePage() {
   const isDemo = import.meta.env.VITE_DEMO_MODE === 'true'
 
-  const { data: pipelines = [], isLoading: pipelinesLoading } = usePipelines()
+  // ── Estado de navegação ───────────────────────────────────────────────────
+  const [view,               setView]               = useState<View>('grid')
   const [selectedPipelineId, setSelectedPipelineId] = useState<string | null>(null)
 
-  // Seleciona automaticamente o primeiro pipeline ao carregar
-  useEffect(() => {
-    if (pipelines.length > 0 && !selectedPipelineId) {
-      setSelectedPipelineId(pipelines[0].id)
-    }
-  }, [pipelines, selectedPipelineId])
+  // ── Estado de modais ──────────────────────────────────────────────────────
+  const [showTools,       setShowTools]       = useState(false)
+  const [showAutomations, setShowAutomations] = useState(false)
+  const [showImport,      setShowImport]      = useState(false)
+  const [showExport,      setShowExport]      = useState(false)
+  const [addToStage,      setAddToStage]      = useState<{ id: string; name: string; position: number } | null>(null)
+  const [selectedLead,    setSelectedLead]    = useState<Lead | null>(null)
+  const [editingLead,     setEditingLead]     = useState<Lead | null | undefined>(undefined)
+  const [confirmRemove,   setConfirmRemove]   = useState<{ cardId: string; leadName: string } | null>(null)
+  const [removeError,     setRemoveError]     = useState<string | null>(null)
 
-  // Stages e cards do pipeline selecionado
+  // ── Dados ─────────────────────────────────────────────────────────────────
+  const { data: pipelines = [],  isLoading: pipelinesLoading } = usePipelines()
+  const { data: allStages = [] }                                = useAllPipelineStages()
+  const { data: allCards  = [],  refetch: refetchCards }        = usePipelineCards()
+
   const { data: fetchedStages = [], isLoading: stagesLoading, refetch: refetchStages } =
     usePipelineStagesByPipeline(isDemo ? null : selectedPipelineId)
 
-  const { data: fetchedCards = [], isLoading: cardsLoading, refetch: refetchCards } =
-    usePipelineCards()
-
-  // Em modo demo usa dados locais; em produção usa Supabase
   const stages = isDemo && selectedPipelineId
     ? (DEMO_STAGES_MAP[selectedPipelineId] ?? [])
     : fetchedStages
 
   const cards = isDemo && selectedPipelineId
     ? (DEMO_CARDS_MAP[selectedPipelineId] ?? []).filter((c) =>
-        stages.some((s) => s.id === c.card.stage_id),
-      )
-    : fetchedCards.filter((c) =>
-        stages.some((s) => s.id === c.card.stage_id),
-      )
+        stages.some((s) => s.id === c.card.stage_id))
+    : allCards.filter((c) => stages.some((s) => s.id === c.card.stage_id))
+
+  const selectedPipeline = pipelines.find((p) => p.id === selectedPipelineId) ?? null
 
   const { remove } = usePipelineMutations()
 
-  // Modais
-  const [addToStage,    setAddToStage]    = useState<{ id: string; name: string; position: number } | null>(null)
-  const [selectedLead,  setSelectedLead]  = useState<Lead | null>(null)
-  const [editingLead,   setEditingLead]   = useState<Lead | null | undefined>(undefined)
-  const [confirmRemove, setConfirmRemove] = useState<{ cardId: string; leadName: string } | null>(null)
-  const [removeError,   setRemoveError]   = useState<string | null>(null)
+  // ── Navegação ─────────────────────────────────────────────────────────────
+  function handleSelectPipeline(id: string) {
+    setSelectedPipelineId(id)
+    setView('board')
+    setShowTools(false)
+  }
 
-  const isLoading = pipelinesLoading || stagesLoading || cardsLoading
+  function handleBack() {
+    setView('grid')
+    setSelectedPipelineId(null)
+    setShowTools(false)
+    setShowAutomations(false)
+  }
 
+  // ── Handlers do board ─────────────────────────────────────────────────────
   function handleAddLead(stageId: string) {
     const stage = stages.find((s) => s.id === stageId)
     if (!stage) return
@@ -101,36 +121,101 @@ export function PipelinePage() {
     refetchCards()
   }
 
+  function handleDeletePipeline() {
+    if (!selectedPipeline) return
+    if (!confirm(`Excluir pipeline "${selectedPipeline.name}"? Todos os cards serão removidos.`)) return
+    import('@/services/pipelineManagement').then(({ deletePipeline }) => {
+      deletePipeline(selectedPipeline.id).then(() => {
+        handleBack()
+      })
+    })
+  }
+
+  // ── Grid view ─────────────────────────────────────────────────────────────
+  if (view === 'grid') {
+    return (
+      <PipelineGrid
+        pipelines={pipelines}
+        allStages={allStages}
+        allCards={allCards}
+        isLoading={pipelinesLoading}
+        onSelect={handleSelectPipeline}
+      />
+    )
+  }
+
+  // ── Board view ────────────────────────────────────────────────────────────
+  const isLoading = stagesLoading
+
   return (
-    <div className="flex flex-col gap-4 h-full min-h-0">
-      {/* ── Seletor de pipelines ───────────────────────────────────────────── */}
-      <div className="flex items-start justify-between gap-3 shrink-0 flex-wrap">
-        <div className="flex-1 min-w-0">
-          {pipelinesLoading ? (
-            <div className="flex gap-2">
-              {[1,2].map((i) => <div key={i} className="h-9 w-24 rounded-xl animate-pulse" style={{ background: '#1e1e1e' }} />)}
+    <div className="flex flex-col gap-3 h-full min-h-0">
+
+      {/* ── Toolbar do board ──────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between gap-3 shrink-0 flex-wrap">
+        {/* Esquerda: voltar + nome da pipeline */}
+        <div className="flex items-center gap-3 min-w-0">
+          <button
+            onClick={handleBack}
+            className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-sm transition-colors shrink-0"
+            style={{ border: '1px solid #2a2a2a', color: '#666' }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = '#1a1a1a'
+              ;(e.currentTarget as HTMLButtonElement).style.color = '#aaa'
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = 'transparent'
+              ;(e.currentTarget as HTMLButtonElement).style.color = '#666'
+            }}>
+            <ArrowLeft size={13} />
+            Pipelines
+          </button>
+
+          {selectedPipeline && (
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="h-2.5 w-2.5 rounded-full shrink-0"
+                style={{ background: selectedPipeline.color }} />
+              <h2 className="text-sm font-bold truncate" style={{ color: '#e8e8e8' }}>
+                {selectedPipeline.name}
+              </h2>
             </div>
-          ) : (
-            <PipelineSelector
-              pipelines={pipelines}
-              selectedId={selectedPipelineId}
-              onSelect={(id) => setSelectedPipelineId(id)}
-            />
           )}
         </div>
 
+        {/* Direita: ações */}
         <div className="flex items-center gap-2 shrink-0">
+          {/* ⚙️ Ferramentas */}
+          <button
+            onClick={() => setShowTools(true)}
+            className="flex items-center gap-1.5 h-9 px-3 rounded-lg text-sm font-medium transition-all"
+            style={{ border: '1px solid #2a2a2a', color: '#888' }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = '#1a1a1a'
+              ;(e.currentTarget as HTMLButtonElement).style.color = '#e8e8e8'
+              ;(e.currentTarget as HTMLButtonElement).style.borderColor = '#3a3a3a'
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = 'transparent'
+              ;(e.currentTarget as HTMLButtonElement).style.color = '#888'
+              ;(e.currentTarget as HTMLButtonElement).style.borderColor = '#2a2a2a'
+            }}
+            title="Ferramentas da pipeline">
+            <Settings size={14} />
+            Ferramentas
+          </button>
+
+          {/* + Novo Lead */}
           {stages.length > 0 && (
             <button
               onClick={handleAddLeadHeader}
               className="flex items-center gap-1.5 h-9 px-3 rounded-lg text-black text-sm font-medium transition-colors"
               style={{ background: 'var(--tenant-primary)' }}
               onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.85')}
-              onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
-            >
+              onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}>
               + Novo Lead
             </button>
           )}
+
+          {/* Refresh */}
           <button
             onClick={handleRefresh}
             className="h-9 w-9 rounded-lg flex items-center justify-center transition-colors"
@@ -143,8 +228,7 @@ export function PipelinePage() {
               (e.currentTarget as HTMLButtonElement).style.background = 'transparent'
               ;(e.currentTarget as HTMLButtonElement).style.color = '#555'
             }}
-            title="Atualizar"
-          >
+            title="Atualizar">
             <RefreshCw size={15} />
           </button>
         </div>
@@ -152,21 +236,17 @@ export function PipelinePage() {
 
       {/* Subtítulo */}
       {selectedPipelineId && !pipelinesLoading && (
-        <p className="text-xs -mt-2 shrink-0" style={{ color: '#444' }}>
-          {cards.length} lead{cards.length !== 1 ? 's' : ''} no funil ·{' '}
+        <p className="text-xs -mt-1 shrink-0" style={{ color: '#444' }}>
+          {cards.length} lead{cards.length !== 1 ? 's' : ''} ·{' '}
           {stages.length} etapa{stages.length !== 1 ? 's' : ''} ·{' '}
           <span style={{ color: '#555' }}>arraste para reorganizar · clique para editar</span>
         </p>
       )}
 
-      {/* ── Board ─────────────────────────────────────────────────────────── */}
+      {/* ── Kanban ────────────────────────────────────────────────────────── */}
       {isLoading ? (
         <div className="flex items-center justify-center h-64">
           <Spinner size="lg" />
-        </div>
-      ) : !selectedPipelineId ? (
-        <div className="flex flex-col items-center gap-3 py-20 text-center">
-          <p className="text-sm" style={{ color: '#444' }}>Selecione ou crie um pipeline acima para começar</p>
         </div>
       ) : (
         <div className="flex-1 min-h-0 overflow-x-auto">
@@ -188,7 +268,35 @@ export function PipelinePage() {
         </div>
       )}
 
-      {/* ── Modais ────────────────────────────────────────────────────────── */}
+      {/* ── Painel de ferramentas ─────────────────────────────────────────── */}
+      <PipelineToolsPanel
+        open={showTools}
+        onClose={() => setShowTools(false)}
+        pipeline={selectedPipeline}
+        stages={stages}
+        onOpenAutomations={() => setShowAutomations(true)}
+        onImport={() => setShowImport(true)}
+        onExport={() => setShowExport(true)}
+        onDelete={handleDeletePipeline}
+      />
+
+      {/* ── Automações ───────────────────────────────────────────────────── */}
+      {selectedPipeline && (
+        <PipelineAutomationsModal
+          open={showAutomations}
+          onClose={() => setShowAutomations(false)}
+          pipelineId={selectedPipeline.id}
+          pipelineName={selectedPipeline.name}
+          stages={stages}
+          startStageId={selectedPipeline.start_stage_id ?? null}
+        />
+      )}
+
+      {/* ── Importar / Exportar ───────────────────────────────────────────── */}
+      <ImportModal open={showImport} onClose={() => setShowImport(false)} />
+      <ExportModal open={showExport} onClose={() => setShowExport(false)} />
+
+      {/* ── QuickAdd + Drawer + LeadForm ──────────────────────────────────── */}
       <QuickAddLeadModal
         stageId={addToStage?.id ?? null}
         stageName={addToStage?.name}
@@ -196,21 +304,19 @@ export function PipelinePage() {
         onClose={() => setAddToStage(null)}
       />
 
-      {/* Drawer de detalhes + histórico do lead (abre ao clicar no card) */}
       <LeadDrawer
         lead={selectedLead}
         onClose={() => setSelectedLead(null)}
         onEdit={(lead) => { setSelectedLead(null); setEditingLead(lead) }}
       />
 
-      {/* Formulário de edição completo do lead */}
       <LeadForm
         open={editingLead !== undefined}
         onClose={() => setEditingLead(undefined)}
         lead={editingLead ?? null}
       />
 
-      {/* Confirmação pra retirar card da pipeline (não exclui o lead) */}
+      {/* ── Confirmação remover card ──────────────────────────────────────── */}
       {confirmRemove && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center px-4"
           style={{ background: 'rgba(0,0,0,0.7)' }}
@@ -223,10 +329,10 @@ export function PipelinePage() {
                 Retirar da pipeline?
               </h3>
               <p className="text-sm mt-1" style={{ color: '#aaa' }}>
-                Você está prestes a remover <strong style={{ color: '#e8e8e8' }}>{confirmRemove.leadName}</strong> da pipeline atual.
+                Você está prestes a remover <strong style={{ color: '#e8e8e8' }}>{confirmRemove.leadName}</strong> desta pipeline.
               </p>
               <p className="text-xs mt-1" style={{ color: '#666' }}>
-                O lead <strong>não</strong> será excluído — ele apenas sai desta pipeline e pode ser adicionado em outra depois.
+                O lead <strong>não</strong> será excluído — apenas sai desta pipeline.
               </p>
             </div>
             {removeError && (

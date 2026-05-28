@@ -57,7 +57,11 @@ Deno.serve(async (req) => {
     return json({ error: 'Invalid JSON body' }, 400)
   }
 
-  const { tenant_id, webhook_key, name, phone, email, source, source_campaign, notes, custom_fields, value } = payload
+  const {
+    tenant_id, webhook_key, name, phone, email,
+    source, source_campaign, notes, custom_fields, value,
+    pipeline_id,   // opcional — define em qual pipeline o lead entra automaticamente
+  } = payload
 
   // ── Validação básica ──────────────────────────────────────────────────────
   if (!tenant_id || typeof tenant_id !== 'string') {
@@ -106,51 +110,99 @@ Deno.serve(async (req) => {
     ? custom_fields as Record<string, unknown>
     : {}
 
-  // ── Cria o lead ───────────────────────────────────────────────────────────
-  const { data: lead, error: leadErr } = await supabaseAdmin
-    .from('leads')
-    .insert({
-      tenant_id,
-      name:            name.trim(),
-      phone:           (phone && typeof phone === 'string' && phone.trim()) ? phone.trim() : null,
-      email:           (email && typeof email === 'string' && email.trim()) ? email.trim() : null,
-      status:          'active',
-      source:          leadSource,
-      source_campaign: (source_campaign && typeof source_campaign === 'string') ? source_campaign.trim() : null,
-      notes:           (notes && typeof notes === 'string') ? notes.trim() : null,
-      tags:            [],
-      value:           (typeof value === 'number' && Number.isFinite(value)) ? value : null,
-      custom_fields:   safeCustomFields,
-    })
-    .select()
-    .single()
+  // ── Cria o lead (ou recupera existente se mesmo phone+tenant) ─────────────
+  const normalizedPhone =
+    phone && typeof phone === 'string' && phone.trim() ? phone.trim() : null
 
-  if (leadErr) {
-    console.error('[receive-lead] lead insert error:', leadErr)
-    return json({ error: 'Erro ao criar lead' }, 500)
+  const leadPayload = {
+    tenant_id,
+    name:            name.trim(),
+    phone:           normalizedPhone,
+    email:           (email && typeof email === 'string' && email.trim()) ? email.trim() : null,
+    status:          'active' as const,
+    source:          leadSource,
+    source_campaign: (source_campaign && typeof source_campaign === 'string') ? source_campaign.trim() : null,
+    notes:           (notes && typeof notes === 'string') ? notes.trim() : null,
+    tags:            [] as string[],
+    value:           (typeof value === 'number' && Number.isFinite(value)) ? value : null,
+    custom_fields:   safeCustomFields,
   }
 
-  // ── Tenta adicionar ao primeiro estágio do pipeline (best-effort) ─────────
-  try {
-    const { data: stages } = await supabaseAdmin
-      .from('pipeline_stages')
-      .select('id, pipeline_id')
-      .eq('tenant_id', tenant_id)
-      .eq('position', 0)
-      .limit(1)
-      .maybeSingle()
+  const { data: insertedLead, error: insertErr } = await supabaseAdmin
+    .from('leads')
+    .insert(leadPayload)
+    .select('id')
+    .single()
 
-    if (stages) {
-      // Calcula a próxima posição dentro do estágio
+  let lead: { id: string } | null = insertedLead
+
+  if (insertErr) {
+    // 23505 = unique_violation — phone já existe neste tenant → reutiliza o lead existente
+    if (insertErr.code === '23505' && normalizedPhone) {
+      const { data: existing, error: fetchErr } = await supabaseAdmin
+        .from('leads')
+        .select('id')
+        .eq('tenant_id', tenant_id)
+        .eq('phone', normalizedPhone)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .single()
+
+      if (fetchErr || !existing) {
+        console.error('[receive-lead] fetch existing lead error:', fetchErr)
+        return json({ error: 'Erro ao localizar lead existente' }, 500)
+      }
+      lead = existing
+    } else {
+      console.error('[receive-lead] lead insert error:', insertErr)
+      return json({ error: 'Erro ao criar lead' }, 500)
+    }
+  }
+
+  if (!lead) {
+    return json({ error: 'Não foi possível obter lead_id' }, 500)
+  }
+
+  // ── Adiciona ao pipeline na etapa correta ────────────────────────────────
+  // Se pipeline_id foi fornecido, usa start_stage_id da pipeline.
+  // Senão, cai para a etapa de posição=0 do tenant (retrocompatibilidade).
+  try {
+    let targetStageId: string | null = null
+
+    if (pipeline_id && typeof pipeline_id === 'string') {
+      const { data: pipeline } = await supabaseAdmin
+        .from('pipelines')
+        .select('start_stage_id')
+        .eq('id', pipeline_id)
+        .eq('tenant_id', tenant_id)   // garante que a pipeline pertence ao tenant
+        .maybeSingle()
+
+      targetStageId = pipeline?.start_stage_id ?? null
+    }
+
+    // Fallback: primeira etapa do tenant (posição 0)
+    if (!targetStageId) {
+      const { data: stage } = await supabaseAdmin
+        .from('pipeline_stages')
+        .select('id')
+        .eq('tenant_id', tenant_id)
+        .order('position', { ascending: true })
+        .limit(1)
+        .maybeSingle()
+
+      targetStageId = stage?.id ?? null
+    }
+
+    if (targetStageId) {
       const { count } = await supabaseAdmin
         .from('pipeline_cards')
         .select('id', { count: 'exact', head: true })
-        .eq('stage_id', stages.id)
+        .eq('stage_id', targetStageId)
 
       await supabaseAdmin.from('pipeline_cards').insert({
         tenant_id,
         lead_id:  lead.id,
-        stage_id: stages.id,
+        stage_id: targetStageId,
         position: count ?? 0,
         moved_at: new Date().toISOString(),
       })

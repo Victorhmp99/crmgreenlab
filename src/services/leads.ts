@@ -103,7 +103,12 @@ export async function createLead(tenantId: string, formData: LeadFormData): Prom
   }
 
   const { data, error } = await supabase.from('leads').insert(payload).select().single()
-  if (error) throw error
+  if (error) {
+    if (error.code === '23505') {
+      throw new Error('Este telefone já está cadastrado nesta empresa.')
+    }
+    throw error
+  }
   return data
 }
 
@@ -125,7 +130,12 @@ export async function updateLead(id: string, formData: Partial<LeadFormData>): P
   }
 
   const { data, error } = await supabase.from('leads').update(payload).eq('id', id).select().single()
-  if (error) throw error
+  if (error) {
+    if (error.code === '23505') {
+      throw new Error('Este telefone já está cadastrado nesta empresa.')
+    }
+    throw error
+  }
   return data
 }
 
@@ -186,13 +196,18 @@ export async function importLeads(tenantId: string, rows: ImportLeadRow[]): Prom
     custom_fields:   row.custom_fields ?? {},
   }))
 
-  // Insere em lotes de 100 para não sobrecarregar o Supabase
+  // Upsert em lotes de 100.
+  // onConflict: 'phone,tenant_id' → se o mesmo telefone já existe nesta empresa
+  // a linha é ignorada (ignoreDuplicates: true) em vez de lançar erro.
+  // Linhas sem telefone (phone=null) nunca conflitam pois NULL≠NULL no PostgreSQL.
   const BATCH_SIZE = 100
   let imported = 0
 
   for (let i = 0; i < payload.length; i += BATCH_SIZE) {
     const batch = payload.slice(i, i + BATCH_SIZE)
-    const { error } = await supabase.from('leads').insert(batch)
+    const { error } = await supabase
+      .from('leads')
+      .upsert(batch, { onConflict: 'phone,tenant_id', ignoreDuplicates: true })
     if (error) throw error
     imported += batch.length
   }

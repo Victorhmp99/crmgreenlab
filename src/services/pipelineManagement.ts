@@ -4,13 +4,14 @@ import type { PipelineStage } from '@/types'
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
 export interface Pipeline {
-  id:          string
-  tenant_id:   string
-  name:        string
-  description: string | null
-  color:       string
-  position:    number
-  created_at:  string
+  id:             string
+  tenant_id:      string
+  name:           string
+  description:    string | null
+  color:          string
+  position:       number
+  start_stage_id: string | null   // etapa de entrada para automações/webhooks
+  created_at:     string
 }
 
 // ── CRUD de Pipelines ─────────────────────────────────────────────────────────
@@ -71,7 +72,7 @@ export async function createPipeline(
 
 export async function updatePipeline(
   id:   string,
-  data: Partial<Pick<Pipeline, 'name' | 'color' | 'description'>>,
+  data: Partial<Pick<Pipeline, 'name' | 'color' | 'description' | 'start_stage_id'>>,
 ): Promise<void> {
   const { error } = await supabase.from('pipelines').update(data).eq('id', id)
   if (error) throw error
@@ -93,6 +94,17 @@ export async function reorderPipelines(
 }
 
 // ── CRUD de Etapas ────────────────────────────────────────────────────────────
+
+/** Busca TODAS as etapas do tenant de uma vez (usado para stats do grid) */
+export async function fetchAllStages(tenantId: string): Promise<PipelineStage[]> {
+  const { data, error } = await supabase
+    .from('pipeline_stages')
+    .select('*')
+    .eq('tenant_id', tenantId)
+    .order('position', { ascending: true })
+  if (error) throw error
+  return (data ?? []) as PipelineStage[]
+}
 
 export async function fetchStagesByPipeline(
   tenantId:   string,

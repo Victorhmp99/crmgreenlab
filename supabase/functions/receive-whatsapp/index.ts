@@ -118,7 +118,7 @@ Deno.serve(async (req) => {
   // ── Identifica tenant pelo token ────────────────────────────────────────
   const { data: settings, error: settingsErr } = await supabase
     .from('whatsapp_settings')
-    .select('tenant_id, active, default_stage_id, default_channel_id')
+    .select('tenant_id, active, default_stage_id, default_channel_id, pipeline_id')
     .eq('webhook_token', token)
     .maybeSingle()
 
@@ -133,6 +133,21 @@ Deno.serve(async (req) => {
   const tenantId   = settings.tenant_id as string
   const messageId  = payload.data?.key?.id ?? null
   const pushName   = payload.data?.pushName ?? ''
+
+  // ── Resolve a etapa de destino via pipeline_id.start_stage_id ───────────
+  let resolvedStageId: string | null = settings.default_stage_id ?? null
+
+  if (settings.pipeline_id) {
+    const { data: pipeline } = await supabase
+      .from('pipelines')
+      .select('start_stage_id')
+      .eq('id', settings.pipeline_id)
+      .maybeSingle()
+
+    if (pipeline?.start_stage_id) {
+      resolvedStageId = pipeline.start_stage_id
+    }
+  }
 
   // ── Dedupe por messageId ───────────────────────────────────────────────
   if (messageId) {
@@ -149,11 +164,12 @@ Deno.serve(async (req) => {
 
   // ── Match ou cria lead ─────────────────────────────────────────────────
   const { data: leadResult, error: leadErr } = await supabase.rpc('match_or_create_lead_by_phone', {
-    p_tenant_id:  tenantId,
-    p_phone:      phone,
-    p_name:       pushName,
-    p_channel_id: settings.default_channel_id,
-    p_stage_id:   settings.default_stage_id,
+    p_tenant_id:   tenantId,
+    p_phone:       phone,
+    p_name:        pushName,
+    p_channel_id:  settings.default_channel_id,
+    p_stage_id:    resolvedStageId,
+    p_pipeline_id: settings.pipeline_id ?? null,
   })
 
   if (leadErr) {

@@ -45,6 +45,7 @@ export interface UserMembership {
 export interface PipelineStage {
   id: string
   tenant_id: string
+  pipeline_id?: string           // adicionado em 014 — etapa pertence a uma pipeline
   name: string
   color: string
   position: number
