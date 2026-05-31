@@ -23,9 +23,10 @@ import { useQuery } from '@tanstack/react-query'
 import type { Lead, LeadFieldDefinition } from '@/types'
 
 interface LeadDrawerProps {
-  lead:    Lead | null
-  onClose: () => void
-  onEdit:  (lead: Lead) => void
+  lead:          Lead | null
+  onClose:       () => void
+  onEdit:        (lead: Lead) => void
+  pipelineName?: string
 }
 
 type Tab = 'data' | 'activities' | 'organization'

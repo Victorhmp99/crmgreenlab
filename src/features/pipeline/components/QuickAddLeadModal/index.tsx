@@ -32,6 +32,7 @@ interface QuickAddLeadModalProps {
   stageId:       string | null
   stageName?:    string
   stagePosition: number
+  pipelineName?: string
   onClose:       () => void
 }
 

@@ -33,9 +33,10 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>
 
 interface LeadFormProps {
-  open:    boolean
-  onClose: () => void
-  lead?:   Lead | null
+  open:          boolean
+  onClose:       () => void
+  lead?:         Lead | null
+  pipelineName?: string
 }
 
 export function LeadForm({ open, onClose, lead }: LeadFormProps) {
