@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, Kanban, Zap, Target,
   UserCog, LogOut, ChevronLeft, ChevronRight,
   DollarSign, BarChart2, Megaphone, Settings, Globe,
-  Code2, ExternalLink, Sun, Moon, CheckSquare,
+  Code2, ExternalLink, Sun, Moon, CheckSquare, MessageSquare,
 } from 'lucide-react'
 import { useThemeStore } from '@/store/themeStore'
 import { cn } from '@/lib/utils'
@@ -48,12 +48,23 @@ const PLATFORM_ITEMS = [
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const { user, tenant, signOut } = useAuth()
   const { isManager, role }       = usePermissions()
-  const isSuperAdmin  = useAuthStore((s) => s.isSuperAdmin)
-  const settings      = useTenantStore((s) => s.settings)
-  const themeMode     = useThemeStore((s) => s.mode)
-  const toggleTheme   = useThemeStore((s) => s.toggle)
+  const isSuperAdmin       = useAuthStore((s) => s.isSuperAdmin)
+  const availableTenants   = useAuthStore((s) => s.availableTenants)
+  const settings           = useTenantStore((s) => s.settings)
+  const themeMode          = useThemeStore((s) => s.mode)
+  const toggleTheme        = useThemeStore((s) => s.toggle)
 
   const [showCreateModal, setShowCreateModal] = useState(false)
+
+  // Monta URL do CRC — usa Railway em produção, localhost em desenvolvimento
+  const crcBase = import.meta.env.VITE_CRC_URL || 'http://localhost:3001'
+  const crcUrl  = (() => {
+    const ids   = availableTenants.map(o => o.tenant.id)
+    const names = availableTenants.map(o => encodeURIComponent(o.tenant.name))
+    const uid   = user?.id ?? ''
+    if (!ids.length) return `${crcBase}?tenant_id=none&user_id=${uid}`
+    return `${crcBase}?tenant_id=${ids.join(',')}&tenant_names=${names.join(',')}&user_id=${uid}`
+  })()
 
   // Manager e Admin têm acesso a Usuários e Configurações (isManager === role >= manager)
   const items = [
@@ -147,6 +158,27 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
               </span>
             </div>
           )}
+
+          {/* SDR WhatsApp — abre com todos os tenants do usuário */}
+          <a
+            href={crcUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={collapsed ? 'SDR WhatsApp' : undefined}
+            className={cn(
+              'relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150 group mt-0.5',
+              collapsed && 'justify-center',
+              'text-[#666666] hover:text-[#cccccc] hover:bg-[#141414]',
+            )}
+          >
+            <MessageSquare size={17} className="relative z-10 shrink-0" />
+            {!collapsed && (
+              <>
+                <span className="relative z-10 truncate flex-1">SDR WhatsApp</span>
+                <ExternalLink size={11} className="relative z-10 shrink-0 opacity-60" />
+              </>
+            )}
+          </a>
 
           {/* Scripts — link externo, visível para TODOS os usuários */}
           <a
