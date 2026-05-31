@@ -1,5 +1,25 @@
 # DENTAL CRM — Contexto do Projeto
 
+## ⚠️ DEPLOY — REGRA OBRIGATÓRIA (LEIA ANTES DE QUALQUER DEPLOY)
+
+**Existe UM ÚNICO projeto Vercel para este CRM: `crmgreenlab`.**
+- Domínio de produção REAL: **https://greenhub.assessoriagreenlab.com.br** (usa HashRouter → /#/login)
+- Repo GitHub: github.com/Victorhmp99/crmgreenlab (branch `main`, auto-deploy no push)
+- Project ID Vercel: `prj_lMapR2rSPWjUQAVajnYHd0M4ZDPL` · teamId: `team_hWiy9yY8z9WNlrNCBI97a29J`
+
+**NUNCA criar outro projeto Vercel.** Todo deploy e TODA variável de ambiente vão SÓ no `crmgreenlab`.
+Antes em 31/05/2026 havia duplicatas (`dental-crm`, `greenlab-growth-hub-2`) que causaram bugs
+(deploy/env no projeto errado) — foram EXCLUÍDAS e não devem ser recriadas.
+
+Outros projetos Vercel da conta NÃO são o CRM e NÃO devem ser tocados:
+green-clinic-growth (site assessoriagreenlab.com.br), forms-lovable (form.*), scripts-platform (scripts.*), pessoaresolve.
+
+**Setar env var na Vercel:** usar a API REST (NÃO `"valor" | vercel env add` no PowerShell — adiciona BOM invisível
+que quebra URLs). POST https://api.vercel.com/v10/projects/{id}/env?teamId={team} body {key,value,type:plain,target:[production,preview]}.
+
+**Backend WhatsApp (SDR/CRC):** projeto Railway `greenlab-crc` → https://greenlab-crc-production.up.railway.app
+(repo github.com/Victorhmp99/greenlab-crc). É o que o botão "SDR WhatsApp" abre (via env VITE_CRC_URL).
+
 ## O que é
 CRM SaaS white label multi-tenant voltado inicialmente para clínicas 
 odontológicas, escalável para qualquer nicho. Vendido como SaaS.

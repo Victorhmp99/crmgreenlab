@@ -271,6 +271,7 @@ export function KanbanColumn({
           ))}
         </SortableContext>
 
+        {/* Card vazio grande quando a etapa não tem leads */}
         {cards.length === 0 && !editing && (
           <button
             onClick={() => onAddLead(stage.id)}
@@ -286,6 +287,27 @@ export function KanbanColumn({
             onMouseLeave={(e) => {
               (e.currentTarget as HTMLButtonElement).style.color = '#444'
               ;(e.currentTarget as HTMLButtonElement).style.borderColor = isOver ? 'rgba(0,230,118,0.4)' : '#1e1e1e'
+            }}
+          >
+            <Plus size={13} /> Adicionar lead
+          </button>
+        )}
+
+        {/* Card transparente fixo no rodapé — sempre presente quando há leads */}
+        {cards.length > 0 && !editing && (
+          <button
+            onClick={() => onAddLead(stage.id)}
+            className="flex items-center justify-center rounded-lg py-2.5 gap-1.5 text-xs shrink-0 transition-all"
+            style={{ border: '1px dashed #1e1e1e', color: '#444' }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.color = '#00e676'
+              ;(e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(0,230,118,0.3)'
+              ;(e.currentTarget as HTMLButtonElement).style.background = 'rgba(0,230,118,0.04)'
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.color = '#444'
+              ;(e.currentTarget as HTMLButtonElement).style.borderColor = '#1e1e1e'
+              ;(e.currentTarget as HTMLButtonElement).style.background = 'transparent'
             }}
           >
             <Plus size={13} /> Adicionar lead

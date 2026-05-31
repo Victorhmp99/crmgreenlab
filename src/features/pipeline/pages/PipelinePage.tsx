@@ -75,6 +75,7 @@ export function PipelinePage() {
   const [editingLead,     setEditingLead]     = useState<Lead | null | undefined>(undefined)
   const [confirmRemove,   setConfirmRemove]   = useState<{ cardId: string; leadName: string } | null>(null)
   const [removeError,     setRemoveError]     = useState<string | null>(null)
+  const [refreshing,      setRefreshing]      = useState(false)
 
   // ── Dados ─────────────────────────────────────────────────────────────────
   const { data: pipelines = [],  isLoading: pipelinesLoading } = usePipelines()
@@ -136,9 +137,16 @@ export function PipelinePage() {
     setAddToStage({ id: first.id, name: first.name, position: count })
   }
 
-  function handleRefresh() {
-    refetchStages()
-    refetchCards()
+  async function handleRefresh() {
+    if (refreshing) return
+    setRefreshing(true)
+    try {
+      await Promise.all([refetchStages(), refetchCards()])
+      setSuccessMsg('Pipeline atualizada')
+      setTimeout(() => setSuccessMsg(null), 2000)
+    } finally {
+      setRefreshing(false)
+    }
   }
 
   async function handleDeletePipeline() {
@@ -277,18 +285,21 @@ export function PipelinePage() {
           {/* Refresh */}
           <button
             onClick={handleRefresh}
-            className="h-9 w-9 rounded-lg flex items-center justify-center transition-colors"
-            style={{ border: '1px solid #2a2a2a', color: '#555' }}
+            disabled={refreshing}
+            className="h-9 w-9 rounded-lg flex items-center justify-center transition-colors disabled:opacity-60"
+            style={{ border: '1px solid #2a2a2a', color: refreshing ? 'var(--tenant-primary)' : '#555' }}
             onMouseEnter={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.background = '#1a1a1a'
+              if (refreshing) return
+              ;(e.currentTarget as HTMLButtonElement).style.background = '#1a1a1a'
               ;(e.currentTarget as HTMLButtonElement).style.color = '#aaa'
             }}
             onMouseLeave={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.background = 'transparent'
+              if (refreshing) return
+              ;(e.currentTarget as HTMLButtonElement).style.background = 'transparent'
               ;(e.currentTarget as HTMLButtonElement).style.color = '#555'
             }}
             title="Atualizar">
-            <RefreshCw size={15} />
+            <RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />
           </button>
         </div>
       </div>
@@ -409,6 +420,23 @@ export function PipelinePage() {
         lead={editingLead ?? null}
         pipelineName={selectedPipeline?.name}
       />
+
+      {/* Toast de sucesso (board view) */}
+      {successMsg && (
+        <div
+          className="fixed bottom-6 right-6 z-[300] flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium shadow-2xl"
+          style={{
+            background: 'rgba(0,230,118,0.12)',
+            border: '1px solid rgba(0,230,118,0.3)',
+            color: '#00e676',
+            backdropFilter: 'blur(8px)',
+            animation: 'fadeIn 0.2s ease',
+          }}
+        >
+          <span className="text-base">✓</span>
+          {successMsg}
+        </div>
+      )}
 
       {/* ── Confirmação remover card ──────────────────────────────────────── */}
       {confirmRemove && (
