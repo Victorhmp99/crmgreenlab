@@ -6,6 +6,8 @@ import {
 } from 'lucide-react'
 import { formatPhone } from '@/lib/utils'
 import { Spinner } from '@/components/ui/Spinner'
+import { Modal } from '@/components/ui/Modal'
+import { Button } from '@/components/ui/Button'
 import { useTasks, useTaskMutations } from '../hooks/useTasks'
 import { TaskForm } from '../components/TaskForm'
 import type { LeadTaskWithMeta } from '@/services/leadTasks'
@@ -20,6 +22,9 @@ export function TasksPage() {
   const [scope,       setScope]       = useState<ScopeFilter>('all')
   const [showForm,    setShowForm]    = useState(false)
   const [editing,     setEditing]     = useState<LeadTaskWithMeta | null>(null)
+  const [viewing,     setViewing]     = useState<LeadTaskWithMeta | null>(null)
+
+  const { update: updateTaskM, remove: removeTaskM } = useTaskMutations()
 
   // Calcula intervalo de filtragem do servidor com base na view
   const range = useMemo(() => {
@@ -141,14 +146,33 @@ export function TasksPage() {
       {isLoading ? (
         <div className="flex justify-center py-16"><Spinner size="lg" /></div>
       ) : viewMode === 'month' ? (
-        <MonthView tasks={tasks} anchorDate={anchorDate} onSelectTask={(t) => { setEditing(t); setShowForm(true) }} />
+        <MonthView tasks={tasks} anchorDate={anchorDate} onSelectTask={setViewing} />
       ) : viewMode === 'week' ? (
-        <WeekView tasks={tasks} startDate={range.startDate} onSelectTask={(t) => { setEditing(t); setShowForm(true) }} />
+        <WeekView tasks={tasks} startDate={range.startDate} onSelectTask={setViewing} />
       ) : (
         <ListView tasks={tasks} onSelectTask={(t) => { setEditing(t); setShowForm(true) }} />
       )}
 
       <TaskForm open={showForm} onClose={() => { setShowForm(false); setEditing(null) }} task={editing} />
+
+      {/* Detalhe da tarefa (clique na agenda) */}
+      {viewing && (
+        <TaskDetailModal
+          task={viewing}
+          isToggling={updateTaskM.isPending}
+          isDeleting={removeTaskM.isPending}
+          onClose={() => setViewing(null)}
+          onEdit={() => { const t = viewing; setViewing(null); setEditing(t); setShowForm(true) }}
+          onToggleDone={() => updateTaskM.mutate(
+            { id: viewing.id, data: { completed: !viewing.completed } },
+            { onSuccess: () => setViewing(null) },
+          )}
+          onDelete={() => {
+            if (!confirm(`Excluir tarefa "${viewing.title}"?`)) return
+            removeTaskM.mutate(viewing.id, { onSuccess: () => setViewing(null) })
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -406,6 +430,118 @@ function ListView({ tasks, onSelectTask }: {
         )
       })}
     </div>
+  )
+}
+
+// ── Modal de detalhe da tarefa (clique na agenda) ───────────────────────────
+
+function TaskDetailModal({
+  task, isToggling, isDeleting, onClose, onEdit, onToggleDone, onDelete,
+}: {
+  task: LeadTaskWithMeta
+  isToggling: boolean
+  isDeleting: boolean
+  onClose: () => void
+  onEdit: () => void
+  onToggleDone: () => void
+  onDelete: () => void
+}) {
+  const due       = new Date(task.due_at)
+  const isOverdue = !task.completed && due < new Date()
+  const dateLabel = due.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })
+  const timeLabel = due.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title="Detalhes da tarefa"
+      size="md"
+      footer={
+        <div className="flex items-center justify-between w-full gap-2">
+          <button
+            onClick={onDelete}
+            disabled={isDeleting}
+            className="inline-flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg transition-colors disabled:opacity-40"
+            style={{ color: '#ff5555', border: '1px solid rgba(255,68,68,0.25)' }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,68,68,0.08)')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+          >
+            <Trash2 size={14} /> Excluir
+          </button>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" onClick={onEdit}>
+              <Pencil size={14} /> Editar
+            </Button>
+            <Button onClick={onToggleDone} loading={isToggling}>
+              <Check size={15} />
+              {task.completed ? 'Reabrir' : 'Marcar como feito'}
+            </Button>
+          </div>
+        </div>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        {/* Título + status */}
+        <div className="flex items-start gap-3">
+          <span
+            className="h-6 w-6 rounded-md shrink-0 mt-0.5 flex items-center justify-center"
+            style={{
+              background: task.completed ? 'var(--tenant-primary)' : '#1a1a1a',
+              border: task.completed ? 'none' : '1px solid #2a2a2a',
+            }}
+          >
+            {task.completed && <Check size={13} style={{ color: '#000' }} strokeWidth={3} />}
+          </span>
+          <div className="flex-1 min-w-0">
+            <h3 className="text-base font-semibold leading-snug"
+              style={{ color: '#e8e8e8', textDecoration: task.completed ? 'line-through' : undefined }}>
+              {task.title}
+            </h3>
+            <div className="flex flex-wrap items-center gap-2 mt-1.5">
+              {task.completed && (
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-medium"
+                  style={{ background: 'rgba(0,230,118,0.12)', color: '#00e676' }}>
+                  Concluída
+                </span>
+              )}
+              {isOverdue && (
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-medium inline-flex items-center gap-1"
+                  style={{ background: 'rgba(255,68,68,0.12)', color: '#ff5555' }}>
+                  <AlertTriangle size={9} /> Atrasada
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Descrição */}
+        {task.description && (
+          <p className="text-sm whitespace-pre-wrap" style={{ color: '#aaa' }}>{task.description}</p>
+        )}
+
+        {/* Data / hora / responsável */}
+        <div className="flex flex-col gap-2 rounded-lg p-3" style={{ background: '#141414', border: '1px solid #1e1e1e' }}>
+          <div className="flex items-center gap-2 text-sm" style={{ color: '#ccc' }}>
+            <CalendarDays size={14} style={{ color: '#666' }} />
+            <span className="capitalize">{dateLabel}</span>
+          </div>
+          <div className="flex items-center gap-2 text-sm" style={{ color: isOverdue ? '#ff5555' : '#ccc' }}>
+            <Clock size={14} style={{ color: isOverdue ? '#ff5555' : '#666' }} />
+            <span>{timeLabel}</span>
+          </div>
+          {task.assignee_name && (
+            <div className="flex items-center gap-2 text-sm" style={{ color: '#ccc' }}>
+              <User size={14} style={{ color: '#666' }} />
+              <span>{task.assignee_name}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Lead vinculado */}
+        {task.lead_name && <LinkedLeadBlock task={task} />}
+      </div>
+    </Modal>
   )
 }
 

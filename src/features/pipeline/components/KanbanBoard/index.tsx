@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import {
   DndContext,
   DragOverlay,
@@ -56,9 +56,23 @@ export function KanbanBoard({ stages, cards, pipelineId, onAddLead, onRemoveCard
   const [activeCard,    setActiveCard]    = useState<KanbanCardData | null>(null)
   const [activeColumn,  setActiveColumn]  = useState<ColumnData | null>(null)
   const [overColumnId,  setOverColumnId]  = useState<string | null>(null)
+  const [convertedLead, setConvertedLead] = useState<string | null>(null) // nome do lead convertido (popup)
 
   const displayStages  = localStages  ?? stages
   const displayColumns = localColumns ?? buildColumns(displayStages, cards)
+
+  // Sincroniza com o servidor: sempre que os cards/etapas mudam (refetch após
+  // adicionar lead, mover, etc.), descarta o estado otimista local para refletir
+  // os dados frescos. Sem isso o board ficava "preso" após arrastar e não
+  // mostrava novos leads adicionados pelo modal sem apertar refresh.
+  const serverSignature =
+    cards.map((c) => `${c.card.id}:${c.card.stage_id}:${c.card.position}`).join(',') +
+    '|' + stages.map((s) => s.id).join(',')
+  useEffect(() => {
+    setLocalColumns(null)
+    setLocalStages(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serverSignature])
 
   // IDs das colunas para o SortableContext horizontal
   const columnSortIds = displayStages.map((s) => `col-${s.id}`)
@@ -192,6 +206,28 @@ export function KanbanBoard({ stages, cards, pipelineId, onAddLead, onRemoveCard
           toStageName:   destCol.stage.name,
           leadId:        movedCard.lead.id,
         })
+
+        // 1b. Auto-conversão de status conforme o tipo da etapa de destino
+        const destType   = destCol.stage.stage_type ?? (destCol.stage.is_final ? 'won' : 'in_progress')
+        const sourceType = sourceCol.stage.stage_type ?? (sourceCol.stage.is_final ? 'won' : 'in_progress')
+        const { supabase } = await import('@/lib/supabase')
+        if (destType === 'won' && movedCard.lead.status !== 'converted') {
+          await supabase.from('leads')
+            .update({ status: 'converted', updated_at: new Date().toISOString() })
+            .eq('id', movedCard.lead.id)
+          setConvertedLead(movedCard.lead.name)         // dispara o popup 🎉
+          setTimeout(() => setConvertedLead(null), 5000)
+        } else if (destType === 'lost' && movedCard.lead.status !== 'lost') {
+          await supabase.from('leads')
+            .update({ status: 'lost', updated_at: new Date().toISOString() })
+            .eq('id', movedCard.lead.id)
+        } else if (destType === 'in_progress' && (sourceType === 'won' || sourceType === 'lost')) {
+          // Voltou de uma etapa final para andamento → reverte para ativo
+          await supabase.from('leads')
+            .update({ status: 'active', updated_at: new Date().toISOString() })
+            .eq('id', movedCard.lead.id)
+        }
+
         // 2. Reordena coluna destino para garantir posições sequenciais únicas
         const destReorders = finalCol.cards.map((c, i) => ({ id: c.card.id, position: i }))
         await reorder.mutateAsync(destReorders)
@@ -250,6 +286,29 @@ export function KanbanBoard({ stages, cards, pipelineId, onAddLead, onRemoveCard
         {activeCard    && <KanbanCardOverlay   data={activeCard} />}
         {activeColumn  && <KanbanColumnOverlay column={activeColumn} />}
       </DragOverlay>
+
+      {/* 🎉 Popup de conversão (venda fechada) */}
+      {convertedLead && (
+        <div
+          className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[400] flex items-center gap-3 px-5 py-4 rounded-2xl"
+          style={{
+            background:  '#0d0d0d',
+            border:      '1px solid rgba(0,230,118,0.45)',
+            boxShadow:   '0 8px 40px rgba(0,230,118,0.25)',
+            animation:   'fadeIn 0.25s ease',
+          }}
+        >
+          <span className="text-2xl">🎉</span>
+          <div>
+            <p className="text-sm font-bold" style={{ color: '#00e676' }}>
+              Parabéns pela venda!
+            </p>
+            <p className="text-xs mt-0.5" style={{ color: '#aaa' }}>
+              <strong style={{ color: '#e8e8e8' }}>{convertedLead}</strong> foi convertido com sucesso.
+            </p>
+          </div>
+        </div>
+      )}
     </DndContext>
   )
 }
