@@ -425,3 +425,38 @@ body {
   50%      { border-color: rgba(0, 230, 118, 0.45); box-shadow: 0 0 50px rgba(0, 230, 118, 0.18); }
 }
 .login-card { animation: borderRotate 4s ease-in-out infinite; }
+
+/* ════════════════════════════════════════════════════════════════════
+   OTIMIZAÇÃO PARA TOUCH (iPad / celular)
+   Só afeta dispositivos sem mouse — desktop fica idêntico.
+   ════════════════════════════════════════════════════════════════════ */
+@media (hover: none) and (pointer: coarse) {
+
+  /* 1) Cursor/tela tremendo no login: desliga as animações pesadas e o
+        backdrop-blur que causam repaint contínuo no Safari do iPad. */
+  .login-orb-1, .login-orb-2, .login-orb-3,
+  .login-scan, .particle, .neon-flicker, .login-card {
+    animation: none !important;
+  }
+  .login-card {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  .particle, .login-scan { display: none !important; }
+
+  /* 2) iOS dá zoom automático quando o input tem fonte < 16px (causa o
+        "pulo" ao tocar no campo). Força 16px nos campos no touch. */
+  input, textarea, select {
+    font-size: 16px !important;
+  }
+
+  /* 3) Botões/handles que só apareciam no hover (arrastar card, remover,
+        ações de etapa/sessão/tarefa) ficam SEMPRE visíveis no touch. */
+  .group-hover\:opacity-100 { opacity: 1 !important; }
+
+  /* Alvos de toque um pouco maiores para arrastar com o dedo */
+  .cursor-grab { padding: 2px; }
+}
+
+/* Evita que o iOS redimensione o texto sozinho ao girar a tela */
+html { -webkit-text-size-adjust: 100%; }
