@@ -50,6 +50,9 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const { isManager, role }       = usePermissions()
   const isSuperAdmin       = useAuthStore((s) => s.isSuperAdmin)
   const availableTenants   = useAuthStore((s) => s.availableTenants)
+
+  // Client Radar só para o criador do sistema (super admin master)
+  const isClientRadarOwner = user?.email?.toLowerCase() === 'assessoriagreenlab@gmail.com'
   const settings           = useTenantStore((s) => s.settings)
   const themeMode          = useThemeStore((s) => s.mode)
   const toggleTheme        = useThemeStore((s) => s.toggle)
@@ -201,26 +204,28 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             )}
           </a>
 
-          {/* Client Radar — link externo, visível para TODOS os usuários */}
-          <a
-            href="https://victorhmp99.github.io/business-health/"
-            target="_blank"
-            rel="noopener noreferrer"
-            title={collapsed ? 'Client Radar' : undefined}
-            className={cn(
-              'relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150 group mt-0.5',
-              collapsed && 'justify-center',
-              'text-[#666666] hover:text-[#cccccc] hover:bg-[#141414]',
-            )}
-          >
-            <Radar size={17} className="relative z-10 shrink-0" />
-            {!collapsed && (
-              <>
-                <span className="relative z-10 truncate flex-1">Client Radar</span>
-                <ExternalLink size={11} className="relative z-10 shrink-0 opacity-60" />
-              </>
-            )}
-          </a>
+          {/* Client Radar — link externo, SOMENTE para o criador (assessoriagreenlab@gmail.com) */}
+          {isClientRadarOwner && (
+            <a
+              href="https://victorhmp99.github.io/business-health/"
+              target="_blank"
+              rel="noopener noreferrer"
+              title={collapsed ? 'Client Radar' : undefined}
+              className={cn(
+                'relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150 group mt-0.5',
+                collapsed && 'justify-center',
+                'text-[#666666] hover:text-[#cccccc] hover:bg-[#141414]',
+              )}
+            >
+              <Radar size={17} className="relative z-10 shrink-0" />
+              {!collapsed && (
+                <>
+                  <span className="relative z-10 truncate flex-1">Client Radar</span>
+                  <ExternalLink size={11} className="relative z-10 shrink-0 opacity-60" />
+                </>
+              )}
+            </a>
+          )}
         </nav>
 
         {/* Usuário + logout */}
