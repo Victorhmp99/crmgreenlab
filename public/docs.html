@@ -562,6 +562,7 @@ Content-Type: application/json</code></pre>
   }
 }</code></pre>
         <p>O <code>tenant_id</code> e o <code>webhook_key</code> ficam visíveis no modal <strong>Automações → Formulário externo</strong> de cada pipeline, junto de um exemplo de payload já preenchido com os campos da sua empresa.</p>
+        <div class="note"><span class="t">Chave ou nome do campo — os dois funcionam</span> Dentro de <code>custom_fields</code>, cada campo pode ser identificado pela <strong>chave técnica</strong> (ex.: <code>qual_a_sua_media_de_faturamento_mensal</code>) <strong>ou</strong> pelo próprio <strong>nome do campo</strong> como aparece na tela (ex.: <code>"Qual a sua média de faturamento mensal?"</code>). O sistema resolve sozinho, ignorando maiúsculas, acentos e espaços — então você não precisa decorar a chave interna. A chave exata (com botão de copiar) fica em <strong>Configurações → Campos personalizados</strong>.</div>
         <div class="table-wrap">
         <table>
           <thead><tr><th>Campo</th><th>Obrigatório</th><th>Descrição</th></tr></thead>
@@ -642,7 +643,7 @@ Content-Type: application/json</code></pre>
         <h3>Um lead entrou pelo formulário mas não apareceu na pipeline.</h3>
         <p>Verifique se o <code>pipeline_id</code> foi enviado e se essa pipeline tem uma <strong>etapa de entrada</strong> configurada (Automações). Sem etapa de entrada, o lead é criado mas não recebe card.</p>
         <h3>Os campos personalizados não estão sendo preenchidos.</h3>
-        <p>O formulário externo precisa enviar os valores dentro de <code>custom_fields</code>, usando os identificadores exatos dos campos. Copie o exemplo atualizado no modal de Automações da pipeline.</p>
+        <p>Confira 3 coisas: (1) o formulário envia os valores dentro de um objeto <code>custom_fields</code> (não soltos no topo); (2) cada valor usa a <strong>chave</strong> do campo <strong>ou</strong> o <strong>nome</strong> dele como aparece na tela — os dois funcionam; (3) o texto está em UTF-8 (o padrão de qualquer formulário web). Se o valor ainda aparecer como “não preenchido”, veja se a chave/nome bate com algum campo <strong>ativo</strong> em Configurações → Campos personalizados.</p>
         <h3>O formulário começou a receber respostas falsas (spam).</h3>
         <p>Adicione o campo honeypot oculto <code>_hp</code> ao formulário e, se necessário, regenere a <code>webhook_key</code> em Configurações. O rate limit já limita picos automaticamente.</p>
         <h3>Não consigo criar uma nova empresa.</h3>

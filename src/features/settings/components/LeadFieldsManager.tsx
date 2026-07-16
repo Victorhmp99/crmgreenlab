@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FileText, Plus, Edit3, EyeOff, Eye, Check, X, GripVertical } from 'lucide-react'
+import { FileText, Plus, Edit3, EyeOff, Eye, Check, X, GripVertical, Copy } from 'lucide-react'
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
   type DragEndEvent,
@@ -95,6 +95,12 @@ export function LeadFieldsManager() {
         Adicione campos personalizados ao formulário de lead. Tipo e identificador
         não podem ser alterados após criação. Desative para ocultar sem perder dados.
       </p>
+      <p className="text-[11px] rounded-lg px-3 py-2"
+        style={{ background: 'rgba(64,160,255,0.06)', border: '1px solid rgba(64,160,255,0.2)', color: 'var(--text-muted)' }}>
+        <strong style={{ color: '#40a0ff' }}>Formulário externo:</strong> no campo do webhook você pode
+        usar o <strong>nome do campo</strong> (como aparece aqui) ou a <strong>chave</strong> (o texto em cinza).
+        Os dois funcionam — use o botão de copiar ao lado da chave.
+      </p>
 
       {/* Form de criar */}
       {adding && (
@@ -169,6 +175,13 @@ function FieldRow({ field, onEdit, onDeactivate, onReactivate }: {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: field.id })
 
+  const [copied, setCopied] = useState(false)
+  async function copyKey() {
+    await navigator.clipboard.writeText(field.field_key)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
+
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -211,9 +224,18 @@ function FieldRow({ field, onEdit, onDeactivate, onReactivate }: {
             </span>
           )}
         </div>
-        <p className="text-[10px] mt-0.5 font-mono" style={{ color: 'var(--text-faint)' }}>
-          {field.field_key}
-        </p>
+        <div className="flex items-center gap-1 mt-0.5">
+          <p className="text-[10px] font-mono truncate" style={{ color: 'var(--text-faint)' }}>
+            {field.field_key}
+          </p>
+          <button onClick={copyKey} title="Copiar chave para o formulário"
+            className="shrink-0 flex items-center justify-center h-4 w-4 rounded transition-colors"
+            style={{ color: copied ? '#00e676' : 'var(--text-faint)' }}
+            onMouseEnter={(e) => { if (!copied) e.currentTarget.style.color = 'var(--text-dim)' }}
+            onMouseLeave={(e) => { if (!copied) e.currentTarget.style.color = 'var(--text-faint)' }}>
+            {copied ? <Check size={10} /> : <Copy size={10} />}
+          </button>
+        </div>
       </div>
 
       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

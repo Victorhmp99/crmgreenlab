@@ -69,15 +69,68 @@ function clientIp(req: Request): string {
   return req.headers.get('x-real-ip') ?? 'unknown'
 }
 
-/** Sanitiza custom_fields: só aceita string/number/boolean, com limites de quantidade e tamanho. */
-function sanitizeCustomFields(input: unknown): Record<string, unknown> {
-  if (!input || typeof input !== 'object' || Array.isArray(input)) return {}
+/** Slug igual ao labelToFieldKey do frontend: minúsculo, sem acento, não-alfanumérico → _ */
+function slugify(s: string): string {
+  return s
+    .normalize('NFD')
+    .split('')
+    .filter((ch) => {
+      const c = ch.codePointAt(0) ?? 0
+      return c < 0x0300 || c > 0x036f   // remove marcas combinantes (acentos)
+    })
+    .join('')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 60)
+}
 
-  const entries = Object.entries(input as Record<string, unknown>).slice(0, MAX_CUSTOM_FIELD_KEYS)
+/**
+ * Monta um resolvedor de chaves a partir das definições de campos do tenant.
+ * Permite que o formulário externo envie tanto a chave técnica (field_key)
+ * quanto o próprio rótulo (label) — casando por chave OU rótulo, ignorando
+ * maiúsculas, acentos e espaços.
+ */
+function buildFieldKeyResolver(
+  defs: Array<{ field_key: string; label: string }>,
+): (rawKey: string) => string {
+  const map = new Map<string, string>()
+  for (const f of defs) {
+    if (!f.field_key) continue
+    map.set(f.field_key.toLowerCase(), f.field_key)   // chave exata
+    map.set(slugify(f.field_key), f.field_key)         // chave "slugada"
+    if (f.label) map.set(slugify(f.label), f.field_key) // rótulo "slugado"
+  }
+  return (rawKey: string) => {
+    const direct = map.get(rawKey.toLowerCase())
+    if (direct) return direct
+    const bySlug = map.get(slugify(rawKey))
+    if (bySlug) return bySlug
+    return rawKey   // desconhecido — mantém como veio (não perde o dado)
+  }
+}
+
+/**
+ * Sanitiza custom_fields: só aceita string/number/boolean, com limites de
+ * quantidade e tamanho. Resolve cada chave via `resolveKey` (chave ou rótulo).
+ */
+function sanitizeCustomFields(
+  input: unknown,
+  resolveKey: (k: string) => string,
+): Record<string, unknown> {
+  // Ferramentas no-code às vezes mandam custom_fields como TEXTO (JSON string).
+  let obj = input
+  if (typeof obj === 'string') {
+    try { obj = JSON.parse(obj) } catch { return {} }
+  }
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return {}
+
+  const entries = Object.entries(obj as Record<string, unknown>).slice(0, MAX_CUSTOM_FIELD_KEYS)
   const safe: Record<string, unknown> = {}
 
-  for (const [key, value] of entries) {
-    if (typeof key !== 'string' || key.length === 0 || key.length > 100) continue
+  for (const [rawKey, value] of entries) {
+    if (typeof rawKey !== 'string' || rawKey.length === 0 || rawKey.length > 100) continue
+    const key = resolveKey(rawKey)
 
     if (typeof value === 'string') {
       safe[key] = value.slice(0, MAX_CUSTOM_FIELD_VALUE_LEN)
@@ -206,7 +259,17 @@ Deno.serve(async (req) => {
   }
 
   // ── Valida e sanitiza custom_fields ────────────────────────────────────────
-  const safeCustomFields = sanitizeCustomFields(custom_fields)
+  // Resolve as chaves aceitando tanto a chave técnica (field_key) quanto o
+  // rótulo do campo — assim o formulário externo pode usar o nome que aparece
+  // na tela, sem precisar decorar a chave interna.
+  const { data: fieldDefs } = await supabaseAdmin
+    .from('lead_field_definitions')
+    .select('field_key, label')
+    .eq('tenant_id', tenant_id)
+    .eq('active', true)
+
+  const resolveKey = buildFieldKeyResolver(fieldDefs ?? [])
+  const safeCustomFields = sanitizeCustomFields(custom_fields, resolveKey)
 
   // ── Normaliza telefone: mantém apenas dígitos (igual ao trigger do banco) ──
   // Garante que "(11) 99999-9999" e "11999999999" sejam tratados como iguais.
