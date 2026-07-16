@@ -563,6 +563,50 @@ Content-Type: application/json</code></pre>
 }</code></pre>
         <p>O <code>tenant_id</code> e o <code>webhook_key</code> ficam visíveis no modal <strong>Automações → Formulário externo</strong> de cada pipeline, junto de um exemplo de payload já preenchido com os campos da sua empresa.</p>
         <div class="note"><span class="t">Chave ou nome do campo — os dois funcionam</span> Dentro de <code>custom_fields</code>, cada campo pode ser identificado pela <strong>chave técnica</strong> (ex.: <code>qual_a_sua_media_de_faturamento_mensal</code>) <strong>ou</strong> pelo próprio <strong>nome do campo</strong> como aparece na tela (ex.: <code>"Qual a sua média de faturamento mensal?"</code>). O sistema resolve sozinho, ignorando maiúsculas, acentos e espaços — então você não precisa decorar a chave interna. A chave exata (com botão de copiar) fica em <strong>Configurações → Campos personalizados</strong>.</div>
+
+        <h3>Regra de ouro (o erro mais comum)</h3>
+        <p>Campos <strong>padrão</strong> (<code>name</code>, <code>email</code>, <code>phone</code>) vão no <strong>topo</strong> do JSON. Campos <strong>personalizados</strong> (as "Perguntas do Formulário") vão <strong>dentro</strong> de <code>custom_fields</code>. Um campo personalizado solto no topo é <strong>ignorado</strong>.</p>
+        <div class="grid" style="grid-template-columns:1fr 1fr">
+          <div class="card" style="border-color:rgba(224,84,74,.4)">
+            <h3 style="color:#e0544a">❌ Errado</h3>
+            <pre style="margin:8px 0 0"><code>{
+  <span class="tok-key">"name"</span>: <span class="tok-str">"Igor"</span>,
+  <span class="tok-key">"faturamento_mensal"</span>: <span class="tok-str">"200000"</span>
+}</code></pre>
+            <p style="margin-top:8px">Fora de <code>custom_fields</code> → não grava.</p>
+          </div>
+          <div class="card" style="border-color:var(--accent)">
+            <h3 style="color:var(--accent-strong)">✅ Certo</h3>
+            <pre style="margin:8px 0 0"><code>{
+  <span class="tok-key">"name"</span>: <span class="tok-str">"Igor"</span>,
+  <span class="tok-key">"custom_fields"</span>: {
+    <span class="tok-key">"faturamento_mensal"</span>: <span class="tok-str">"200000"</span>
+  }
+}</code></pre>
+            <p style="margin-top:8px">Dentro de <code>custom_fields</code> → grava certo.</p>
+          </div>
+        </div>
+
+        <h3>Passo a passo (Make, Zapier, n8n…)</h3>
+        <ol>
+          <li>Use o módulo de <strong>HTTP</strong> → “fazer uma requisição” (<em>Make a request</em>).</li>
+          <li><strong>Method:</strong> <code>POST</code>. &nbsp;<strong>URL:</strong> o endpoint acima.</li>
+          <li><strong>Body type:</strong> <code>Raw</code> · <strong>Content type:</strong> <code>JSON (application/json)</code>.</li>
+          <li>No corpo, cole o modelo abaixo e substitua os <code>{{…}}</code> pelos campos da sua automação. Mantenha o <code>custom_fields</code> aninhado.</li>
+        </ol>
+        <pre><code>{
+  <span class="tok-key">"tenant_id"</span>:   <span class="tok-str">"&lt;id da empresa&gt;"</span>,
+  <span class="tok-key">"webhook_key"</span>: <span class="tok-str">"&lt;chave da empresa&gt;"</span>,
+  <span class="tok-key">"pipeline_id"</span>: <span class="tok-str">"&lt;pipeline de destino&gt;"</span>,
+  <span class="tok-key">"name"</span>:  <span class="tok-str">"{{nome}}"</span>,
+  <span class="tok-key">"phone"</span>: <span class="tok-str">"{{telefone}}"</span>,
+  <span class="tok-key">"email"</span>: <span class="tok-str">"{{email}}"</span>,
+  <span class="tok-key">"custom_fields"</span>: {
+    <span class="tok-key">"Nome do campo 1"</span>: <span class="tok-str">"{{valor1}}"</span>,
+    <span class="tok-key">"Nome do campo 2"</span>: <span class="tok-str">"{{valor2}}"</span>
+  }
+}</code></pre>
+        <p>As chaves dentro de <code>custom_fields</code> podem ser o <strong>nome do campo</strong> (como aparece na tela) ou a <strong>chave</strong> — pegue em Configurações → Campos personalizados.</p>
         <div class="table-wrap">
         <table>
           <thead><tr><th>Campo</th><th>Obrigatório</th><th>Descrição</th></tr></thead>
