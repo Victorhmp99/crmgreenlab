@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, Kanban, Zap, Target,
   UserCog, LogOut, ChevronLeft, ChevronRight,
   DollarSign, BarChart2, Megaphone, Settings, Globe,
-  Code2, ExternalLink, Sun, Moon, CheckSquare, MessageSquare, Radar,
+  Code2, ExternalLink, Sun, Moon, CheckSquare, MessageSquare, Radar, BookOpen,
 } from 'lucide-react'
 import { useThemeStore } from '@/store/themeStore'
 import { cn } from '@/lib/utils'
@@ -226,6 +226,27 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
               )}
             </a>
           )}
+
+          {/* Documentação — arquivo estático em /docs.html, visível para TODOS */}
+          <a
+            href="/docs.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            title={collapsed ? 'Documentação' : undefined}
+            className={cn(
+              'relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150 group mt-0.5',
+              collapsed && 'justify-center',
+              'text-[#666666] hover:text-[#cccccc] hover:bg-[#141414]',
+            )}
+          >
+            <BookOpen size={17} className="relative z-10 shrink-0" />
+            {!collapsed && (
+              <>
+                <span className="relative z-10 truncate flex-1">Documentação</span>
+                <ExternalLink size={11} className="relative z-10 shrink-0 opacity-60" />
+              </>
+            )}
+          </a>
         </nav>
 
         {/* Usuário + logout */}

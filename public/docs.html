@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Green Hub CRM — Documentação</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📗</text></svg>">
+</head>
+<body>
+<title>Green Hub CRM — Documentação</title>
+<style>
+  :root {
+    --bg: #f5f8f6;
+    --surface: #ffffff;
+    --surface-2: #eef2f0;
+    --ink: #101a15;
+    --muted: #59685f;
+    --faint: #8a968c;
+    --border: #e2e8e4;
+    --accent: #009a53;
+    --accent-strong: #007a42;
+    --accent-soft: rgba(0,154,83,0.10);
+    --code-bg: #eef2f0;
+    --code-ink: #14231b;
+    --shadow: 0 1px 2px rgba(16,26,21,.04), 0 8px 30px rgba(16,26,21,.05);
+
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+    --maxw: 760px;
+    --sidebar: 268px;
+    --radius: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0b0f0d;
+      --surface: #101613;
+      --surface-2: #151d18;
+      --ink: #e7efe9;
+      --muted: #8b988f;
+      --faint: #5d6a62;
+      --border: #202a24;
+      --accent: #00e676;
+      --accent-strong: #57ffa5;
+      --accent-soft: rgba(0,230,118,0.12);
+      --code-bg: #0e1512;
+      --code-ink: #d7e6dc;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 12px 40px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #f5f8f6; --surface: #ffffff; --surface-2: #eef2f0; --ink: #101a15;
+    --muted: #59685f; --faint: #8a968c; --border: #e2e8e4;
+    --accent: #009a53; --accent-strong: #007a42; --accent-soft: rgba(0,154,83,0.10);
+    --code-bg: #eef2f0; --code-ink: #14231b;
+    --shadow: 0 1px 2px rgba(16,26,21,.04), 0 8px 30px rgba(16,26,21,.05);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0b0f0d; --surface: #101613; --surface-2: #151d18; --ink: #e7efe9;
+    --muted: #8b988f; --faint: #5d6a62; --border: #202a24;
+    --accent: #00e676; --accent-strong: #57ffa5; --accent-soft: rgba(0,230,118,0.12);
+    --code-bg: #0e1512; --code-ink: #d7e6dc;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 12px 40px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body { margin: 0; }
+
+  .doc {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: var(--sidebar) 1fr;
+  }
+
+  /* ---- Sidebar ---- */
+  .side {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    overflow-y: auto;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    padding: 22px 16px 40px;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 18px; }
+  .brand .mark {
+    width: 34px; height: 34px; border-radius: 9px; flex: none;
+    background: var(--accent); color: #04130b;
+    display: grid; place-items: center; font-weight: 800; font-size: 15px;
+    letter-spacing: -.02em;
+  }
+  .brand .name { font-weight: 700; font-size: 15px; letter-spacing: -.01em; line-height: 1.1; }
+  .brand .sub { color: var(--muted); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; }
+
+  .nav-group { margin-top: 16px; }
+  .nav-group > .lbl {
+    font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--faint); padding: 6px 8px; font-weight: 600;
+  }
+  .side nav a {
+    display: block; padding: 6px 8px; border-radius: 7px;
+    color: var(--muted); text-decoration: none; font-size: 13.5px;
+    line-height: 1.35; border: 1px solid transparent;
+  }
+  .side nav a:hover { color: var(--ink); background: var(--surface-2); }
+  .side nav a.active {
+    color: var(--accent-strong); background: var(--accent-soft);
+    font-weight: 600;
+  }
+
+  /* ---- Main ---- */
+  .main { min-width: 0; }
+  .topbar {
+    position: sticky; top: 0; z-index: 20;
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 28px;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar .crumb { color: var(--muted); font-size: 13px; }
+  .topbar .crumb b { color: var(--ink); font-weight: 600; }
+  .spacer { flex: 1; }
+  .btn {
+    font: inherit; font-size: 13px; cursor: pointer;
+    background: var(--surface); color: var(--ink);
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 6px 10px; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent-strong); }
+  .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .menu-btn { display: none; }
+
+  .content { max-width: var(--maxw); margin: 0 auto; padding: 40px 28px 120px; }
+
+  section { scroll-margin-top: 72px; padding-top: 26px; }
+  section + section { border-top: 1px solid var(--border); margin-top: 30px; }
+
+  h1 { font-size: 2.15rem; line-height: 1.1; letter-spacing: -.025em; margin: 0 0 10px; text-wrap: balance; }
+  h2 { font-size: 1.5rem; line-height: 1.2; letter-spacing: -.02em; margin: 8px 0 12px; text-wrap: balance; }
+  h3 { font-size: 1.1rem; letter-spacing: -.01em; margin: 26px 0 8px; }
+  p { margin: 0 0 14px; color: var(--ink); }
+  .lead { font-size: 1.12rem; color: var(--muted); margin-bottom: 22px; }
+  .eyebrow {
+    display: inline-block; font-size: 12px; letter-spacing: .13em; text-transform: uppercase;
+    color: var(--accent-strong); font-weight: 700; margin-bottom: 14px;
+  }
+  a { color: var(--accent-strong); text-decoration-color: color-mix(in srgb, var(--accent) 40%, transparent); text-underline-offset: 2px; }
+  ul, ol { margin: 0 0 16px; padding-left: 20px; }
+  li { margin: 4px 0; }
+  li::marker { color: var(--accent); }
+  strong { font-weight: 650; }
+  code {
+    font-family: var(--mono); font-size: .86em;
+    background: var(--code-bg); color: var(--code-ink);
+    padding: .12em .4em; border-radius: 5px;
+  }
+  pre {
+    background: var(--code-bg); color: var(--code-ink);
+    border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 16px 18px; overflow-x: auto; margin: 0 0 18px;
+    font-family: var(--mono); font-size: 13px; line-height: 1.6;
+  }
+  pre code { background: none; padding: 0; }
+  .tok-key { color: var(--accent-strong); }
+  .tok-str { color: #c98a2b; }
+  :root[data-theme="dark"] .tok-str { color: #e0b04a; }
+  @media (prefers-color-scheme: dark) { .tok-str { color: #e0b04a; } }
+  .tok-com { color: var(--faint); }
+
+  /* cards / callouts */
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin: 4px 0 20px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px 18px; box-shadow: var(--shadow);
+  }
+  .card h3 { margin: 0 0 4px; font-size: 1rem; }
+  .card p { margin: 0; color: var(--muted); font-size: 14px; }
+  .card .ic { font-size: 18px; margin-bottom: 8px; display: block; }
+
+  .note {
+    border-left: 3px solid var(--accent); background: var(--accent-soft);
+    border-radius: 0 10px 10px 0; padding: 12px 16px; margin: 0 0 18px;
+    font-size: 14.5px;
+  }
+  .note.warn { border-left-color: #e0a52b; background: color-mix(in srgb, #e0a52b 12%, transparent); }
+  .note .t { font-weight: 700; display: block; margin-bottom: 2px; }
+
+  table { width: 100%; border-collapse: collapse; margin: 0 0 20px; font-size: 14px; }
+  .table-wrap { overflow-x: auto; margin: 0 0 20px; }
+  .table-wrap table { margin: 0; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  thead th { font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  tbody tr:hover { background: var(--surface-2); }
+  td.c, th.c { text-align: center; }
+  .yes { color: var(--accent-strong); font-weight: 700; }
+  .no { color: var(--faint); }
+  .tag {
+    display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px;
+    border-radius: 999px; background: var(--accent-soft); color: var(--accent-strong);
+    letter-spacing: .02em; vertical-align: middle;
+  }
+  .tag.g { background: var(--surface-2); color: var(--muted); }
+
+  .foot { color: var(--faint); font-size: 13px; margin-top: 40px; padding-top: 18px; border-top: 1px solid var(--border); }
+
+  /* ---- responsive ---- */
+  #nav-toggle { display: none; }
+  @media (max-width: 880px) {
+    .doc { grid-template-columns: 1fr; }
+    .side {
+      position: fixed; z-index: 40; left: 0; top: 0; width: 82%; max-width: 320px;
+      transform: translateX(-102%); transition: transform .22s ease;
+    }
+    @media (prefers-reduced-motion: reduce) { .side { transition: none; } }
+    #nav-toggle:checked ~ .doc .side { transform: translateX(0); box-shadow: 0 0 0 100vmax rgba(0,0,0,.45); }
+    .menu-btn { display: inline-flex; }
+    .content { padding: 28px 20px 100px; }
+    .topbar { padding: 12px 18px; }
+  }
+</style>
+
+<input type="checkbox" id="nav-toggle" hidden>
+<div class="doc">
+  <aside class="side" id="sidebar">
+    <div class="brand">
+      <div class="mark">GH</div>
+      <div>
+        <div class="name">Green Hub CRM</div>
+        <div class="sub">Documentação</div>
+      </div>
+    </div>
+    <nav>
+      <div class="nav-group">
+        <div class="lbl">Começando</div>
+        <a href="#visao">Visão geral</a>
+        <a href="#acesso">Perfis de acesso</a>
+        <a href="#primeiros-passos">Primeiros passos</a>
+        <a href="#empresas">Multi-empresa</a>
+      </div>
+      <div class="nav-group">
+        <div class="lbl">Módulos</div>
+        <a href="#dashboard">Dashboard</a>
+        <a href="#leads">Leads</a>
+        <a href="#pipeline">Pipeline</a>
+        <a href="#disparos">Disparos</a>
+        <a href="#tarefas">Tarefas &amp; Agenda</a>
+        <a href="#metas">Metas</a>
+        <a href="#financeiro">Financeiro</a>
+        <a href="#relatorios">Relatórios</a>
+        <a href="#funil">Configuração do funil</a>
+        <a href="#metaads">Meta Ads</a>
+        <a href="#whatsapp">SDR WhatsApp</a>
+        <a href="#usuarios">Usuários</a>
+        <a href="#config">Configurações</a>
+        <a href="#plataforma">Plataforma</a>
+      </div>
+      <div class="nav-group">
+        <div class="lbl">Integrações</div>
+        <a href="#webhook">Webhook de formulários</a>
+        <a href="#campos">Campos personalizados</a>
+      </div>
+      <div class="nav-group">
+        <div class="lbl">Referência</div>
+        <a href="#seguranca">Segurança &amp; privacidade</a>
+        <a href="#tecnico">Apêndice técnico</a>
+        <a href="#faq">FAQ &amp; suporte</a>
+      </div>
+    </nav>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <label for="nav-toggle" class="btn menu-btn" aria-label="Abrir menu">☰</label>
+      <span class="crumb"><b>Green Hub CRM</b> · Documentação</span>
+      <span class="spacer"></span>
+      <button class="btn" id="theme-btn" type="button" aria-label="Alternar tema">
+        <span id="theme-ic">◐</span><span id="theme-tx">Tema</span>
+      </button>
+    </div>
+
+    <main class="content">
+
+      <section id="visao" style="border-top:none;padding-top:6px">
+        <span class="eyebrow">Intelligence Platform</span>
+        <h1>Documentação do Green Hub CRM</h1>
+        <p class="lead">Um CRM de conversão white-label e multi-empresa: capta leads, organiza o funil de vendas, dispara follow-ups, integra WhatsApp e Meta Ads, e mede resultado — cada empresa com sua identidade, seus dados e sua equipe totalmente isolados.</p>
+        <div class="grid">
+          <div class="card"><span class="ic">🏢</span><h3>Multi-empresa</h3><p>Uma conta pode gerenciar várias empresas. Os dados de cada uma são isolados — ninguém vê o que não é seu.</p></div>
+          <div class="card"><span class="ic">🎯</span><h3>Funil de conversão</h3><p>Pipeline Kanban, metas, disparos e relatórios pensados para transformar lead em cliente.</p></div>
+          <div class="card"><span class="ic">🔌</span><h3>Integrável</h3><p>Formulários externos via webhook, WhatsApp multi-sessão (SDR) e campanhas do Meta Ads.</p></div>
+          <div class="card"><span class="ic">🎨</span><h3>White-label</h3><p>Cores e identidade por empresa, para revenda sob sua própria marca.</p></div>
+        </div>
+        <p>Esta documentação cobre, na ordem: como o acesso funciona, os primeiros passos, o guia de cada módulo, as integrações (webhook e campos personalizados) e um apêndice técnico para quem mantém o sistema.</p>
+      </section>
+
+      <section id="acesso">
+        <h2>Perfis de acesso</h2>
+        <p>O Green Hub tem uma hierarquia de papéis. Cada papel enxerga um conjunto de funcionalidades — do vendedor operando o dia a dia ao super admin que administra toda a plataforma.</p>
+        <div class="table-wrap">
+        <table>
+          <thead><tr><th>Papel</th><th>Para quem</th><th>Pode</th></tr></thead>
+          <tbody>
+            <tr><td><span class="tag">Super Admin Master</span></td><td>Dono da plataforma</td><td>Tudo, incluindo administrar todas as empresas e ativar contas.</td></tr>
+            <tr><td><span class="tag">Super Admin Auxiliar</span></td><td>Braço direito do dono</td><td>Acesso à Plataforma, exceto ações reservadas ao Master.</td></tr>
+            <tr><td><span class="tag">Admin</span></td><td>Revendedor / dono da empresa</td><td>Gerência total da(s) própria(s) empresa(s): usuários, financeiro, config.</td></tr>
+            <tr><td><span class="tag">Gestor</span></td><td>Gerente comercial</td><td>Gerência da equipe (só vendedores), financeiro e relatórios.</td></tr>
+            <tr><td><span class="tag g">Vendedor</span></td><td>Operação diária</td><td>Leads, pipeline, disparos, tarefas e suas próprias metas.</td></tr>
+          </tbody>
+        </table>
+        </div>
+
+        <h3>Matriz de permissões por módulo</h3>
+        <div class="table-wrap">
+        <table>
+          <thead><tr><th>Módulo</th><th class="c">Vendedor</th><th class="c">Gestor</th><th class="c">Admin</th><th class="c">Super&nbsp;Admin</th></tr></thead>
+          <tbody>
+            <tr><td>Dashboard</td><td class="c yes">✓</td><td class="c yes">✓</td><td class="c yes">✓</td><td class="c yes">✓</td></tr>
+            <tr><td>Leads</td><td class="c yes">✓</td><td class="c yes">✓</td><td class="c yes">✓</td><td class="c yes">✓</td></tr>
+            <tr><td>Pipeline</td><td class="c yes">✓</td><td class="c yes">✓</td><td class="c yes">✓</td><td class="c yes">✓</td></tr>
+            <tr><td>Disparos</td><td class="c yes">✓</td><td class="c yes">✓</td><td class="c yes">✓</td><td class="c yes">✓</td></tr>
+            <tr><td>Tarefas &amp; Agenda</td><td class="c yes">✓</td><td class="c yes">✓</td><td class="c yes">✓</td><td class="c yes">✓</td></tr>
+            <tr><td>Metas</td><td class="c yes">✓*</td><td class="c yes">✓</td><td class="c yes">✓</td><td class="c yes">✓</td></tr>
+            <tr><td>Financeiro</td><td class="c no">—</td><td class="c yes">✓</td><td class="c yes">✓</td><td class="c yes">✓</td></tr>
+            <tr><td>Relatórios</td><td class="c no">—</td><td class="c yes">✓</td><td class="c yes">✓</td><td class="c yes">✓</td></tr>
+            <tr><td>Meta Ads</td><td class="c no">—</td><td class="c yes">✓</td><td class="c yes">✓</td><td class="c yes">✓</td></tr>
+            <tr><td>Usuários</td><td class="c no">—</td><td class="c yes">✓†</td><td class="c yes">✓</td><td class="c yes">✓</td></tr>
+            <tr><td>Configurações</td><td class="c no">—</td><td class="c yes">✓</td><td class="c yes">✓</td><td class="c yes">✓</td></tr>
+            <tr><td>Plataforma</td><td class="c no">—</td><td class="c no">—</td><td class="c no">—</td><td class="c yes">✓</td></tr>
+          </tbody>
+        </table>
+        </div>
+        <p style="font-size:13.5px;color:var(--muted)">* O vendedor vê e acompanha <strong>apenas as próprias metas</strong>. &nbsp;† O gestor gerencia <strong>apenas vendedores</strong> — não pode criar/editar outros gestores ou admins.</p>
+      </section>
+
+      <section id="primeiros-passos">
+        <h2>Primeiros passos</h2>
+        <h3>Entrar</h3>
+        <p>Acesse o CRM pelo endereço da sua instalação e informe e-mail e senha. Esqueceu a senha? Use <strong>“Esqueceu a senha?”</strong> na tela de login — você recebe um link por e-mail para redefinir.</p>
+        <h3>Criar sua conta</h3>
+        <p>Contas novas são criadas por <strong>link de convite/cadastro</strong> gerado por um admin ou gestor. O link já define seu papel e a empresa de destino. Ao concluir o cadastro, sua conta pode ficar <span class="tag g">aguardando</span> aprovação até que um administrador a ative.</p>
+        <h3>Aceitar um convite</h3>
+        <p>Recebeu um convite para entrar numa empresa existente? O link <code>/convite/&lt;token&gt;</code> valida seu e-mail e adiciona você àquela empresa com o papel definido no convite.</p>
+        <div class="note"><span class="t">Estados da conta</span> <b>Aguardando</b> = cadastro feito, esperando ativação. <b>Bloqueado</b> = acesso suspenso por um administrador. Nesses estados você entra mas não acessa os módulos até a liberação.</div>
+      </section>
+
+      <section id="empresas">
+        <h2>Multi-empresa</h2>
+        <p>Uma mesma conta (login) pode pertencer a várias empresas — útil para quem administra mais de uma clínica ou para revendedores. No seletor de empresa (canto superior da barra lateral) você:</p>
+        <ul>
+          <li><strong>Alterna entre empresas</strong> — os dados são recarregados do zero para a empresa ativa.</li>
+          <li><strong>Cria uma nova empresa</strong> — disponível para Admin e Gestor, respeitando o limite de empresas da conta.</li>
+        </ul>
+        <div class="note"><span class="t">Isolamento garantido</span> Cada empresa é um “inquilino” (tenant) isolado. Você só enxerga os dados das empresas às quais foi explicitamente adicionado — criar ou trocar de empresa nunca dá acesso a dados de terceiros.</div>
+      </section>
+
+      <section id="dashboard">
+        <h2>Dashboard</h2>
+        <p>A tela inicial resume a saúde comercial da empresa ativa:</p>
+        <ul>
+          <li><strong>Cartões de métrica</strong> — indicadores-chave com variação (delta) contra o período anterior.</li>
+          <li><strong>Evolução (30 dias)</strong> — gráfico de área com a captação recente.</li>
+          <li><strong>Funil por etapa</strong> — quantos leads em cada estágio do pipeline.</li>
+          <li><strong>Origem dos leads</strong> — distribuição por canal (Meta Ads, indicação, etc.).</li>
+          <li><strong>Leads recentes</strong> — os últimos que entraram, para ação rápida.</li>
+        </ul>
+      </section>
+
+      <section id="leads">
+        <h2>Leads</h2>
+        <p>O cadastro central de contatos. A tabela é paginada e filtrável, com criação, edição e exclusão.</p>
+        <h3>Importar leads</h3>
+        <p>Traga contatos em massa por <strong>CSV</strong> ou <strong>URL do Google Sheets</strong>. O assistente de importação tem 3 etapas, incluindo o <strong>mapeamento de colunas</strong> — você diz qual coluna da planilha corresponde a nome, telefone, e-mail, etc.</p>
+        <h3>Telefone único por empresa</h3>
+        <p>O mesmo telefone não se duplica dentro de uma empresa: se um lead com aquele número já existe, o sistema reaproveita o registro. O mesmo número <em>pode</em> existir em empresas diferentes.</p>
+        <div class="note"><span class="t">Campos personalizados</span> Além dos campos padrão, cada empresa define suas próprias “Perguntas do Formulário”. Veja <a href="#campos">Campos personalizados</a>.</div>
+      </section>
+
+      <section id="pipeline">
+        <h2>Pipeline</h2>
+        <p>O funil de vendas em formato <strong>Kanban</strong>. Cada empresa pode ter <strong>vários pipelines</strong> (ex.: Inbound e Outbound), cada um com suas etapas.</p>
+        <ul>
+          <li><strong>Arrastar e soltar</strong> cards entre etapas; reordenar dentro da coluna.</li>
+          <li><strong>Etapas configuráveis</strong> — criar, renomear, recolorir, reordenar, marcar etapa de <em>entrada</em> e etapa <em>final</em>.</li>
+          <li><strong>Registro de atividade</strong> a cada movimentação.</li>
+          <li><strong>Valor da pipeline</strong> — soma automática do valor dos leads no funil.</li>
+        </ul>
+
+        <h3>Criar uma nova pipeline</h3>
+        <p>Na tela <strong>Pipeline</strong> (visão de grade), clique em <strong>Criar pipeline</strong>. No assistente:</p>
+        <ol>
+          <li>Dê um <strong>nome</strong> e escolha uma <strong>cor</strong>.</li>
+          <li>Monte as <strong>etapas</strong> (colunas): nome e cor de cada uma. Use <strong>+ Nova etapa</strong> para adicionar e arraste para reordenar.</li>
+          <li>Marque uma etapa como <strong style="color:var(--accent-strong)">Início</strong> — é onde os leads entram por automação/formulário.</li>
+          <li>Marque a etapa de <strong style="color:var(--accent-strong)">Final</strong> — a etapa de conversão.</li>
+        </ol>
+        <p>Tenha quantas pipelines quiser (ex.: <em>Inbound</em> e <em>Outbound</em>), cada uma com suas etapas. Para ajustar depois, use <strong>Editar</strong> (ícone de lápis) na barra de ferramentas da pipeline.</p>
+
+        <h3>Marcar um lead como Ganho ou Perdido</h3>
+        <p>O status do lead muda <strong>automaticamente ao arrastar o card</strong> para uma coluna, conforme o <strong>tipo</strong> daquela coluna. Para definir o tipo de uma etapa, passe o mouse no cabeçalho da coluna, clique para <strong>editar</strong> e escolha no seletor de tipo:</p>
+        <ul>
+          <li><span class="tag g">Em andamento</span> — etapa comum do meio do funil.</li>
+          <li><span class="tag">🏆 Ganho</span> — ao mover um card para cá, o lead vira <strong>Convertido</strong> (com um pop-up de comemoração).</li>
+          <li><span class="tag" style="background:rgba(255,68,68,.12);color:#e0544a">✕ Perdido</span> — ao mover um card para cá, o lead vira <strong>Perdido</strong>.</li>
+        </ul>
+        <p>Mover o card de volta para uma etapa <strong>Em andamento</strong> reativa o lead (status <strong>Ativo</strong>). No mesmo editor de coluna você também ajusta cor, nome e o <a href="#funil">passo do funil</a> que a etapa representa.</p>
+        <div class="note"><span class="t">Ganho ≠ Perdido</span> Normalmente você tem duas colunas finais separadas — ex.: “Fechado” (tipo <strong>Ganho</strong>) e “Perdido” (tipo <strong>Perdido</strong>). É o <em>tipo</em> da coluna, não o nome, que define o efeito no status do lead.</div>
+
+        <h3>Automações da pipeline</h3>
+        <p>No botão <strong>Automações</strong> (ícone de raio) de cada pipeline você define:</p>
+        <ul>
+          <li><strong>Etapa de entrada</strong> — onde caem os leads que chegam por WhatsApp ou formulário.</li>
+          <li><strong>Vínculo com WhatsApp</strong> — mensagens recebidas viram leads nesta pipeline.</li>
+          <li><strong>Formulário externo (webhook)</strong> — endpoint + exemplo de payload, incluindo a seleção de quais <a href="#campos">campos personalizados</a> essa automação preenche. Detalhes em <a href="#webhook">Webhook de formulários</a>.</li>
+        </ul>
+      </section>
+
+      <section id="disparos">
+        <h2>Disparos</h2>
+        <p>Registro e acompanhamento de interações com o lead (ligações, mensagens, reuniões) e agendamento do <strong>próximo follow-up</strong>.</p>
+        <ul>
+          <li><strong>Nova atividade</strong> — vincula a um lead e define o próximo contato.</li>
+          <li><strong>Timeline do lead</strong> — painel lateral com o histórico vertical de tudo que aconteceu.</li>
+          <li><strong>Visão global</strong> — todas as atividades da empresa, com filtros e paginação.</li>
+        </ul>
+      </section>
+
+      <section id="tarefas">
+        <h2>Tarefas &amp; Agenda</h2>
+        <p>Organiza os compromissos da equipe em <strong>calendário</strong> (mês/semana) e <strong>lista</strong>. Filtre entre <strong>Todas</strong> e <strong>Minhas</strong> tarefas, navegue por período e crie novas com data e hora.</p>
+        <div class="note"><span class="t">Em evolução</span> Integração com o Google Agenda (sincronização bidirecional por usuário) está planejada como melhoria futura.</div>
+      </section>
+
+      <section id="metas">
+        <h2>Metas</h2>
+        <p>Define e acompanha objetivos comerciais com barra de progresso em tempo real.</p>
+        <ul>
+          <li><strong>Metas por período</strong> — cálculo automático das datas conforme o período escolhido.</li>
+          <li><strong>Minhas metas × Metas da equipe</strong> — o vendedor vê as suas; o gestor vê também as que criou para o time.</li>
+          <li><strong>Leaderboard</strong> — ranking da equipe por score ponderado.</li>
+        </ul>
+      </section>
+
+      <section id="financeiro">
+        <h2>Financeiro <span class="tag">Gestor+</span></h2>
+        <p>Centro de receita da empresa.</p>
+        <ul>
+          <li><strong>Resumo financeiro</strong> — cartões com os números do período.</li>
+          <li><strong>Evolução</strong> — gráfico combinado de receita.</li>
+          <li><strong>Transações</strong> — lista paginada, com criação e edição de lançamentos.</li>
+        </ul>
+      </section>
+
+      <section id="relatorios">
+        <h2>Relatórios <span class="tag">Gestor+</span></h2>
+        <p>Análises de performance para decisão:</p>
+        <ul>
+          <li><strong>Por vendedor</strong> — desempenho individual.</li>
+          <li><strong>Funil por etapa</strong> — conversão entre estágios.</li>
+          <li><strong>Ranking de campanhas</strong> — o que mais traz resultado.</li>
+          <li><strong>Por origem</strong> — quebra por canal de aquisição.</li>
+        </ul>
+        <p>Os relatórios ficam na aba <strong>Visão geral</strong>. A aba <strong>Configuração do Funil</strong> é onde você monta o funil analítico — veja a seguir.</p>
+      </section>
+
+      <section id="funil">
+        <h2>Configuração do funil <span class="tag">Gestor+</span></h2>
+        <p>Em <strong>Relatórios → aba “Configuração do Funil”</strong>. Duas partes que, juntas, montam o funil de conversão analítico — separado das etapas visuais do Kanban, para você medir o funil do seu jeito.</p>
+
+        <h3>1. Passos do funil</h3>
+        <p>Os estágios do seu funil de vendas (ex.: <em>Leads captados → Primeiro contato → Reunião → Proposta → Fechado</em>). Para cada passo você define:</p>
+        <ul>
+          <li><strong>Nome</strong> (único) e <strong>cor</strong>.</li>
+          <li><strong>Atividades que contam</strong> (disparos) — o lead alcança o passo quando tiver uma dessas atividades registradas: ligação, WhatsApp, e-mail, reunião ou nota. Há um botão <strong>“Sugerir pelo nome”</strong> que preenche isso automaticamente.</li>
+        </ul>
+        <div class="note"><span class="t">Regra dos passos</span> O <strong>primeiro</strong> passo captura todos os leads ativos; o <strong>último</strong> captura os convertidos automaticamente. Os passos do <strong>meio</strong> precisam de pelo menos uma atividade vinculada — sem isso, aparecem com aviso e não contam no funil. Arraste para reordenar; use o lápis para editar.</div>
+
+        <h3>2. Mapeamento Pipeline → Funil</h3>
+        <p>Para cada <strong>etapa</strong> das suas pipelines, escolha a qual <strong>passo do funil</strong> ela corresponde (menu suspenso ao lado da etapa). Leads naquela etapa passam a contar naquele passo do funil. Ao terminar, clique em <strong>Salvar tudo</strong>.</p>
+        <ul>
+          <li>Etapas <strong>sem mapeamento</strong> são ignoradas no funil — mas continuam funcionando normalmente na pipeline.</li>
+          <li>O contador <em>“X/Y mapeadas”</em> mostra quantas etapas já têm passo definido.</li>
+          <li>Você também pode mapear uma etapa a um passo do funil direto no <strong>modo de edição da coluna</strong> no Kanban.</li>
+        </ul>
+        <div class="note"><span class="t">Funil × Kanban</span> As <strong>etapas do Kanban</strong> são o dia a dia visual do time; os <strong>passos do funil</strong> são a leitura analítica. O mapeamento conecta os dois — assim várias pipelines diferentes podem alimentar um mesmo funil comparável.</div>
+      </section>
+
+      <section id="metaads">
+        <h2>Meta Ads <span class="tag">Gestor+</span></h2>
+        <p>Conecta as campanhas do Meta (Facebook/Instagram Ads):</p>
+        <ul>
+          <li><strong>Credenciais</strong> da conta de anúncios por empresa.</li>
+          <li><strong>Tabela de campanhas</strong> com <strong>CPL</strong> (custo por lead) calculado.</li>
+          <li>Sincronização das campanhas via função de servidor.</li>
+        </ul>
+      </section>
+
+      <section id="whatsapp">
+        <h2>SDR WhatsApp</h2>
+        <p>Serviço de WhatsApp multi-sessão integrado ao CRM — gerencia várias linhas simultâneas, com conversas individuais em tempo real (tema escuro, três colunas: sessões / conversas / chat).</p>
+        <ul>
+          <li><strong>Multi-sessão e multi-empresa</strong> — cada usuário vê apenas os WhatsApps das empresas às quais pertence.</li>
+          <li><strong>Conexão por QR Code</strong> ou por <strong>código de pareamento</strong> (via utilitário local).</li>
+          <li><strong>Áudio (mensagem de voz)</strong>, envio/recebimento de mídia e diálogos de confirmação estilizados.</li>
+          <li>Mensagens recebidas podem virar <strong>leads automaticamente</strong> na pipeline vinculada.</li>
+        </ul>
+        <div class="note"><span class="t">Acesso</span> Abre pelo botão <strong>SDR WhatsApp</strong> na barra lateral. O serviço roda separado do CRM e mantém as sessões conectadas de forma persistente.</div>
+      </section>
+
+      <section id="usuarios">
+        <h2>Usuários <span class="tag">Gestor+</span></h2>
+        <p>Gestão da equipe da empresa:</p>
+        <ul>
+          <li><strong>Tabela de usuários</strong> — trocar papel, ativar/desativar acesso, remover.</li>
+          <li><strong>Convidar</strong> — gera link de cadastro com papel e empresa pré-definidos.</li>
+          <li><strong>Limites de hierarquia</strong> — o gestor só gerencia vendedores; admin gerencia todos da empresa.</li>
+        </ul>
+      </section>
+
+      <section id="config">
+        <h2>Configurações <span class="tag">Gestor+</span></h2>
+        <p>Ajustes da empresa ativa, incluindo:</p>
+        <ul>
+          <li><strong>Campos personalizados do lead</strong> — as “Perguntas do Formulário” exclusivas da empresa (ver abaixo).</li>
+          <li><strong>Identidade white-label</strong> — cores/tema por empresa.</li>
+          <li><strong>Canais e integrações</strong> disponíveis para a empresa.</li>
+        </ul>
+      </section>
+
+      <section id="plataforma">
+        <h2>Plataforma <span class="tag">Super Admin</span></h2>
+        <p>Painel exclusivo do super admin para administrar toda a operação: visão de todas as empresas, ativação de contas, estatísticas da plataforma, limites de empresas por usuário e concessão de papéis de super admin.</p>
+      </section>
+
+      <section id="webhook">
+        <h2>Webhook de formulários</h2>
+        <p>Formulários externos (landing pages, Typeform, ferramentas no-code) enviam leads direto para uma pipeline por uma requisição <code>HTTP POST</code>.</p>
+        <h3>Endpoint</h3>
+        <pre><code>POST https://&lt;seu-projeto&gt;.supabase.co/functions/v1/receive-lead
+Content-Type: application/json</code></pre>
+        <h3>Corpo (payload)</h3>
+        <pre><code>{
+  <span class="tok-key">"tenant_id"</span>:    <span class="tok-str">"&lt;id da empresa&gt;"</span>,
+  <span class="tok-key">"webhook_key"</span>:  <span class="tok-str">"&lt;chave secreta da empresa&gt;"</span>,
+  <span class="tok-key">"pipeline_id"</span>:  <span class="tok-str">"&lt;pipeline de destino&gt;"</span>,
+  <span class="tok-key">"name"</span>:         <span class="tok-str">"Nome do Lead"</span>,
+  <span class="tok-key">"phone"</span>:        <span class="tok-str">"5511999999999"</span>,
+  <span class="tok-key">"email"</span>:        <span class="tok-str">"lead@email.com"</span>,
+  <span class="tok-key">"source"</span>:       <span class="tok-str">"meta_ads"</span>,
+  <span class="tok-key">"custom_fields"</span>: {
+    <span class="tok-key">"maior_desafio"</span>: <span class="tok-str">"Gerar mais agendamentos"</span>
+  }
+}</code></pre>
+        <p>O <code>tenant_id</code> e o <code>webhook_key</code> ficam visíveis no modal <strong>Automações → Formulário externo</strong> de cada pipeline, junto de um exemplo de payload já preenchido com os campos da sua empresa.</p>
+        <div class="table-wrap">
+        <table>
+          <thead><tr><th>Campo</th><th>Obrigatório</th><th>Descrição</th></tr></thead>
+          <tbody>
+            <tr><td><code>tenant_id</code></td><td class="c yes">✓</td><td>Identificador da empresa de destino.</td></tr>
+            <tr><td><code>webhook_key</code></td><td class="c yes">✓</td><td>Chave secreta que autentica o envio.</td></tr>
+            <tr><td><code>name</code></td><td class="c yes">✓</td><td>Nome do lead.</td></tr>
+            <tr><td><code>pipeline_id</code></td><td class="c no">—</td><td>Pipeline onde o lead entra (na etapa de entrada configurada).</td></tr>
+            <tr><td><code>phone</code> / <code>email</code></td><td class="c no">—</td><td>Contato. Telefone é normalizado (só dígitos).</td></tr>
+            <tr><td><code>source</code></td><td class="c no">—</td><td><code>meta_ads</code>, <code>google</code>, <code>referral</code>, <code>other</code>…</td></tr>
+            <tr><td><code>custom_fields</code></td><td class="c no">—</td><td>Objeto com os <a href="#campos">campos personalizados</a> da empresa.</td></tr>
+          </tbody>
+        </table>
+        </div>
+        <h3>Proteções anti-spam</h3>
+        <ul>
+          <li><strong>Rate limit</strong>: até 8 envios/minuto por empresa+IP e 200/hora por empresa — excedeu, resposta <code>429</code>.</li>
+          <li><strong>Tamanho</strong>: corpo máx. ~50 KB; campos de texto e <code>custom_fields</code> com limites.</li>
+          <li><strong>Honeypot</strong> opcional: um campo oculto <code>_hp</code>; se vier preenchido (bot), a resposta finge sucesso e nada é gravado.</li>
+        </ul>
+        <div class="note warn"><span class="t">Guarde a webhook_key</span> Ela some no código do formulário público. Trate-a como senha — se vazar, regenere em Configurações. A proteção principal contra abuso é o rate limit + honeypot.</div>
+      </section>
+
+      <section id="campos">
+        <h2>Campos personalizados</h2>
+        <p>Cada empresa cria suas próprias perguntas de lead em <strong>Configurações → Campos personalizados do lead</strong>. Tipos suportados: texto, número, sim/não, opções e texto longo.</p>
+        <ul>
+          <li>Os campos são <strong>exclusivos de cada empresa</strong> — criar um campo numa empresa nunca afeta as outras.</li>
+          <li>Aparecem no formulário de lead do CRM e no painel do lead como <strong>“Perguntas do Formulário”</strong>.</li>
+          <li>Cada <strong>pipeline escolhe quais campos</strong> a sua automação/formulário externo preenche (no modal de Automações).</li>
+          <li>Ao enviar pelo <a href="#webhook">webhook</a>, mande os valores dentro de <code>custom_fields</code> usando o <em>identificador</em> de cada campo (ex.: <code>maior_desafio</code>).</li>
+        </ul>
+        <div class="note"><span class="t">Desativar sem perder dados</span> Um campo desativado some do formulário, mas os valores já preenchidos nos leads são preservados.</div>
+      </section>
+
+      <section id="seguranca">
+        <h2>Segurança &amp; privacidade</h2>
+        <ul>
+          <li><strong>Isolamento multi-empresa</strong> — toda tabela é protegida por Row Level Security (RLS): um usuário só acessa dados das empresas às quais pertence.</li>
+          <li><strong>Papéis no servidor</strong> — as permissões são validadas no banco, não só na tela.</li>
+          <li><strong>Endpoint público protegido</strong> — o webhook valida a chave secreta, aplica rate limit e sanitiza a entrada.</li>
+          <li><strong>Exclusão suave</strong> — deleções preservam histórico quando aplicável.</li>
+        </ul>
+        <div class="note"><span class="t">Dados pessoais (LGPD)</span> O CRM armazena dados de contato de leads (nome, telefone, e-mail). Recomenda-se manter Política de Privacidade e Termos de Uso publicados e um processo de exclusão a pedido do titular.</div>
+      </section>
+
+      <section id="tecnico">
+        <h2>Apêndice técnico</h2>
+        <h3>Arquitetura</h3>
+        <div class="table-wrap">
+        <table>
+          <thead><tr><th>Camada</th><th>Tecnologia</th></tr></thead>
+          <tbody>
+            <tr><td>Frontend</td><td>React + Vite + TypeScript, Tailwind, Zustand, React Query, React Router (HashRouter), Recharts, dnd-kit</td></tr>
+            <tr><td>Backend / dados</td><td>Supabase — PostgreSQL + RLS, Auth, Edge Functions (Deno)</td></tr>
+            <tr><td>SDR WhatsApp</td><td>Node.js + Baileys + SQLite, hospedado no Railway</td></tr>
+            <tr><td>Hospedagem web</td><td>Vercel (deploy automático a cada push na <code>main</code>)</td></tr>
+          </tbody>
+        </table>
+        </div>
+        <h3>Funções de servidor (Edge Functions)</h3>
+        <ul>
+          <li><code>receive-lead</code> — recebe leads de formulários externos (ver <a href="#webhook">Webhook</a>).</li>
+          <li><code>receive-whatsapp</code> — cria/atualiza leads a partir de mensagens recebidas.</li>
+        </ul>
+        <h3>Fluxos protegidos (SECURITY DEFINER)</h3>
+        <p>Cadastro, criação de empresa e aceite de convite passam por funções transacionais no banco (<code>register_new_tenant_with_admin</code>, <code>create_tenant_for_user</code>, <code>accept_invite</code>) — garantindo atomicidade e checagem de autorização.</p>
+        <h3>Deploy</h3>
+        <ul>
+          <li><strong>Web</strong>: <code>git push</code> na branch <code>main</code> → build e publicação automáticos na Vercel.</li>
+          <li><strong>Banco</strong>: migrations em <code>supabase/migrations/</code> aplicadas ao projeto Supabase.</li>
+          <li><strong>WhatsApp</strong>: deploy no Railway (repositório próprio do serviço).</li>
+        </ul>
+      </section>
+
+      <section id="faq">
+        <h2>FAQ &amp; suporte</h2>
+        <h3>Um lead entrou pelo formulário mas não apareceu na pipeline.</h3>
+        <p>Verifique se o <code>pipeline_id</code> foi enviado e se essa pipeline tem uma <strong>etapa de entrada</strong> configurada (Automações). Sem etapa de entrada, o lead é criado mas não recebe card.</p>
+        <h3>Os campos personalizados não estão sendo preenchidos.</h3>
+        <p>O formulário externo precisa enviar os valores dentro de <code>custom_fields</code>, usando os identificadores exatos dos campos. Copie o exemplo atualizado no modal de Automações da pipeline.</p>
+        <h3>O formulário começou a receber respostas falsas (spam).</h3>
+        <p>Adicione o campo honeypot oculto <code>_hp</code> ao formulário e, se necessário, regenere a <code>webhook_key</code> em Configurações. O rate limit já limita picos automaticamente.</p>
+        <h3>Não consigo criar uma nova empresa.</h3>
+        <p>Só Admin e Gestor criam empresas, e há um limite por conta. Se o botão “Criar nova empresa” não aparece, o limite foi atingido — um super admin pode ajustar o limite na Plataforma.</p>
+        <div class="foot">Green Hub CRM · Documentação · gerada como material de referência interno. Ajuste livremente conforme o produto evolui.</div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<script>
+  (function () {
+    // Theme toggle (respeita o tema do visualizador; alterna e persiste na sessão)
+    var root = document.documentElement;
+    var btn = document.getElementById('theme-btn');
+    var tx = document.getElementById('theme-tx');
+    function current() {
+      if (root.dataset.theme) return root.dataset.theme;
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    function apply(t) {
+      root.dataset.theme = t;
+      tx.textContent = t === 'dark' ? 'Claro' : 'Escuro';
+    }
+    apply(current());
+    btn.addEventListener('click', function () {
+      apply(current() === 'dark' ? 'light' : 'dark');
+    });
+
+    // Scrollspy — destaca a seção ativa na navegação
+    var links = Array.prototype.slice.call(document.querySelectorAll('.side nav a'));
+    var map = {};
+    links.forEach(function (a) {
+      var id = a.getAttribute('href').slice(1);
+      var el = document.getElementById(id);
+      if (el) map[id] = a;
+    });
+    var sections = Object.keys(map).map(function (id) { return document.getElementById(id); });
+    var obs = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) {
+          links.forEach(function (l) { l.classList.remove('active'); });
+          var a = map[e.target.id];
+          if (a) a.classList.add('active');
+        }
+      });
+    }, { rootMargin: '-40% 0px -55% 0px', threshold: 0 });
+    sections.forEach(function (s) { obs.observe(s); });
+
+    // Fecha o menu mobile ao clicar num link
+    var toggle = document.getElementById('nav-toggle');
+    links.forEach(function (a) {
+      a.addEventListener('click', function () { if (toggle) toggle.checked = false; });
+    });
+  })();
+</script>
+</body>
+</html>
