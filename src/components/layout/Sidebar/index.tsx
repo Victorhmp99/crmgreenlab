@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, Kanban, Zap, Target,
   UserCog, LogOut, ChevronLeft, ChevronRight,
   DollarSign, BarChart2, Megaphone, Settings, Globe,
-  Code2, ExternalLink, Sun, Moon, CheckSquare, MessageSquare, Radar, BookOpen,
+  Code2, ExternalLink, Sun, Moon, CheckSquare, MessageSquare, Radar, BookOpen, HelpCircle,
 } from 'lucide-react'
 import { useThemeStore } from '@/store/themeStore'
 import { cn } from '@/lib/utils'
@@ -161,6 +161,30 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
               </span>
             </div>
           )}
+
+          {/* Central de Ajuda — página interna com dúvidas comuns */}
+          <NavLink
+            to="/ajuda"
+            title={collapsed ? 'Central de Ajuda' : undefined}
+            className={({ isActive }) => cn(
+              'relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150 group mt-0.5',
+              collapsed && 'justify-center',
+              isActive ? 'text-black' : 'text-[#666666] hover:text-[#cccccc] hover:bg-[#141414]',
+            )}
+          >
+            {({ isActive }) => (
+              <>
+                {isActive && (
+                  <span className="absolute inset-0 rounded-lg" style={{
+                    background: 'var(--tenant-primary)',
+                    boxShadow: '0 0 12px var(--tenant-primary-glow)',
+                  }} />
+                )}
+                <HelpCircle size={17} className={cn('relative z-10 shrink-0', isActive ? 'text-black' : '')} />
+                {!collapsed && <span className="relative z-10 truncate">Central de Ajuda</span>}
+              </>
+            )}
+          </NavLink>
 
           {/* SDR WhatsApp — abre com todos os tenants do usuário */}
           <a

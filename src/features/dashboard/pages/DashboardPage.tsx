@@ -2,6 +2,7 @@ import { Users, TrendingUp, DollarSign, XCircle, MessageCircle, Calendar, Refres
 import { useDashboardMetrics } from '../hooks/useDashboardMetrics'
 import { useDashboardGoals } from '@/features/goals/hooks/useGoals'
 import { useAuth } from '@/hooks/useAuth'
+import { usePermissions } from '@/hooks/usePermissions'
 import { usePrivacyMode } from '@/hooks/usePrivacyMode'
 import { Spinner } from '@/components/ui/Spinner'
 import type { GoalWithProgress } from '@/services/goals'
@@ -102,6 +103,10 @@ export function DashboardPage() {
   const { data, isLoading, refetch, dataUpdatedAt } = useDashboardMetrics()
   const { data: dashGoals } = useDashboardGoals()
   const { hidden, toggle, mask, maskCurrency } = usePrivacyMode()
+  const { isManager, isSuperAdmin } = usePermissions()
+
+  // Vendedor não vê valores financeiros (receita, previsão, ticket médio) — só gestor/admin/super admin.
+  const canSeeFinancial = isManager || isSuperAdmin
 
   // Filtra metas ativas (período atual)
   const today      = new Date().toISOString().slice(0, 10)
@@ -214,43 +219,45 @@ export function DashboardPage() {
         </div>
       </div>
 
-      {/* ── Carteira (4 KPIs) ────────────────────────────────────────────── */}
-      <div>
-        <h3 className="text-xs font-semibold uppercase tracking-wider mb-2"
-          style={{ color: '#666' }}>
-          Carteira
-        </h3>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <KpiCard
-            label="Previsão (Pipeline)"
-            value={isLoading ? '—' : maskCurrency(formatCurrency(Number(data?.financial.forecast ?? 0)))}
-            sublabel={`${hidden ? '●' : (data?.financial.in_progress_count ?? 0)} oportunidades`}
-            icon={Briefcase}
-            color="#40a0ff"
-          />
-          <KpiCard
-            label="Receita"
-            value={isLoading ? '—' : maskCurrency(formatCurrency(Number(data?.financial.revenue ?? 0)))}
-            sublabel={`${hidden ? '●' : (data?.financial.won_count ?? 0)} fechamentos`}
-            icon={DollarSign}
-            color="#00e676"
-          />
-          <KpiCard
-            label="Perdidos"
-            value={isLoading ? '—' : mask(data?.financial.lost_count ?? 0)}
-            sublabel="leads perdidos"
-            icon={XCircle}
-            color="#ff4444"
-          />
-          <KpiCard
-            label="Ticket Médio"
-            value={isLoading ? '—' : maskCurrency(formatCurrency(Number(data?.financial.avg_ticket ?? 0)))}
-            sublabel="Por fechamento"
-            icon={MessageCircle}
-            color="#a78bfa"
-          />
+      {/* ── Carteira (financeiro) — só gestor/admin/super admin ──────────── */}
+      {canSeeFinancial && (
+        <div>
+          <h3 className="text-xs font-semibold uppercase tracking-wider mb-2"
+            style={{ color: '#666' }}>
+            Carteira
+          </h3>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <KpiCard
+              label="Previsão (Pipeline)"
+              value={isLoading ? '—' : maskCurrency(formatCurrency(Number(data?.financial.forecast ?? 0)))}
+              sublabel={`${hidden ? '●' : (data?.financial.in_progress_count ?? 0)} oportunidades`}
+              icon={Briefcase}
+              color="#40a0ff"
+            />
+            <KpiCard
+              label="Receita"
+              value={isLoading ? '—' : maskCurrency(formatCurrency(Number(data?.financial.revenue ?? 0)))}
+              sublabel={`${hidden ? '●' : (data?.financial.won_count ?? 0)} fechamentos`}
+              icon={DollarSign}
+              color="#00e676"
+            />
+            <KpiCard
+              label="Perdidos"
+              value={isLoading ? '—' : mask(data?.financial.lost_count ?? 0)}
+              sublabel="leads perdidos"
+              icon={XCircle}
+              color="#ff4444"
+            />
+            <KpiCard
+              label="Ticket Médio"
+              value={isLoading ? '—' : maskCurrency(formatCurrency(Number(data?.financial.avg_ticket ?? 0)))}
+              sublabel="Por fechamento"
+              icon={MessageCircle}
+              color="#a78bfa"
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ── Grid principal: Agenda + Tarefas + Conversão ──────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

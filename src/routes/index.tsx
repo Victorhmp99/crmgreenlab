@@ -28,6 +28,8 @@ import { MetaAdsPage }    from '@/features/integrations/pages/MetaAdsPage'
 import { UsersPage }      from '@/features/users/pages/UsersPage'
 import { SettingsPage }   from '@/features/settings/pages/SettingsPage'
 import { PlatformPage }   from '@/features/platform/pages/PlatformPage'
+import { HelpPage }        from '@/features/help/pages/HelpPage'
+import { HelpArticlePage } from '@/features/help/pages/HelpArticlePage'
 
 // Rota que só exige autenticação (sem checagem de status)
 // Usada para as páginas de pending/blocked
@@ -71,6 +73,8 @@ export function AppRouter() {
           <Route path="/activities" element={<AppLayout><ActivitiesPage /></AppLayout>} />
           <Route path="/tasks"      element={<AppLayout><TasksPage /></AppLayout>} />
           <Route path="/goals"      element={<AppLayout><GoalsPage /></AppLayout>} />
+          <Route path="/ajuda"          element={<AppLayout><HelpPage /></AppLayout>} />
+          <Route path="/ajuda/:slug"    element={<AppLayout><HelpArticlePage /></AppLayout>} />
 
           {/* Restritos a manager/admin */}
           <Route element={<RoleRoute required="manager" />}>
