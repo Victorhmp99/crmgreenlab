@@ -4,14 +4,15 @@ import type { PipelineStage } from '@/types'
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
 export interface Pipeline {
-  id:             string
-  tenant_id:      string
-  name:           string
-  description:    string | null
-  color:          string
-  position:       number
-  start_stage_id: string | null   // etapa de entrada para automações/webhooks
-  created_at:     string
+  id:                string
+  tenant_id:         string
+  name:              string
+  description:       string | null
+  color:             string
+  position:          number
+  start_stage_id:    string | null        // etapa de entrada para automações/webhooks
+  webhook_field_keys: string[] | null      // campos personalizados que esta automação preenche; null = todos os ativos
+  created_at:        string
 }
 
 // ── CRUD de Pipelines ─────────────────────────────────────────────────────────
@@ -98,7 +99,7 @@ export async function createPipelineEmpty(
 
 export async function updatePipeline(
   id:   string,
-  data: Partial<Pick<Pipeline, 'name' | 'color' | 'description' | 'start_stage_id'>>,
+  data: Partial<Pick<Pipeline, 'name' | 'color' | 'description' | 'start_stage_id' | 'webhook_field_keys'>>,
 ): Promise<void> {
   const { error } = await supabase.from('pipelines').update(data).eq('id', id)
   if (error) throw error

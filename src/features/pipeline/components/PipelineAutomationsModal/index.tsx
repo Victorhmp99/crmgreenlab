@@ -7,19 +7,32 @@ import {
   linkWhatsAppToPipeline,
   updatePipelineStartStage,
 } from '@/services/pipelineAutomations'
-import type { PipelineStage } from '@/types'
+import { updatePipeline } from '@/services/pipelineManagement'
+import { useActiveLeadFields } from '@/features/lead-fields/hooks/useLeadFieldDefinitions'
+import type { PipelineStage, LeadFieldType } from '@/types'
+
+function exampleValueForFieldType(type: LeadFieldType): unknown {
+  switch (type) {
+    case 'number':   return 123
+    case 'boolean':  return true
+    case 'select':   return 'opcao_1'
+    case 'textarea': return 'Texto livre...'
+    default:         return 'Texto'
+  }
+}
 
 interface Props {
-  open:         boolean
-  onClose:      () => void
-  pipelineId:   string
-  pipelineName: string
-  stages:       PipelineStage[]
-  startStageId: string | null
+  open:              boolean
+  onClose:           () => void
+  pipelineId:        string
+  pipelineName:      string
+  stages:            PipelineStage[]
+  startStageId:      string | null
+  webhookFieldKeys:  string[] | null
 }
 
 export function PipelineAutomationsModal({
-  open, onClose, pipelineId, pipelineName, stages, startStageId,
+  open, onClose, pipelineId, pipelineName, stages, startStageId, webhookFieldKeys,
 }: Props) {
   const tenantId    = useAuthStore((s) => s.tenant?.id)
   const queryClient = useQueryClient()
@@ -33,6 +46,8 @@ export function PipelineAutomationsModal({
     queryFn:  () => fetchPipelineAutomationConfig(tenantId!),
     enabled:  open && !!tenantId,
   })
+
+  const { data: activeFields } = useActiveLeadFields()
 
   // Mutation: atualiza start_stage
   const updateStartStage = useMutation({
@@ -54,12 +69,39 @@ export function PipelineAutomationsModal({
     onError: (e) => setWaError((e as Error).message),
   })
 
+  // Mutation: escolhe quais campos personalizados esta pipeline/automação preenche
+  const updateFieldKeys = useMutation({
+    mutationFn: (keys: string[]) => updatePipeline(pipelineId, { webhook_field_keys: keys }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pipelines', tenantId] })
+    },
+  })
+
   if (!open) return null
 
   // URL do webhook do formulário — inclui pipeline_id para o lead cair na etapa certa
   const webhookUrl = config?.supabaseUrl
     ? `${config.supabaseUrl}/functions/v1/receive-lead`
     : null
+
+  // Campos escolhidos para esta pipeline. Sem seleção salva ainda (null) = todos os ativos.
+  const activeFieldKeys   = (activeFields ?? []).map((f) => f.field_key)
+  const selectedFieldKeys = webhookFieldKeys ?? activeFieldKeys
+  const selectedSet       = new Set(selectedFieldKeys)
+
+  function toggleField(fieldKey: string) {
+    const next = selectedSet.has(fieldKey)
+      ? selectedFieldKeys.filter((k) => k !== fieldKey)
+      : [...selectedFieldKeys, fieldKey]
+    updateFieldKeys.mutate(next)
+  }
+
+  const customFieldsExample = (activeFields ?? [])
+    .filter((f) => selectedSet.has(f.field_key))
+    .reduce<Record<string, unknown>>((acc, f) => {
+      acc[f.field_key] = exampleValueForFieldType(f.field_type)
+      return acc
+    }, {})
 
   const webhookExample = webhookUrl && config?.webhookKey
     ? JSON.stringify({
@@ -68,6 +110,9 @@ export function PipelineAutomationsModal({
         pipeline_id: pipelineId,
         name: 'Nome do Lead',
         phone: '5511999999999',
+        ...(Object.keys(customFieldsExample).length > 0
+          ? { custom_fields: customFieldsExample }
+          : {}),
       }, null, 2)
     : null
 
@@ -260,7 +305,41 @@ export function PipelineAutomationsModal({
                 Envie leads de formulários externos para esta pipeline via HTTP POST.
                 Inclua <code className="px-1 rounded text-[11px]"
                   style={{ background: '#1a1a1a', color: '#e8e8e8' }}>pipeline_id</code> no body.
+                {Object.keys(customFieldsExample).length > 0 && (
+                  <>
+                    {' '}Para preencher os campos personalizados, envie-os dentro de{' '}
+                    <code className="px-1 rounded text-[11px]"
+                      style={{ background: '#1a1a1a', color: '#e8e8e8' }}>custom_fields</code>,
+                    usando os identificadores mostrados no exemplo abaixo.
+                  </>
+                )}
               </p>
+
+              {/* Seleção de campos personalizados */}
+              {activeFieldKeys.length > 0 && (
+                <div className="rounded-lg px-3 py-2.5 flex flex-col gap-1.5"
+                  style={{ background: '#161616', border: '1px solid #222' }}>
+                  <span className="text-[11px] font-medium" style={{ color: '#888' }}>
+                    Campos que esta automação preenche
+                  </span>
+                  {(activeFields ?? []).map((f) => (
+                    <label key={f.id}
+                      className="flex items-center gap-2 text-xs cursor-pointer"
+                      style={{ color: '#ccc' }}>
+                      <input
+                        type="checkbox"
+                        checked={selectedSet.has(f.field_key)}
+                        disabled={updateFieldKeys.isPending}
+                        onChange={() => toggleField(f.field_key)}
+                        className="h-3.5 w-3.5 rounded"
+                        style={{ accentColor: 'var(--tenant-primary)' }}
+                      />
+                      <span>{f.label}</span>
+                      <code className="text-[10px]" style={{ color: '#555' }}>{f.field_key}</code>
+                    </label>
+                  ))}
+                </div>
+              )}
 
               {/* Endpoint URL */}
               {webhookUrl ? (

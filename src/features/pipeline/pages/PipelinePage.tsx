@@ -360,6 +360,7 @@ export function PipelinePage() {
           pipelineName={selectedPipeline.name}
           stages={stages}
           startStageId={selectedPipeline.start_stage_id ?? null}
+          webhookFieldKeys={selectedPipeline.webhook_field_keys ?? null}
         />
       )}
 

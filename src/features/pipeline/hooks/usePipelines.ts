@@ -6,8 +6,8 @@ import type { PipelineStage } from '@/types'
 
 // Pipelines demo para VITE_DEMO_MODE
 export const DEMO_PIPELINES: Pipeline[] = [
-  { id: 'pipeline-1', tenant_id: 'demo-tenant-id', name: 'Inbound',  description: null, color: '#6366F1', position: 0, start_stage_id: 'stage-1', created_at: new Date().toISOString() },
-  { id: 'pipeline-2', tenant_id: 'demo-tenant-id', name: 'Outbound', description: null, color: '#10B981', position: 1, start_stage_id: 'stage-5', created_at: new Date().toISOString() },
+  { id: 'pipeline-1', tenant_id: 'demo-tenant-id', name: 'Inbound',  description: null, color: '#6366F1', position: 0, start_stage_id: 'stage-1', webhook_field_keys: null, created_at: new Date().toISOString() },
+  { id: 'pipeline-2', tenant_id: 'demo-tenant-id', name: 'Outbound', description: null, color: '#10B981', position: 1, start_stage_id: 'stage-5', webhook_field_keys: null, created_at: new Date().toISOString() },
 ]
 
 export function usePipelines() {
