@@ -49,7 +49,6 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const { user, tenant, signOut } = useAuth()
   const { isManager, role }       = usePermissions()
   const isSuperAdmin       = useAuthStore((s) => s.isSuperAdmin)
-  const availableTenants   = useAuthStore((s) => s.availableTenants)
 
   // Client Radar só para o criador do sistema (super admin master)
   const isClientRadarOwner = user?.email?.toLowerCase() === 'assessoriagreenlab@gmail.com'
@@ -59,15 +58,11 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
   const [showCreateModal, setShowCreateModal] = useState(false)
 
-  // Monta URL do CRC — usa Railway em produção, localhost em desenvolvimento
-  const crcBase = import.meta.env.VITE_CRC_URL || 'http://localhost:3001'
-  const crcUrl  = (() => {
-    const ids   = availableTenants.map(o => o.tenant.id)
-    const names = availableTenants.map(o => encodeURIComponent(o.tenant.name))
-    const uid   = user?.id ?? ''
-    if (!ids.length) return `${crcBase}?tenant_id=none&user_id=${uid}`
-    return `${crcBase}?tenant_id=${ids.join(',')}&tenant_names=${names.join(',')}&user_id=${uid}`
-  })()
+  // URL do CRC — usa Railway em produção, localhost em desenvolvimento.
+  // Sem parâmetros: o CRC faz login próprio (mesma conta do CRM) e descobre
+  // sozinho quais empresas o usuário pertence — nada de tenant_id/user_id
+  // trafegando na URL (ficava no histórico do navegador, logs de acesso etc.)
+  const crcUrl = import.meta.env.VITE_CRC_URL || 'http://localhost:3001'
 
   // Manager e Admin têm acesso a Usuários e Configurações (isManager === role >= manager)
   const items = [
