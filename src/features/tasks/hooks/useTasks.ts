@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '@/store/authStore'
 import {
-  fetchTasks, fetchLeadTasks, createTask, updateTask, deleteTask,
+  fetchTasks, fetchLeadTasks, createTask, updateTask, deleteTask, deleteTasks,
   type TaskFilters, type CreateTaskData, type UpdateTaskData,
 } from '@/services/leadTasks'
 
@@ -49,5 +49,10 @@ export function useTaskMutations(leadId?: string | null) {
     onSuccess: invalidate,
   })
 
-  return { create, update, remove }
+  const removeMany = useMutation({
+    mutationFn: (ids: string[]) => deleteTasks(ids),
+    onSuccess: invalidate,
+  })
+
+  return { create, update, remove, removeMany }
 }

@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import {
   Plus, Calendar as CalIcon, ChevronLeft, ChevronRight,
-  CalendarDays, CalendarRange, List, Check, Pencil, Trash2,
+  CalendarDays, CalendarRange, List, Check, Pencil, Trash2, Eraser,
   AlertTriangle, User, Clock, Phone, Mail, UserCircle, Building2,
 } from 'lucide-react'
 import { formatPhone } from '@/lib/utils'
@@ -24,7 +24,7 @@ export function TasksPage() {
   const [editing,     setEditing]     = useState<LeadTaskWithMeta | null>(null)
   const [viewing,     setViewing]     = useState<LeadTaskWithMeta | null>(null)
 
-  const { update: updateTaskM, remove: removeTaskM } = useTaskMutations()
+  const { update: updateTaskM, remove: removeTaskM, removeMany } = useTaskMutations()
 
   // Calcula intervalo de filtragem do servidor com base na view
   const range = useMemo(() => {
@@ -58,7 +58,13 @@ export function TasksPage() {
 
   function navigate(direction: -1 | 1) {
     const next = new Date(anchorDate)
-    if (viewMode === 'month')      next.setMonth(next.getMonth() + direction)
+    if (viewMode === 'month') {
+      // Fixa o dia em 1 ANTES de trocar o mês — sem isso, navegar a partir de um
+      // dia 29/30/31 pode cair num mês sem esse dia (ex: 31 de março - 1 mês),
+      // o JS "estoura" pra frente e a navegação parece travada ou pula errado.
+      next.setDate(1)
+      next.setMonth(next.getMonth() + direction)
+    }
     else if (viewMode === 'week')  next.setDate(next.getDate() + 7 * direction)
     else                            next.setDate(next.getDate() + direction)
     setAnchorDate(next)
@@ -66,6 +72,22 @@ export function TasksPage() {
 
   function goToday() {
     setAnchorDate(new Date())
+  }
+
+  // Limpa só as tarefas concluídas do período/filtro atual em tela
+  function handleClearCompleted() {
+    const ids = tasks.filter((t) => t.completed).map((t) => t.id)
+    if (ids.length === 0) return
+    if (!confirm(`Apagar ${ids.length} tarefa${ids.length !== 1 ? 's' : ''} concluída${ids.length !== 1 ? 's' : ''} de "${periodLabel}"? Essa ação não pode ser desfeita.`)) return
+    removeMany.mutate(ids)
+  }
+
+  // Limpa TODAS as tarefas do período/filtro atual (feitas ou não) — confirmação dupla
+  function handleClearAll() {
+    if (tasks.length === 0) return
+    if (!confirm(`Apagar TODAS as ${tasks.length} tarefas de "${periodLabel}" (concluídas ou não)? Essa ação não pode ser desfeita.`)) return
+    if (!confirm('Tem certeza mesmo? Isso vai apagar tarefas pendentes também, não só as concluídas.')) return
+    removeMany.mutate(tasks.map((t) => t.id))
   }
 
   const periodLabel = useMemo(() => {
@@ -131,6 +153,24 @@ export function TasksPage() {
             onMouseEnter={(e) => { e.currentTarget.style.background = '#1a1a1a'; e.currentTarget.style.color = '#aaa' }}
             onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#666' }}>
             <ChevronRight size={14} />
+          </button>
+
+          {/* Limpar */}
+          <button onClick={handleClearCompleted} title="Apagar tarefas concluídas deste período"
+            disabled={removeMany.isPending}
+            className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-40"
+            style={{ border: '1px solid #2a2a2a', color: '#888' }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = '#1a1a1a'; e.currentTarget.style.color = '#ccc' }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#888' }}>
+            <Eraser size={13} /> Limpar concluídas
+          </button>
+          <button onClick={handleClearAll} title="Apagar TODAS as tarefas deste período"
+            disabled={removeMany.isPending}
+            className="flex items-center justify-center h-8 w-8 rounded-lg transition-colors disabled:opacity-40"
+            style={{ border: '1px solid rgba(255,68,68,0.25)', color: '#ff5555' }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,68,68,0.08)')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
+            <Trash2 size={13} />
           </button>
 
           {/* Novo */}
