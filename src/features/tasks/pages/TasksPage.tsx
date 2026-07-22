@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Plus, Calendar as CalIcon, ChevronLeft, ChevronRight,
   CalendarDays, CalendarRange, List, Check, Pencil, Trash2, Eraser,
@@ -17,7 +18,11 @@ type ViewMode = 'month' | 'week' | 'list'
 type ScopeFilter = 'all' | 'me'
 
 export function TasksPage() {
-  const [viewMode,    setViewMode]    = useState<ViewMode>('month')
+  const [searchParams] = useSearchParams()
+  // Vindo do aviso "Tarefas atrasadas" (?atrasadas=1): abre focado nas atrasadas
+  const [overdueOnly, setOverdueOnly] = useState(searchParams.get('atrasadas') === '1')
+
+  const [viewMode,    setViewMode]    = useState<ViewMode>(overdueOnly ? 'list' : 'month')
   const [anchorDate,  setAnchorDate]  = useState<Date>(new Date())
   const [scope,       setScope]       = useState<ScopeFilter>('all')
   const [showForm,    setShowForm]    = useState(false)
@@ -49,14 +54,17 @@ export function TasksPage() {
     return { from: start.toISOString(), to: end.toISOString(), startDate: start, endDate: end }
   }, [anchorDate, viewMode])
 
-  const filters: TaskFilters = {
-    from: range.from,
-    to:   range.to,
-    assignedTo: scope === 'me' ? 'me' : 'all',
-  }
+  // No modo "atrasadas" busca TODAS as vencidas (sem limitar ao período/mês),
+  // pra a pessoa ver de fato as tarefas do aviso — inclusive de meses passados.
+  const filters: TaskFilters = overdueOnly
+    ? { status: 'overdue', assignedTo: scope === 'me' ? 'me' : 'all' }
+    : { from: range.from, to: range.to, assignedTo: scope === 'me' ? 'me' : 'all' }
   const { data: tasks = [], isLoading } = useTasks(filters)
 
+  const effectiveView: ViewMode = overdueOnly ? 'list' : viewMode
+
   function navigate(direction: -1 | 1) {
+    setOverdueOnly(false)   // navegar por período sai do modo "só atrasadas"
     const next = new Date(anchorDate)
     if (viewMode === 'month') {
       // Fixa o dia em 1 ANTES de trocar o mês — sem isso, navegar a partir de um
@@ -71,6 +79,7 @@ export function TasksPage() {
   }
 
   function goToday() {
+    setOverdueOnly(false)
     setAnchorDate(new Date())
   }
 
@@ -110,13 +119,16 @@ export function TasksPage() {
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex flex-col">
             <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: '#555' }}>Tarefas</span>
-            <h2 className="text-2xl font-bold leading-tight" style={{ color: 'var(--text)' }}>{periodLabelDisplay}</h2>
+            <h2 className="text-2xl font-bold leading-tight" style={{ color: overdueOnly ? '#ff5555' : 'var(--text)' }}>
+              {overdueOnly ? 'Atrasadas' : periodLabelDisplay}
+            </h2>
             <p className="text-xs mt-0.5" style={{ color: '#555' }}>
-              {tasks.length} tarefa{tasks.length !== 1 ? 's' : ''} neste período
+              {tasks.length} tarefa{tasks.length !== 1 ? 's' : ''}{overdueOnly ? ' atrasada' + (tasks.length !== 1 ? 's' : '') : ' neste período'}
             </p>
           </div>
 
-          {/* Navegação junto do período (padrão de calendário) */}
+          {/* Navegação junto do período (padrão de calendário) — oculta no modo atrasadas */}
+          {!overdueOnly && (
           <div className="flex items-center gap-1">
             <button onClick={() => navigate(-1)} title="Anterior"
               className="h-8 w-8 rounded-lg flex items-center justify-center transition-colors"
@@ -140,6 +152,7 @@ export function TasksPage() {
               <ChevronRight size={16} />
             </button>
           </div>
+          )}
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
@@ -158,9 +171,9 @@ export function TasksPage() {
 
           {/* View mode */}
           <div className="flex rounded-lg p-0.5" style={{ background: 'var(--bg-surface2)', border: '1px solid var(--border-dim)' }}>
-            <ViewBtn active={viewMode === 'month'} onClick={() => setViewMode('month')} icon={<CalendarDays size={13} />} label="Mês" />
-            <ViewBtn active={viewMode === 'week'}  onClick={() => setViewMode('week')}  icon={<CalendarRange size={13} />} label="Semana" />
-            <ViewBtn active={viewMode === 'list'}  onClick={() => setViewMode('list')}  icon={<List size={13} />}          label="Lista" />
+            <ViewBtn active={effectiveView === 'month'} onClick={() => { setOverdueOnly(false); setViewMode('month') }} icon={<CalendarDays size={13} />} label="Mês" />
+            <ViewBtn active={effectiveView === 'week'}  onClick={() => { setOverdueOnly(false); setViewMode('week') }}  icon={<CalendarRange size={13} />} label="Semana" />
+            <ViewBtn active={effectiveView === 'list'}  onClick={() => { setOverdueOnly(false); setViewMode('list') }}  icon={<List size={13} />}          label="Lista" />
           </div>
 
           {/* Limpar */}
@@ -190,12 +203,26 @@ export function TasksPage() {
         </div>
       </div>
 
+      {/* Aviso do modo "só atrasadas" (veio da notificação) */}
+      {overdueOnly && (
+        <div className="flex items-center justify-between gap-3 rounded-lg px-3 py-2"
+          style={{ background: 'rgba(255,68,68,0.08)', border: '1px solid rgba(255,68,68,0.25)' }}>
+          <span className="text-xs font-medium inline-flex items-center gap-1.5" style={{ color: '#ff6b6b' }}>
+            <AlertTriangle size={13} /> Mostrando só as tarefas atrasadas
+          </span>
+          <button onClick={() => setOverdueOnly(false)}
+            className="text-xs font-medium underline whitespace-nowrap" style={{ color: 'var(--tenant-primary)' }}>
+            Ver agenda completa
+          </button>
+        </div>
+      )}
+
       {/* Conteúdo */}
       {isLoading ? (
         <div className="flex justify-center py-16"><Spinner size="lg" /></div>
-      ) : viewMode === 'month' ? (
+      ) : effectiveView === 'month' ? (
         <MonthView tasks={tasks} anchorDate={anchorDate} onSelectTask={setViewing} />
-      ) : viewMode === 'week' ? (
+      ) : effectiveView === 'week' ? (
         <WeekView tasks={tasks} startDate={range.startDate} onSelectTask={setViewing} />
       ) : (
         <ListView tasks={tasks} onSelectTask={(t) => { setEditing(t); setShowForm(true) }} />

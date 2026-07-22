@@ -114,8 +114,23 @@ function BellDropdown({ anchorRect, notifications, onClose }: {
   onClose:       () => void
 }) {
   const { read, readAll, remove, clearAll } = useNotificationMutations()
+  const navigate = useNavigate()
   const top  = anchorRect.bottom + 6
   const left = Math.max(8, anchorRect.right - 360)
+
+  // "Abrir" da notificação: link interno (ex: /tasks) navega na mesma aba pelo
+  // roteador (o app usa HashRouter — um <a href="/tasks"> comum abriria a URL
+  // errada e cairia no dashboard). Link externo (http...) abre em nova aba.
+  function openNotificationLink(n: AppNotification) {
+    if (!n.link) return
+    if (!n.read_at) read.mutate(n.id)
+    onClose()
+    if (/^https?:\/\//i.test(n.link)) {
+      window.open(n.link, '_blank', 'noopener,noreferrer')
+    } else {
+      navigate(n.link)
+    }
+  }
 
   return createPortal(
     <>
@@ -195,7 +210,9 @@ function BellDropdown({ anchorRect, notifications, onClose }: {
                     {n.body}
                   </p>
                   {n.link && (
-                    <a href={n.link} target="_blank" rel="noopener noreferrer"
+                    <a
+                      href={/^https?:\/\//i.test(n.link) ? n.link : `#${n.link}`}
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); openNotificationLink(n) }}
                       className="text-xs mt-1 inline-block underline"
                       style={{ color: 'var(--tenant-primary)' }}>
                       Abrir →
