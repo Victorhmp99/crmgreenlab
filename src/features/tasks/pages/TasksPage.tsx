@@ -9,6 +9,7 @@ import { formatPhone } from '@/lib/utils'
 import { Spinner } from '@/components/ui/Spinner'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { useTasks, useTaskMutations } from '../hooks/useTasks'
 import { TaskForm } from '../components/TaskForm'
 import type { LeadTaskWithMeta } from '@/services/leadTasks'
@@ -30,6 +31,7 @@ export function TasksPage() {
   const [viewing,     setViewing]     = useState<LeadTaskWithMeta | null>(null)
 
   const { update: updateTaskM, remove: removeTaskM, removeMany } = useTaskMutations()
+  const { confirm, confirmElement } = useConfirm()
 
   // Calcula intervalo de filtragem do servidor com base na view
   const range = useMemo(() => {
@@ -84,19 +86,28 @@ export function TasksPage() {
   }
 
   // Limpa só as tarefas concluídas do período/filtro atual em tela
-  function handleClearCompleted() {
+  async function handleClearCompleted() {
     const ids = tasks.filter((t) => t.completed).map((t) => t.id)
     if (ids.length === 0) return
-    if (!confirm(`Apagar ${ids.length} tarefa${ids.length !== 1 ? 's' : ''} concluída${ids.length !== 1 ? 's' : ''} de "${periodLabel}"? Essa ação não pode ser desfeita.`)) return
-    removeMany.mutate(ids)
+    const ok = await confirm({
+      title: 'Limpar concluídas',
+      message: `Apagar ${ids.length} tarefa${ids.length !== 1 ? 's' : ''} concluída${ids.length !== 1 ? 's' : ''} de "${periodLabel}"? Essa ação não pode ser desfeita.`,
+      confirmLabel: 'Apagar concluídas',
+      danger: true,
+    })
+    if (ok) removeMany.mutate(ids)
   }
 
-  // Limpa TODAS as tarefas do período/filtro atual (feitas ou não) — confirmação dupla
-  function handleClearAll() {
+  // Limpa TODAS as tarefas do período/filtro atual (feitas ou não)
+  async function handleClearAll() {
     if (tasks.length === 0) return
-    if (!confirm(`Apagar TODAS as ${tasks.length} tarefas de "${periodLabel}" (concluídas ou não)? Essa ação não pode ser desfeita.`)) return
-    if (!confirm('Tem certeza mesmo? Isso vai apagar tarefas pendentes também, não só as concluídas.')) return
-    removeMany.mutate(tasks.map((t) => t.id))
+    const ok = await confirm({
+      title: 'Limpar tudo',
+      message: `Apagar TODAS as ${tasks.length} tarefas de "${periodLabel}", incluindo as pendentes? Essa ação não pode ser desfeita.`,
+      confirmLabel: 'Apagar tudo',
+      danger: true,
+    })
+    if (ok) removeMany.mutate(tasks.map((t) => t.id))
   }
 
   const periodLabel = useMemo(() => {
@@ -242,12 +253,19 @@ export function TasksPage() {
             { id: viewing.id, data: { completed: !viewing.completed } },
             { onSuccess: () => setViewing(null) },
           )}
-          onDelete={() => {
-            if (!confirm(`Excluir tarefa "${viewing.title}"?`)) return
-            removeTaskM.mutate(viewing.id, { onSuccess: () => setViewing(null) })
+          onDelete={async () => {
+            const ok = await confirm({
+              title: 'Excluir tarefa',
+              message: `Excluir a tarefa "${viewing.title}"?`,
+              confirmLabel: 'Excluir',
+              danger: true,
+            })
+            if (ok) removeTaskM.mutate(viewing.id, { onSuccess: () => setViewing(null) })
           }}
         />
       )}
+
+      {confirmElement}
     </div>
   )
 }
@@ -407,6 +425,7 @@ function ListView({ tasks, onSelectTask }: {
   tasks: LeadTaskWithMeta[]; onSelectTask: (t: LeadTaskWithMeta) => void
 }) {
   const { update, remove } = useTaskMutations()
+  const { confirm, confirmElement } = useConfirm()
 
   if (tasks.length === 0) {
     return (
@@ -427,13 +446,19 @@ function ListView({ tasks, onSelectTask }: {
     byDay.get(key)!.push(t)
   }
 
-  function handleDelete(t: LeadTaskWithMeta) {
-    if (!confirm(`Excluir tarefa "${t.title}"?`)) return
-    remove.mutate(t.id)
+  async function handleDelete(t: LeadTaskWithMeta) {
+    const ok = await confirm({
+      title: 'Excluir tarefa',
+      message: `Excluir a tarefa "${t.title}"?`,
+      confirmLabel: 'Excluir',
+      danger: true,
+    })
+    if (ok) remove.mutate(t.id)
   }
 
   return (
     <div className="flex flex-col gap-4">
+      {confirmElement}
       {Array.from(byDay.entries()).map(([day, items]) => {
         const date = new Date(day + 'T00:00:00')
         return (
