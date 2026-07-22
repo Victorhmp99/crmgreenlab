@@ -100,15 +100,46 @@ export function TasksPage() {
     return anchorDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
   }, [anchorDate, viewMode, range])
 
+  // Capitaliza só a 1ª letra ("julho de 2026" → "Julho de 2026")
+  const periodLabelDisplay = periodLabel.charAt(0).toUpperCase() + periodLabel.slice(1)
+
   return (
     <div className="flex flex-col gap-5">
       {/* Cabeçalho */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h2 className="text-xl font-semibold capitalize" style={{ color: '#e8e8e8' }}>Tarefas</h2>
-          <p className="text-sm mt-0.5" style={{ color: '#555' }}>
-            {tasks.length} tarefa{tasks.length !== 1 ? 's' : ''} · {periodLabel}
-          </p>
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex flex-col">
+            <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: '#555' }}>Tarefas</span>
+            <h2 className="text-2xl font-bold leading-tight" style={{ color: 'var(--text)' }}>{periodLabelDisplay}</h2>
+            <p className="text-xs mt-0.5" style={{ color: '#555' }}>
+              {tasks.length} tarefa{tasks.length !== 1 ? 's' : ''} neste período
+            </p>
+          </div>
+
+          {/* Navegação junto do período (padrão de calendário) */}
+          <div className="flex items-center gap-1">
+            <button onClick={() => navigate(-1)} title="Anterior"
+              className="h-8 w-8 rounded-lg flex items-center justify-center transition-colors"
+              style={{ border: '1px solid #2a2a2a', color: '#888' }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = '#1a1a1a'; e.currentTarget.style.color = '#ccc' }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#888' }}>
+              <ChevronLeft size={16} />
+            </button>
+            <button onClick={goToday} title="Hoje"
+              className="text-xs rounded-lg px-2.5 py-1.5 font-medium transition-colors"
+              style={{ border: '1px solid #2a2a2a', color: '#aaa' }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = '#1a1a1a')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
+              Hoje
+            </button>
+            <button onClick={() => navigate(1)} title="Próximo"
+              className="h-8 w-8 rounded-lg flex items-center justify-center transition-colors"
+              style={{ border: '1px solid #2a2a2a', color: '#888' }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = '#1a1a1a'; e.currentTarget.style.color = '#ccc' }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#888' }}>
+              <ChevronRight size={16} />
+            </button>
+          </div>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
@@ -131,29 +162,6 @@ export function TasksPage() {
             <ViewBtn active={viewMode === 'week'}  onClick={() => setViewMode('week')}  icon={<CalendarRange size={13} />} label="Semana" />
             <ViewBtn active={viewMode === 'list'}  onClick={() => setViewMode('list')}  icon={<List size={13} />}          label="Lista" />
           </div>
-
-          {/* Nav */}
-          <button onClick={() => navigate(-1)} title="Anterior"
-            className="h-8 w-8 rounded-lg flex items-center justify-center transition-colors"
-            style={{ border: '1px solid #2a2a2a', color: '#666' }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = '#1a1a1a'; e.currentTarget.style.color = '#aaa' }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#666' }}>
-            <ChevronLeft size={14} />
-          </button>
-          <button onClick={goToday} title="Hoje"
-            className="text-xs rounded-lg px-2.5 py-1.5 transition-colors"
-            style={{ border: '1px solid #2a2a2a', color: '#aaa' }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = '#1a1a1a')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
-            Hoje
-          </button>
-          <button onClick={() => navigate(1)} title="Próximo"
-            className="h-8 w-8 rounded-lg flex items-center justify-center transition-colors"
-            style={{ border: '1px solid #2a2a2a', color: '#666' }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = '#1a1a1a'; e.currentTarget.style.color = '#aaa' }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#666' }}>
-            <ChevronRight size={14} />
-          </button>
 
           {/* Limpar */}
           <button onClick={handleClearCompleted} title="Apagar tarefas concluídas deste período"
