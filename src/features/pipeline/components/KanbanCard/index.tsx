@@ -59,20 +59,22 @@ export function KanbanCard({ data, onRemove, onSelect, isDraggingOverlay = false
       }}
       onClick={() => !isDragging && onSelect(lead)}
     >
-      {/* Drag handle */}
+      {/* Drag handle — faixa de altura total à esquerda.
+          No celular fica sempre visível (não há hover) e com touch-action:none
+          pra o toque virar arraste (long-press) em vez de rolar a tela. */}
       <div
         {...attributes}
         {...listeners}
         onClick={(e) => e.stopPropagation()}
-        className="absolute left-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing z-10"
-        style={{ color: '#444' }}
-        title="Arrastar"
+        className="absolute left-0 top-0 bottom-0 w-7 flex items-center justify-center rounded-l-xl opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing z-10"
+        style={{ color: '#555', touchAction: 'none', background: 'rgba(255,255,255,0.02)' }}
+        title="Arraste para mover"
       >
-        <GripVertical size={14} />
+        <GripVertical size={16} />
       </div>
 
       {/* Conteúdo */}
-      <div className="p-3.5 pl-6">
+      <div className="p-3.5 pl-8">
         <p className="font-semibold text-sm leading-tight truncate pr-4" style={{ color: '#e8e8e8' }}>
           {lead.name}
         </p>
@@ -112,9 +114,9 @@ export function KanbanCard({ data, onRemove, onSelect, isDraggingOverlay = false
           </span>
         </div>
 
-        {lead.tags.length > 0 && (
+        {(lead.tags ?? []).length > 0 && (
           <div className="flex flex-wrap gap-1 mt-2">
-            {lead.tags.slice(0, 3).map((tag) => {
+            {(lead.tags ?? []).slice(0, 3).map((tag) => {
               const color = colorByName.get(tag) ?? '#666'
               return (
                 <span key={tag} className="text-[10px] rounded-full px-2 py-0.5"
@@ -127,8 +129,8 @@ export function KanbanCard({ data, onRemove, onSelect, isDraggingOverlay = false
                 </span>
               )
             })}
-            {lead.tags.length > 3 && (
-              <span className="text-[10px]" style={{ color: '#444' }}>+{lead.tags.length - 3}</span>
+            {(lead.tags ?? []).length > 3 && (
+              <span className="text-[10px]" style={{ color: '#444' }}>+{(lead.tags ?? []).length - 3}</span>
             )}
           </div>
         )}

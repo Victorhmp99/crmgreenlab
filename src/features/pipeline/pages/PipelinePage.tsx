@@ -309,7 +309,10 @@ export function PipelinePage() {
         <p className="text-xs -mt-1 shrink-0" style={{ color: '#444' }}>
           {cards.length} lead{cards.length !== 1 ? 's' : ''} ·{' '}
           {stages.length} etapa{stages.length !== 1 ? 's' : ''} ·{' '}
-          <span style={{ color: '#555' }}>arraste para reorganizar · clique para editar</span>
+          <span style={{ color: '#555' }}>
+            <span className="hidden md:inline">arraste pela alça para mover · clique para abrir</span>
+            <span className="md:hidden">segure a alça ⋮ e arraste para mover · toque para abrir</span>
+          </span>
         </p>
       )}
 
@@ -319,7 +322,7 @@ export function PipelinePage() {
           <Spinner size="lg" />
         </div>
       ) : (
-        <div className="flex-1 min-h-0 overflow-x-auto">
+        <div className="flex-1 min-h-0 overflow-x-auto overscroll-x-contain" style={{ scrollbarWidth: 'thin' }}>
           <div className="h-full min-h-[500px]">
             {selectedPipelineId && (
               <KanbanBoard

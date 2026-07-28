@@ -104,9 +104,9 @@ export function KanbanColumn({
         <div
           {...attributes}
           {...listeners}
-          className="opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing"
-          style={{ color: '#444' }}
-          title="Arrastar coluna"
+          className="opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing shrink-0 flex items-center justify-center h-7 w-6"
+          style={{ color: '#555', touchAction: 'none' }}
+          title="Arraste para reordenar a etapa"
         >
           <GripVertical size={14} />
         </div>

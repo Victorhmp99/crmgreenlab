@@ -3,7 +3,7 @@ import {
   DndContext,
   DragOverlay,
   closestCorners,
-  PointerSensor,
+  MouseSensor,
   TouchSensor,
   useSensor,
   useSensors,
@@ -77,9 +77,13 @@ export function KanbanBoard({ stages, cards, pipelineId, onAddLead, onRemoveCard
   // IDs das colunas para o SortableContext horizontal
   const columnSortIds = displayStages.map((s) => `col-${s.id}`)
 
+  // Mouse e Touch separados: no desktop arrasta ao mover 8px; no celular,
+  // segura ~220ms (long-press) e arrasta — assim o toque curto ainda rola a
+  // lista e abre o card, e o long-press move. (PointerSensor sozinho brigava
+  // com o scroll no mobile.)
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(TouchSensor,   { activationConstraint: { delay: 200, tolerance: 8 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 220, tolerance: 8 } }),
   )
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
