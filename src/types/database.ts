@@ -17,6 +17,7 @@ export interface Tenant {
   plan: string
   active: boolean
   created_at: string
+  features?: string[]   // funções liberadas por empresa (feature flags controladas pelo super admin)
 }
 
 export interface TenantSettings {

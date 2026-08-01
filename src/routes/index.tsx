@@ -1,6 +1,7 @@
 import { HashRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import { PrivateRoute }    from './PrivateRoute'
 import { RoleRoute }       from './RoleRoute'
+import { FeatureRoute }    from './FeatureRoute'
 import { SuperAdminRoute } from './SuperAdminRoute'
 import { AppLayout }       from '@/components/layout/AppLayout'
 import { useAuth }         from '@/hooks/useAuth'
@@ -78,9 +79,15 @@ export function AppRouter() {
 
           {/* Restritos a manager/admin */}
           <Route element={<RoleRoute required="manager" />}>
-            <Route path="/revenue"  element={<AppLayout><RevenuePage /></AppLayout>} />
-            <Route path="/reports"  element={<AppLayout><ReportsPage /></AppLayout>} />
-            <Route path="/meta-ads" element={<AppLayout><MetaAdsPage /></AppLayout>} />
+            <Route element={<FeatureRoute feature="financeiro" />}>
+              <Route path="/revenue"  element={<AppLayout><RevenuePage /></AppLayout>} />
+            </Route>
+            <Route element={<FeatureRoute feature="relatorios" />}>
+              <Route path="/reports"  element={<AppLayout><ReportsPage /></AppLayout>} />
+            </Route>
+            <Route element={<FeatureRoute feature="meta_ads" />}>
+              <Route path="/meta-ads" element={<AppLayout><MetaAdsPage /></AppLayout>} />
+            </Route>
           </Route>
 
           {/* Gestão de usuários + configurações — Manager e Admin têm acesso.

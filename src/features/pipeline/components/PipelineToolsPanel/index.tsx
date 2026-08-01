@@ -7,6 +7,7 @@ import {
   GitBranch, ListChecks,
 } from 'lucide-react'
 import type { Pipeline } from '@/services/pipelineManagement'
+import { useFeatures, type FeatureKey } from '@/hooks/useFeatures'
 
 // ── Item de ferramenta ────────────────────────────────────────────────────────
 interface ToolItem {
@@ -17,6 +18,7 @@ interface ToolItem {
   comingSoon?: boolean
   danger?:     boolean
   onClick?:    () => void
+  feature?:    FeatureKey   // se definido, só aparece quando a empresa tem a função
 }
 
 function ToolRow({ item }: { item: ToolItem }) {
@@ -66,6 +68,7 @@ function ToolRow({ item }: { item: ToolItem }) {
 
 // ── Seção ────────────────────────────────────────────────────────────────────
 function Section({ title, items }: { title: string; items: ToolItem[] }) {
+  if (items.length === 0) return null   // some inteira se nada sobrou após o gate
   return (
     <div>
       <p className="px-4 py-2 text-[10px] font-bold uppercase tracking-widest"
@@ -98,8 +101,12 @@ export function PipelineToolsPanel({
   onOpenAutomations, onEdit, onImport, onExport, onDelete,
 }: PipelineToolsPanelProps) {
   const navigate = useNavigate()
+  const { hasFeature } = useFeatures()
 
   if (!open || !pipeline) return null
+
+  // Esconde as ferramentas cuja função a empresa não tem liberada
+  const gate = (items: ToolItem[]) => items.filter((i) => !i.feature || hasFeature(i.feature))
 
   function goTo(path: string) {
     onClose()
@@ -113,6 +120,7 @@ export function PipelineToolsPanel({
       label:       'Automações e Gatilhos',
       description: 'WhatsApp, webhook e ações automáticas',
       onClick:     () => { onClose(); onOpenAutomations() },
+      feature:     'automations',
     },
     {
       icon:        <Pencil size={16} style={{ color: '#e8e8e8' }} />,
@@ -144,6 +152,7 @@ export function PipelineToolsPanel({
       label:       'Relatórios',
       description: 'Funil de conversão e análises',
       onClick:     () => goTo('/reports'),
+      feature:     'relatorios',
     },
     {
       icon:        <Target size={16} style={{ color: '#00e676' }} />,
@@ -175,6 +184,7 @@ export function PipelineToolsPanel({
       label:       'WhatsApp (Evolution)',
       description: 'Conecte e configure o canal',
       onClick:     () => { onClose(); onOpenAutomations() },
+      feature:     'automations',
     },
     {
       icon:        <Globe size={16} style={{ color: '#40a0ff' }} />,
@@ -182,6 +192,7 @@ export function PipelineToolsPanel({
       label:       'Webhook / Formulário',
       description: 'Receba leads de outros sistemas',
       onClick:     () => { onClose(); onOpenAutomations() },
+      feature:     'automations',
     },
     {
       icon:        <Code2 size={16} style={{ color: '#a78bfa' }} />,
@@ -273,11 +284,11 @@ export function PipelineToolsPanel({
 
         {/* Lista de ferramentas */}
         <div className="flex-1 overflow-y-auto">
-          <Section title="Configuração & Automação" items={configItems} />
+          <Section title="Configuração & Automação" items={gate(configItems)} />
           <div style={{ height: 1, background: '#1a1a1a', margin: '4px 0' }} />
-          <Section title="Analytics & Metas" items={analyticsItems} />
+          <Section title="Analytics & Metas" items={gate(analyticsItems)} />
           <div style={{ height: 1, background: '#1a1a1a', margin: '4px 0' }} />
-          <Section title="Integrações Externas" items={integrationItems} />
+          <Section title="Integrações Externas" items={gate(integrationItems)} />
           <div style={{ height: 1, background: '#1a1a1a', margin: '4px 0' }} />
           <Section title="Leads" items={leadsItems} />
           <div style={{ height: 1, background: '#1a1a1a', margin: '4px 0' }} />

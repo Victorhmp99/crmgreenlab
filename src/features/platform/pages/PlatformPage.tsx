@@ -19,6 +19,7 @@ import { createInvite } from '@/services/users'
 import { SignupLinkModal } from '@/features/users/components/SignupLinkModal'
 import { SendNotificationModal } from '@/features/notifications/components/SendNotificationModal'
 import { Send } from 'lucide-react'
+import { FEATURE_CATALOG } from '@/hooks/useFeatures'
 import type { UserRole } from '@/types'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
@@ -49,6 +50,7 @@ interface TenantStat {
   tenant_created_at: string
   user_count:        number
   lead_count:        number
+  tenant_features:   string[]
 }
 
 // ── Serviços ──────────────────────────────────────────────────────────────────
@@ -774,34 +776,52 @@ function ActionBtn({ title, color, hoverBg, icon, onClick, disabled }: {
 
 // ── Modal de edição de tenant ─────────────────────────────────────────────────
 
-const PLAN_OPTIONS = [
-  { value: 'trial',    label: 'Trial'    },
-  { value: 'pro',      label: 'Pro'      },
-  { value: 'business', label: 'Business' },
-]
-
 function EditTenantModal({ tenant, onClose }: { tenant: TenantStat | null; onClose: () => void }) {
   const queryClient = useQueryClient()
-  const [name, setName] = useState(tenant?.tenant_name ?? '')
-  const [plan, setPlan] = useState(tenant?.tenant_plan ?? 'trial')
-  const [err,  setErr]  = useState<string | null>(null)
+  const [name, setName]         = useState(tenant?.tenant_name ?? '')
+  const [features, setFeatures] = useState<string[]>(tenant?.tenant_features ?? [])
+  const [err,  setErr]          = useState<string | null>(null)
 
-  // Sincroniza quando o tenant muda
-  useState(() => { setName(tenant?.tenant_name ?? ''); setPlan(tenant?.tenant_plan ?? 'trial') })
+  // Sincroniza os campos quando abre/troca de empresa
+  useEffect(() => {
+    setName(tenant?.tenant_name ?? '')
+    setFeatures(tenant?.tenant_features ?? [])
+    setErr(null)
+  }, [tenant?.tenant_id, tenant?.tenant_name])
 
-  const updateMutation = useMutation({
+  // Salva as funções liberadas via RPC (SECURITY DEFINER, só super admin).
+  // Auto-save no clique de cada função — feedback imediato.
+  const featuresMutation = useMutation({
+    mutationFn: async (next: string[]) => {
+      const { error } = await supabase.rpc('set_tenant_features', {
+        p_tenant_id: tenant!.tenant_id, p_features: next,
+      })
+      if (error) throw error
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['platform-stats'] }),
+    onError: (e) => setErr(e instanceof Error ? e.message : 'Erro ao salvar funções.'),
+  })
+
+  function toggleFeature(key: string) {
+    const next = features.includes(key)
+      ? features.filter((f) => f !== key)
+      : [...features, key]
+    setFeatures(next)          // otimista
+    setErr(null)
+    featuresMutation.mutate(next)
+  }
+
+  // Nome — via update direto (comportamento existente)
+  const nameMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase
-        .from('tenants')
-        .update({ name: name.trim(), plan })
-        .eq('id', tenant!.tenant_id)
+      const { error } = await supabase.from('tenants').update({ name: name.trim() }).eq('id', tenant!.tenant_id)
       if (error) throw error
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['platform-stats'] })
       onClose()
     },
-    onError: (e) => setErr(e instanceof Error ? e.message : 'Erro ao salvar.'),
+    onError: (e) => setErr(e instanceof Error ? e.message : 'Erro ao salvar o nome.'),
   })
 
   if (!tenant) return null
@@ -810,9 +830,9 @@ function EditTenantModal({ tenant, onClose }: { tenant: TenantStat | null; onClo
     <Modal open={!!tenant} onClose={onClose} title="Editar empresa" size="sm"
       footer={
         <>
-          <Button variant="ghost" onClick={onClose} disabled={updateMutation.isPending}>Cancelar</Button>
-          <Button loading={updateMutation.isPending} onClick={() => updateMutation.mutate()}>
-            Salvar
+          <Button variant="ghost" onClick={onClose} disabled={nameMutation.isPending}>Fechar</Button>
+          <Button loading={nameMutation.isPending} onClick={() => nameMutation.mutate()}>
+            Salvar nome
           </Button>
         </>
       }
@@ -823,12 +843,45 @@ function EditTenantModal({ tenant, onClose }: { tenant: TenantStat | null; onClo
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
-        <Select
-          label="Plano"
-          value={plan}
-          onChange={(e) => setPlan(e.target.value)}
-          options={PLAN_OPTIONS}
-        />
+
+        {/* Funções liberadas — liga/desliga por empresa (salva na hora) */}
+        <div className="flex flex-col gap-2">
+          <label className="text-xs font-medium uppercase tracking-wide" style={{ color: '#888' }}>
+            Funções liberadas
+          </label>
+          <p className="text-[11px] -mt-1" style={{ color: '#555' }}>
+            Vale para todos os usuários desta empresa — mesmo admin não vê a função se estiver desligada.
+          </p>
+          <div className="flex flex-col gap-1.5 mt-1">
+            {FEATURE_CATALOG.map((f) => {
+              const on = features.includes(f.key)
+              return (
+                <button
+                  key={f.key}
+                  onClick={() => toggleFeature(f.key)}
+                  disabled={featuresMutation.isPending}
+                  className="flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-left transition-colors disabled:opacity-60"
+                  style={{
+                    background: on ? 'rgba(0,230,118,0.06)' : '#141414',
+                    border: `1px solid ${on ? 'rgba(0,230,118,0.3)' : '#1e1e1e'}`,
+                  }}
+                >
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium" style={{ color: on ? '#e8e8e8' : '#999' }}>{f.label}</p>
+                    <p className="text-[10px] truncate" style={{ color: '#555' }}>{f.description}</p>
+                  </div>
+                  {/* Switch */}
+                  <span className="relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors"
+                    style={{ background: on ? '#00e676' : '#2a2a2a' }}>
+                    <span className="absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all"
+                      style={{ left: on ? 18 : 2 }} />
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
         <div className="rounded-lg px-3 py-2 text-xs"
           style={{ background: '#111', border: '1px solid #1a1a1a', color: '#555' }}>
           <span style={{ color: '#444' }}>Slug:</span>{' '}

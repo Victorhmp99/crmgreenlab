@@ -10,6 +10,7 @@ import { useThemeStore } from '@/store/themeStore'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
 import { usePermissions } from '@/hooks/usePermissions'
+import { useFeatures } from '@/hooks/useFeatures'
 import { useAuthStore } from '@/store/authStore'
 import { useTenantStore } from '@/store/tenantStore'
 import { getInitials } from '@/lib/utils'
@@ -48,6 +49,7 @@ const PLATFORM_ITEMS = [
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const { user, tenant, signOut } = useAuth()
   const { isManager, role }       = usePermissions()
+  const { hasFeature }            = useFeatures()
   const isSuperAdmin       = useAuthStore((s) => s.isSuperAdmin)
 
   // Client Radar só para o criador do sistema (super admin master)
@@ -64,10 +66,23 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   // trafegando na URL (ficava no histórico do navegador, logs de acesso etc.)
   const crcUrl = import.meta.env.VITE_CRC_URL || 'http://localhost:3001'
 
+  // Cada item "Pro" só aparece se a EMPRESA tem a função liberada (super admin
+  // controla) — além de exigir cargo de gestor+. Assim, mesmo um admin não vê
+  // a função se a empresa não tiver direito a ela.
+  const FEATURE_BY_ROUTE: Record<string, 'financeiro' | 'relatorios' | 'meta_ads'> = {
+    '/revenue':  'financeiro',
+    '/reports':  'relatorios',
+    '/meta-ads': 'meta_ads',
+  }
+  const managerItems = MANAGER_ITEMS.filter((item) => {
+    const feat = FEATURE_BY_ROUTE[item.to]
+    return !feat || hasFeature(feat)
+  })
+
   // Manager e Admin têm acesso a Usuários e Configurações (isManager === role >= manager)
   const items = [
     ...NAV_ITEMS,
-    ...(isManager    ? MANAGER_ITEMS  : []),
+    ...(isManager    ? managerItems   : []),
     ...(isManager    ? ADMIN_ITEMS    : []),
     ...(isSuperAdmin ? PLATFORM_ITEMS : []),
   ]
