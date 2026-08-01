@@ -2,13 +2,14 @@ import { useAuth } from './useAuth'
 
 // Funções que o super admin pode ligar/desligar por empresa. Para lançar uma
 // função nova cobrável no futuro: adicione a chave aqui e gate onde ela aparece.
-export type FeatureKey = 'automations' | 'financeiro' | 'relatorios' | 'meta_ads'
+export type FeatureKey = 'automations' | 'financeiro' | 'relatorios' | 'meta_ads' | 'sdr_whatsapp'
 
 export const FEATURE_CATALOG: { key: FeatureKey; label: string; description: string }[] = [
-  { key: 'automations', label: 'Automações da pipeline', description: 'Webhook, WhatsApp e etapa de entrada dentro do Pipeline.' },
-  { key: 'financeiro',  label: 'Financeiro',             description: 'Menu Financeiro (receita e lançamentos).' },
-  { key: 'relatorios',  label: 'Relatórios',             description: 'Menu Relatórios.' },
-  { key: 'meta_ads',    label: 'Meta Ads',               description: 'Menu Meta Ads.' },
+  { key: 'automations',  label: 'Automações da pipeline', description: 'Webhook, WhatsApp e etapa de entrada dentro do Pipeline.' },
+  { key: 'financeiro',   label: 'Financeiro',             description: 'Menu Financeiro (receita e lançamentos).' },
+  { key: 'relatorios',   label: 'Relatórios',             description: 'Menu Relatórios.' },
+  { key: 'meta_ads',     label: 'Meta Ads',               description: 'Menu Meta Ads.' },
+  { key: 'sdr_whatsapp', label: 'SDR WhatsApp',           description: 'Atalho para o atendimento via WhatsApp (CRC).' },
 ]
 
 /* Lê as funções liberadas da empresa ativa. Fail-open: se a lista ainda não

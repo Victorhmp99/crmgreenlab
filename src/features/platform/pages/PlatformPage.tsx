@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Building2, Users, RefreshCw, ShieldCheck, ShieldOff,
   TrendingUp, Clock, UserX, UserCheck, Star, StarOff,
-  UserPlus, ChevronDown, Trash2, Link2, Copy, CheckCircle, Save,
+  UserPlus, ChevronDown, Trash2, Link2, Copy, CheckCircle, Save, Pencil,
 } from 'lucide-react'
 import { setUserCompanyLimit } from '@/services/users'
 import { Button }  from '@/components/ui/Button'
@@ -1022,7 +1022,7 @@ function TenantsTab() {
                       title="Editar empresa"
                       color="#40a0ff"
                       hoverBg="rgba(64,160,255,0.08)"
-                      icon={<RefreshCw size={13} />}
+                      icon={<Pencil size={13} />}
                       disabled={false}
                       onClick={() => setEditing(t)}
                     />

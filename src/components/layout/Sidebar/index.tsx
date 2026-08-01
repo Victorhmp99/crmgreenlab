@@ -196,7 +196,8 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             )}
           </NavLink>
 
-          {/* SDR WhatsApp — abre com todos os tenants do usuário */}
+          {/* SDR WhatsApp — só se a empresa tem a função liberada (super admin controla) */}
+          {hasFeature('sdr_whatsapp') && (
           <a
             href={crcUrl}
             target="_blank"
@@ -216,6 +217,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
               </>
             )}
           </a>
+          )}
 
           {/* Scripts — link externo, visível para TODOS os usuários */}
           <a
