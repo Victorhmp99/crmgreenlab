@@ -121,9 +121,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       const tenantMap = new Map<string, Tenant>((tenants ?? []).map((t) => [t.id, t]))
 
-      // Monta lista de opções disponíveis
+      // Monta lista de opções disponíveis. Empresa DESATIVADA (active=false)
+      // pelo super admin some para os usuários dela — é isso que faz o botão
+      // "Desativar empresa" ter efeito de verdade. O Master nunca é filtrado,
+      // pra nunca ficar sem acesso e conseguir reativar.
       const options: TenantOption[] = (memberships as UserMembership[])
-        .filter((m) => tenantMap.has(m.tenant_id))
+        .filter((m) => {
+          const t = tenantMap.get(m.tenant_id)
+          if (!t) return false
+          return isMasterByEmail || t.active !== false
+        })
         .map((m) => ({ tenant: tenantMap.get(m.tenant_id)!, membership: m }))
 
       setAvailableTenants(options)
