@@ -46,14 +46,15 @@ export function TenantSwitcher({ collapsed, onCreateTenant }: TenantSwitcherProp
 
   function handleSwitch(option: TenantOption) {
     if (option.tenant.id === tenant?.id) { setOpen(false); return }
-
-    // Muda empresa no store
-    switchTenant(option)
-
-    // Invalida TODO o cache React Query — dados da nova empresa serão buscados do zero
-    queryClient.clear()
-
     setOpen(false)
+
+    // Grava a empresa escolhida (lastTenantId) e recarrega a página no dashboard.
+    // Assim TUDO (dados, permissões e funções liberadas) recarrega do zero na
+    // empresa nova — e você nunca fica preso numa página que a nova empresa não tem.
+    switchTenant(option)
+    queryClient.clear()
+    window.location.hash = '#/dashboard'
+    window.location.reload()
   }
 
   if (collapsed) {

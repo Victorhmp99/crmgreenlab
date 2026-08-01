@@ -93,10 +93,11 @@ export function CreateTenantModal({ onClose }: CreateTenantModalProps) {
       setAvailableTenants([...availableTenants, newOption])
       switchTenant(newOption)
 
-      // Limpa cache para que dados da nova empresa sejam buscados do zero
+      // Limpa cache e recarrega no dashboard — entra limpo na empresa recém-criada
       queryClient.clear()
-
       onClose()
+      window.location.hash = '#/dashboard'
+      window.location.reload()
     } catch (err) {
       const msg = (err as { message?: string })?.message ?? 'Erro inesperado ao criar empresa.'
       setServerError(msg)
