@@ -55,12 +55,11 @@ export function PipelinePage() {
   const isDemo = import.meta.env.VITE_DEMO_MODE === 'true'
 
   // ── Estado de navegação ───────────────────────────────────────────────────
-  const [view,               setView]               = useState<View>(() => {
-    return sessionStorage.getItem('selectedPipelineId') ? 'board' : 'grid'
-  })
-  const [selectedPipelineId, setSelectedPipelineId] = useState<string | null>(() => {
-    return sessionStorage.getItem('selectedPipelineId')
-  })
+  // Sempre entra pela GRADE (lista de pipelines + criar). Antes o board era
+  // reaberto a partir do sessionStorage, o que abria um board vazio quando a
+  // seleção era de uma pipeline apagada ou de outra empresa (após trocar).
+  const [view,               setView]               = useState<View>('grid')
+  const [selectedPipelineId, setSelectedPipelineId] = useState<string | null>(null)
 
   // ── Estado de modais ──────────────────────────────────────────────────────
   const [showTools,            setShowTools]            = useState(false)
@@ -99,14 +98,11 @@ export function PipelinePage() {
   const { remove } = usePipelineMutations()
   const { removePipeline } = usePipelineManagement()
 
-  // ── Sincroniza sessionStorage com selectedPipelineId ─────────────────────
+  // Limpa qualquer seleção antiga persistida (de versões anteriores que
+  // reabriam o board sozinho) — evita cair num board vazio ao abrir a página.
   useEffect(() => {
-    if (selectedPipelineId) {
-      sessionStorage.setItem('selectedPipelineId', selectedPipelineId)
-    } else {
-      sessionStorage.removeItem('selectedPipelineId')
-    }
-  }, [selectedPipelineId])
+    sessionStorage.removeItem('selectedPipelineId')
+  }, [])
 
   // ── Navegação ─────────────────────────────────────────────────────────────
   function handleSelectPipeline(id: string) {
