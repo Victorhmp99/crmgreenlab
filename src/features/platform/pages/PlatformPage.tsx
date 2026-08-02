@@ -19,7 +19,7 @@ import { createInvite } from '@/services/users'
 import { SignupLinkModal } from '@/features/users/components/SignupLinkModal'
 import { SendNotificationModal } from '@/features/notifications/components/SendNotificationModal'
 import { Send } from 'lucide-react'
-import { FEATURE_CATALOG } from '@/hooks/useFeatures'
+import { FEATURE_CATALOG, PLAN_CATALOG, sameFeatureSet } from '@/hooks/useFeatures'
 import type { UserRole } from '@/types'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
@@ -780,14 +780,39 @@ function EditTenantModal({ tenant, onClose }: { tenant: TenantStat | null; onClo
   const queryClient = useQueryClient()
   const [name, setName]         = useState(tenant?.tenant_name ?? '')
   const [features, setFeatures] = useState<string[]>(tenant?.tenant_features ?? [])
+  const [plan, setPlan]         = useState<string>(tenant?.tenant_plan ?? '')
   const [err,  setErr]          = useState<string | null>(null)
 
   // Sincroniza os campos quando abre/troca de empresa
   useEffect(() => {
     setName(tenant?.tenant_name ?? '')
     setFeatures(tenant?.tenant_features ?? [])
+    setPlan(tenant?.tenant_plan ?? '')
     setErr(null)
   }, [tenant?.tenant_id, tenant?.tenant_name])
+
+  // Aplica um plano: grava o nome do plano + o pacote de funções de uma vez.
+  const planMutation = useMutation({
+    mutationFn: async (planKey: string) => {
+      const p = PLAN_CATALOG.find((x) => x.key === planKey)
+      if (!p) throw new Error('Plano inválido')
+      const { error } = await supabase.rpc('apply_tenant_plan', {
+        p_tenant_id: tenant!.tenant_id, p_plan: p.key, p_features: p.features,
+      })
+      if (error) throw error
+      return p
+    },
+    onSuccess: (p) => {
+      setPlan(p.key)
+      setFeatures([...p.features])
+      queryClient.invalidateQueries({ queryKey: ['platform-stats'] })
+    },
+    onError: (e) => setErr(e instanceof Error ? e.message : 'Erro ao aplicar o plano.'),
+  })
+
+  // Plano atual "puro"? (funções batem exatamente com o pacote do plano)
+  const currentPlanDef = PLAN_CATALOG.find((p) => p.key === plan)
+  const isCustom = currentPlanDef ? !sameFeatureSet(features, currentPlanDef.features) : features.length > 0
 
   // Salva as funções liberadas via RPC (SECURITY DEFINER, só super admin).
   // Auto-save no clique de cada função — feedback imediato.
@@ -844,13 +869,45 @@ function EditTenantModal({ tenant, onClose }: { tenant: TenantStat | null; onClo
           onChange={(e) => setName(e.target.value)}
         />
 
-        {/* Funções liberadas — liga/desliga por empresa (salva na hora) */}
+        {/* Plano — aplica um pacote de funções de uma vez */}
         <div className="flex flex-col gap-2">
           <label className="text-xs font-medium uppercase tracking-wide" style={{ color: '#888' }}>
-            Funções liberadas
+            Plano
+          </label>
+          <div className="grid grid-cols-3 gap-2">
+            {PLAN_CATALOG.map((p) => {
+              const active = plan === p.key
+              return (
+                <button
+                  key={p.key}
+                  onClick={() => planMutation.mutate(p.key)}
+                  disabled={planMutation.isPending}
+                  className="flex flex-col items-center gap-0.5 rounded-lg px-2 py-2.5 transition-colors disabled:opacity-60"
+                  style={{
+                    background: active ? 'rgba(0,230,118,0.08)' : '#141414',
+                    border: `1px solid ${active ? 'var(--tenant-primary)' : '#1e1e1e'}`,
+                  }}
+                >
+                  <span className="text-xs font-bold" style={{ color: active ? 'var(--tenant-primary)' : '#e8e8e8' }}>{p.label}</span>
+                  <span className="text-[10px]" style={{ color: '#666' }}>{p.price}</span>
+                </button>
+              )
+            })}
+          </div>
+          <p className="text-[11px]" style={{ color: '#555' }}>
+            {currentPlanDef
+              ? <>Plano <strong style={{ color: '#888' }}>{currentPlanDef.label}</strong>{isCustom && <span style={{ color: '#fbbf24' }}> · personalizado</span>}</>
+              : 'Escolha um plano ou ajuste as funções abaixo manualmente.'}
+          </p>
+        </div>
+
+        {/* Funções liberadas — ajuste fino por empresa (salva na hora) */}
+        <div className="flex flex-col gap-2">
+          <label className="text-xs font-medium uppercase tracking-wide" style={{ color: '#888' }}>
+            Funções (ajuste fino)
           </label>
           <p className="text-[11px] -mt-1" style={{ color: '#555' }}>
-            Vale para todos os usuários desta empresa — mesmo admin não vê a função se estiver desligada.
+            Liga/desliga função específica além do plano (ex.: liberar um teste). Vale pra todos da empresa — mesmo admin não vê a função se estiver desligada.
           </p>
           <div className="flex flex-col gap-1.5 mt-1">
             {FEATURE_CATALOG.map((f) => {
@@ -994,11 +1051,12 @@ function TenantsTab() {
                 <td className="px-4 py-3">
                   <span className="text-xs font-medium rounded-full px-2.5 py-1"
                     style={
-                      t.tenant_plan === 'pro'      ? { background: 'rgba(0,230,118,0.12)',  color: '#00e676' } :
-                      t.tenant_plan === 'business' ? { background: 'rgba(167,139,250,0.12)', color: '#a78bfa' } :
+                      t.tenant_plan === 'plus'     ? { background: 'rgba(167,139,250,0.12)', color: '#a78bfa' } :
+                      t.tenant_plan === 'standard' ? { background: 'rgba(0,230,118,0.12)',   color: '#00e676' } :
+                      t.tenant_plan === 'start'    ? { background: 'rgba(64,160,255,0.12)',  color: '#40a0ff' } :
                                                      { background: '#1e1e1e', color: '#666' }
                     }>
-                    {t.tenant_plan}
+                    {PLAN_CATALOG.find((p) => p.key === t.tenant_plan)?.label ?? t.tenant_plan}
                   </span>
                 </td>
 
