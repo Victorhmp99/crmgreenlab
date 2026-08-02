@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import type { Pipeline } from '@/services/pipelineManagement'
 import { useFeatures, type FeatureKey } from '@/hooks/useFeatures'
+import { usePermissions } from '@/hooks/usePermissions'
 
 // ── Item de ferramenta ────────────────────────────────────────────────────────
 interface ToolItem {
@@ -19,6 +20,7 @@ interface ToolItem {
   danger?:     boolean
   onClick?:    () => void
   feature?:    FeatureKey   // se definido, só aparece quando a empresa tem a função
+  managerOnly?: boolean     // além da função: só gestor+ (vendedor nunca vê — ex.: dinheiro/relatórios)
 }
 
 function ToolRow({ item }: { item: ToolItem }) {
@@ -102,11 +104,16 @@ export function PipelineToolsPanel({
 }: PipelineToolsPanelProps) {
   const navigate = useNavigate()
   const { hasFeature } = useFeatures()
+  const { isManager }  = usePermissions()
 
   if (!open || !pipeline) return null
 
-  // Esconde as ferramentas cuja função a empresa não tem liberada
-  const gate = (items: ToolItem[]) => items.filter((i) => !i.feature || hasFeature(i.feature))
+  // Esconde a ferramenta se: a empresa não tem a função liberada, OU ela é
+  // restrita a gestor+ e quem abriu é vendedor (o cargo sempre restringe —
+  // ex.: Relatórios não aparece pro vendedor mesmo com o plano liberado).
+  const gate = (items: ToolItem[]) => items.filter(
+    (i) => (!i.feature || hasFeature(i.feature)) && (!i.managerOnly || isManager),
+  )
 
   function goTo(path: string) {
     onClose()
@@ -153,6 +160,7 @@ export function PipelineToolsPanel({
       description: 'Funil de conversão e análises',
       onClick:     () => goTo('/reports'),
       feature:     'relatorios',
+      managerOnly: true,   // relatórios envolvem números — vendedor não vê
     },
     {
       icon:        <Target size={16} style={{ color: '#00e676' }} />,
