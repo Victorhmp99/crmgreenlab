@@ -4,8 +4,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Building2, Users, RefreshCw, ShieldCheck, ShieldOff,
   TrendingUp, Clock, UserX, UserCheck, Star, StarOff,
-  UserPlus, ChevronDown, Trash2, Link2, Copy, CheckCircle, Save, Pencil,
+  UserPlus, ChevronDown, Trash2, Link2, Copy, CheckCircle, Save, Pencil, KeyRound,
 } from 'lucide-react'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { setUserCompanyLimit } from '@/services/users'
 import { Button }  from '@/components/ui/Button'
 import { Spinner } from '@/components/ui/Spinner'
@@ -322,10 +323,32 @@ function PlatformLimitCell({
 
 function UsersTab({ isMaster }: { isMaster: boolean }) {
   const queryClient = useQueryClient()
+  const confirm = useConfirm()
   const [statusFilter, setStatusFilter]       = useState<string>('all')
   const [showInvite, setShowInvite]           = useState(false)
   const [showSignupLink, setShowSignupLink]   = useState(false)
   const [confirmRemove, setConfirmRemove]     = useState<PlatformUser | null>(null)
+
+  // Envia um e-mail com link pra pessoa criar uma nova senha (mesmo fluxo do
+  // "Esqueci a senha"). Senha nunca é exposta — só um link de redefinição.
+  async function handleResetPassword(u: PlatformUser) {
+    const ok = await confirm({
+      title: 'Redefinir senha',
+      message: `Enviar um link de redefinição de senha para ${u.email}? A pessoa vai receber um e-mail para criar uma nova senha.`,
+      confirmLabel: 'Enviar link',
+    })
+    if (!ok) return
+    const { error } = await supabase.auth.resetPasswordForEmail(u.email, {
+      redirectTo: `${window.location.origin}${window.location.pathname}#/reset-password`,
+    })
+    await confirm({
+      variant: 'alert',
+      title: error ? 'Não foi possível enviar' : 'Link enviado',
+      message: error
+        ? `Erro ao enviar: ${error.message}`
+        : `Enviamos um e-mail para ${u.email} com o link para redefinir a senha.`,
+    })
+  }
 
   // Lista de tenants pro picker do SignupLinkModal (super admin)
   const { data: allTenants = [] } = useQuery({
@@ -589,6 +612,16 @@ function UsersTab({ isMaster }: { isMaster: boolean }) {
                           onClick={() => revokeAuxMutation.mutate(u.user_id)}
                         />
                       )}
+
+                      {/* Reenviar/redefinir senha — envia link por e-mail */}
+                      <ActionBtn
+                        title="Enviar link de redefinição de senha"
+                        color="#40a0ff"
+                        hoverBg="rgba(64,160,255,0.08)"
+                        icon={<KeyRound size={14} />}
+                        disabled={false}
+                        onClick={() => handleResetPassword(u)}
+                      />
 
                       {/* Remover usuário — nunca remove master */}
                       {!u.is_super_admin && (
