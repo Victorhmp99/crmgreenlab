@@ -96,7 +96,7 @@ export function AcceptInvitePage() {
       }
 
       if (!authData.session) {
-        setError('Verifique seu e-mail para confirmar a conta antes de aceitar o convite.')
+        setError('Verifique seu e-mail para confirmar a conta antes de aceitar o convite. Não achou? Confira também a caixa de spam ou lixo eletrônico.')
         return
       }
 

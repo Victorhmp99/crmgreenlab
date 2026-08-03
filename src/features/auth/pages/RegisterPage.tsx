@@ -135,6 +135,9 @@ export function RegisterPage() {
             <h2 className="text-xl font-bold" style={{ color: '#e8e8e8' }}>Confirme seu e-mail</h2>
             <p className="text-sm mt-2" style={{ color: '#888' }}>Link enviado para</p>
             <p className="text-sm font-semibold mt-1" style={{ color: '#e8e8e8' }}>{getValues('email')}</p>
+            <p className="text-xs mt-3" style={{ color: '#fbbf24' }}>
+              Não achou? Confira também a caixa de spam ou lixo eletrônico.
+            </p>
           </div>
           <Link to="/login" className="text-sm transition-colors" style={{ color: '#555' }}>
             Voltar ao login

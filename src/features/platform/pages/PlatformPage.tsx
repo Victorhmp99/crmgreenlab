@@ -346,7 +346,7 @@ function UsersTab({ isMaster }: { isMaster: boolean }) {
       title: error ? 'Não foi possível enviar' : 'Link enviado',
       message: error
         ? `Erro ao enviar: ${error.message}`
-        : `Enviamos um e-mail para ${u.email} com o link para redefinir a senha.`,
+        : `Enviamos um e-mail para ${u.email} com o link para redefinir a senha. Se a pessoa não achar, avise para conferir a caixa de spam ou lixo eletrônico.`,
     })
   }
 

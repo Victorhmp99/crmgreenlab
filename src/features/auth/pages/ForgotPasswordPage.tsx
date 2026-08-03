@@ -48,6 +48,9 @@ export function ForgotPasswordPage() {
             <p className="text-sm mt-1" style={{ color: '#666' }}>
               Verifique sua caixa de entrada e clique no link para redefinir sua senha.
             </p>
+            <p className="text-xs mt-2" style={{ color: '#fbbf24' }}>
+              Não achou? Confira também a caixa de spam ou lixo eletrônico.
+            </p>
           </div>
           <Link
             to="/login"
