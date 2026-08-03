@@ -7,6 +7,7 @@ import {
   useWhatsappSettings, useWhatsappMutations,
 } from '@/features/whatsapp/hooks/useWhatsappSettings'
 import { useLeadChannels } from '@/features/leads/hooks/useLeadChannels'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
 
@@ -19,6 +20,7 @@ export function WhatsappManager() {
   const { data: settings, isLoading } = useWhatsappSettings()
   const { data: channels = [] } = useLeadChannels()
   const { save, regenerateToken } = useWhatsappMutations()
+  const confirm = useConfirm()
 
   const [evolutionUrl, setEvolutionUrl] = useState('')
   const [instanceName, setInstanceName] = useState('')
@@ -70,7 +72,12 @@ export function WhatsappManager() {
   }
 
   async function handleRegenerate() {
-    if (!confirm('Regenerar token? O webhook atual deixa de funcionar e você precisa reconfigurar no Evolution.')) return
+    const ok = await confirm({
+      title: 'Regenerar token',
+      message: 'Regenerar token? O webhook atual deixa de funcionar e você precisa reconfigurar no Evolution.',
+      confirmLabel: 'Regenerar', danger: true,
+    })
+    if (!ok) return
     await regenerateToken.mutateAsync()
   }
 

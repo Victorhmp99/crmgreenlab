@@ -2,6 +2,7 @@ import { Trash2, CheckSquare, Square } from 'lucide-react'
 import { formatDistanceToNow } from '@/lib/dateUtils'
 import { ActivityTypeIcon, ACTIVITY_CONFIG } from '../ActivityTypeIcon'
 import { useActivityMutations } from '../../hooks/useActivityMutations'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import type { ActivityWithContext } from '@/services/activities'
 
 interface ActivityItemProps {
@@ -22,10 +23,15 @@ export function ActivityItem({
   const isSystem = activity.type === 'stage_change' || activity.type === 'import'
 
   const { remove } = useActivityMutations()
+  const confirm = useConfirm()
 
-  function handleDelete() {
-    if (!confirm(`Excluir este disparo de "${cfg.label}"? Esta ação não pode ser desfeita.`)) return
-    remove.mutate({ id: activity.id, leadId: activity.lead_id })
+  async function handleDelete() {
+    const ok = await confirm({
+      title: 'Excluir disparo',
+      message: `Excluir este disparo de "${cfg.label}"? Esta ação não pode ser desfeita.`,
+      confirmLabel: 'Excluir', danger: true,
+    })
+    if (ok) remove.mutate({ id: activity.id, leadId: activity.lead_id })
   }
 
   function handleRowClick() {

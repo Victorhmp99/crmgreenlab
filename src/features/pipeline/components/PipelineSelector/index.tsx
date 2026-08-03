@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Plus, MoreHorizontal, Pencil, Trash2, Check, X } from 'lucide-react'
 import { usePipelineManagement } from '../../hooks/usePipelineManagement'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import type { Pipeline } from '@/services/pipelineManagement'
 
 const PRESET_COLORS = [
@@ -35,6 +36,7 @@ function PipelineMenu({ pipeline, anchorRect, onClose }: {
   onClose:    () => void
 }) {
   const { renamePipeline, removePipeline } = usePipelineManagement()
+  const confirm = useConfirm()
   const [editing, setEditing] = useState(false)
   const [name,    setName]    = useState(pipeline.name)
   const [color,   setColor]   = useState(pipeline.color)
@@ -50,7 +52,12 @@ function PipelineMenu({ pipeline, anchorRect, onClose }: {
   }
 
   async function handleDelete() {
-    if (!confirm(`Excluir pipeline "${pipeline.name}"? Todas as etapas e cards serão removidos.`)) return
+    const ok = await confirm({
+      title: 'Excluir pipeline',
+      message: `Excluir pipeline "${pipeline.name}"? Todas as etapas e cards serão removidos.`,
+      confirmLabel: 'Excluir', danger: true,
+    })
+    if (!ok) return
     await removePipeline.mutateAsync(pipeline.id)
     onClose()
   }

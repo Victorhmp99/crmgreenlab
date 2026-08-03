@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Plus, Target, Trophy, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Spinner } from '@/components/ui/Spinner'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { GoalCard } from '../components/GoalCard'
 import { GoalForm } from '../components/GoalForm'
 import { Leaderboard } from '../components/Leaderboard'
@@ -22,6 +23,7 @@ function currentMonthRange() {
 
 export function GoalsPage() {
   const { isManager } = usePermissions()
+  const confirm = useConfirm()
   const [tab, setTab]             = useState<Tab>('mine')
   const [editingGoal, setEditingGoal] = useState<GoalWithProgress | null | undefined>(undefined)
 
@@ -32,10 +34,13 @@ export function GoalsPage() {
 
   const { start, end } = currentMonthRange()
 
-  function handleDelete(goal: GoalWithProgress) {
-    if (confirm(`Excluir meta de "${goal.userEmail ?? goal.user_id}"?`)) {
-      remove.mutate(goal.id)
-    }
+  async function handleDelete(goal: GoalWithProgress) {
+    const ok = await confirm({
+      title: 'Excluir meta',
+      message: `Excluir meta de "${goal.userEmail ?? goal.user_id}"?`,
+      confirmLabel: 'Excluir', danger: true,
+    })
+    if (ok) remove.mutate(goal.id)
   }
 
   const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [

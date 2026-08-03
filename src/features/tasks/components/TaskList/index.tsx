@@ -3,6 +3,7 @@ import { Plus, Check, Pencil, Trash2, Calendar, Clock, User, AlertTriangle } fro
 import { Spinner } from '@/components/ui/Spinner'
 import { useLeadTasks, useTaskMutations } from '../../hooks/useTasks'
 import { TaskForm } from '../TaskForm'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import type { LeadTaskWithMeta } from '@/services/leadTasks'
 
 interface TaskListProps {
@@ -12,6 +13,7 @@ interface TaskListProps {
 export function TaskList({ leadId }: TaskListProps) {
   const { data: tasks = [], isLoading } = useLeadTasks(leadId)
   const { update, remove } = useTaskMutations(leadId)
+  const confirm = useConfirm()
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<LeadTaskWithMeta | null>(null)
 
@@ -19,9 +21,12 @@ export function TaskList({ leadId }: TaskListProps) {
     update.mutate({ id: task.id, data: { completed: !task.completed } })
   }
 
-  function handleDelete(task: LeadTaskWithMeta) {
-    if (!confirm(`Excluir tarefa "${task.title}"?`)) return
-    remove.mutate(task.id)
+  async function handleDelete(task: LeadTaskWithMeta) {
+    const ok = await confirm({
+      title: 'Excluir tarefa', message: `Excluir a tarefa "${task.title}"?`,
+      confirmLabel: 'Excluir', danger: true,
+    })
+    if (ok) remove.mutate(task.id)
   }
 
   function handleEdit(task: LeadTaskWithMeta) {

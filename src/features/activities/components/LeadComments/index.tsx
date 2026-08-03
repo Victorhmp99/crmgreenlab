@@ -3,6 +3,7 @@ import { Send, Trash2, Pencil, Check, X, MessageSquare } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { Spinner } from '@/components/ui/Spinner'
 import { useLeadComments, useLeadCommentMutations } from '../../hooks/useLeadComments'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { formatDistanceToNow } from '@/lib/dateUtils'
 import type { LeadComment } from '@/services/leadComments'
 
@@ -70,6 +71,7 @@ export function LeadComments({ leadId }: LeadCommentsProps) {
 
 function CommentItem({ comment, leadId }: { comment: LeadComment; leadId: string }) {
   const { update, remove } = useLeadCommentMutations(leadId)
+  const confirm       = useConfirm()
   const currentUser   = useAuthStore((s) => s.user)
   const currentRole   = useAuthStore((s) => s.membership?.role)
   const isSuperAdmin  = useAuthStore((s) => s.isSuperAdmin)
@@ -90,9 +92,12 @@ function CommentItem({ comment, leadId }: { comment: LeadComment; leadId: string
     setEditing(false)
   }
 
-  function handleDelete() {
-    if (!confirm('Excluir este comentário?')) return
-    remove.mutate(comment.id)
+  async function handleDelete() {
+    const ok = await confirm({
+      title: 'Excluir comentário', message: 'Excluir este comentário?',
+      confirmLabel: 'Excluir', danger: true,
+    })
+    if (ok) remove.mutate(comment.id)
   }
 
   const authorLabel = comment.user_name

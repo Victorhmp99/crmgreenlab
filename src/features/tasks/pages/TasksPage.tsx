@@ -31,7 +31,7 @@ export function TasksPage() {
   const [viewing,     setViewing]     = useState<LeadTaskWithMeta | null>(null)
 
   const { update: updateTaskM, remove: removeTaskM, removeMany } = useTaskMutations()
-  const { confirm, confirmElement } = useConfirm()
+  const confirm = useConfirm()
 
   // Calcula intervalo de filtragem do servidor com base na view
   const range = useMemo(() => {
@@ -264,8 +264,6 @@ export function TasksPage() {
           }}
         />
       )}
-
-      {confirmElement}
     </div>
   )
 }
@@ -425,7 +423,7 @@ function ListView({ tasks, onSelectTask }: {
   tasks: LeadTaskWithMeta[]; onSelectTask: (t: LeadTaskWithMeta) => void
 }) {
   const { update, remove } = useTaskMutations()
-  const { confirm, confirmElement } = useConfirm()
+  const confirm = useConfirm()
 
   if (tasks.length === 0) {
     return (
@@ -458,7 +456,6 @@ function ListView({ tasks, onSelectTask }: {
 
   return (
     <div className="flex flex-col gap-4">
-      {confirmElement}
       {Array.from(byDay.entries()).map(([day, items]) => {
         const date = new Date(day + 'T00:00:00')
         return (

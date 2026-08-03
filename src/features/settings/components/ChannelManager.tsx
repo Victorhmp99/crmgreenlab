@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Tag, Plus, Trash2, Check, X } from 'lucide-react'
 import { useLeadChannels, useLeadChannelMutations } from '@/features/leads/hooks/useLeadChannels'
 import { Button } from '@/components/ui/Button'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import type { LeadChannel } from '@/types'
 
 const PRESET_COLORS = ['#00e676','#40a0ff','#a78bfa','#fbbf24','#ec4899','#ff4444','#14B8A6','#f97316']
@@ -9,6 +10,7 @@ const PRESET_COLORS = ['#00e676','#40a0ff','#a78bfa','#fbbf24','#ec4899','#ff444
 export function ChannelManager() {
   const { data: channels = [], isLoading } = useLeadChannels()
   const { create, update, remove } = useLeadChannelMutations()
+  const confirm = useConfirm()
 
   const [editingId, setEditingId] = useState<string | null>(null)
   const [newName,   setNewName]   = useState('')
@@ -28,7 +30,12 @@ export function ChannelManager() {
   }
 
   async function handleDelete(ch: LeadChannel) {
-    if (!confirm(`Excluir canal "${ch.name}"? Leads vinculados ficam sem categoria.`)) return
+    const ok = await confirm({
+      title: 'Excluir canal',
+      message: `Excluir canal "${ch.name}"? Leads vinculados ficam sem categoria.`,
+      confirmLabel: 'Excluir', danger: true,
+    })
+    if (!ok) return
     await remove.mutateAsync(ch.id)
   }
 

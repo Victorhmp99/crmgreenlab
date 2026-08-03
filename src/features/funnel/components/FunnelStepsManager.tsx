@@ -10,6 +10,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import {
   useFunnelSteps, useFunnelStepMutations,
 } from '../hooks/useFunnelSteps'
@@ -22,6 +23,7 @@ const PRESET_COLORS = [
 export function FunnelStepsManager() {
   const { data: steps = [], isLoading } = useFunnelSteps()
   const { create, update, remove, reorder } = useFunnelStepMutations()
+  const confirm = useConfirm()
 
   const [adding,   setAdding]   = useState(false)
   const [editing,  setEditing]  = useState<FunnelStep | null>(null)
@@ -118,10 +120,13 @@ export function FunnelStepsManager() {
                   isFirst={idx === 0}
                   isLast={idx === steps.length - 1}
                   onEdit={() => setEditing(step)}
-                  onDelete={() => {
-                    if (confirm(`Excluir "${step.name}"? Etapas mapeadas para este passo ficarão sem mapping.`)) {
-                      remove.mutate(step.id)
-                    }
+                  onDelete={async () => {
+                    const ok = await confirm({
+                      title: 'Excluir passo do funil',
+                      message: `Excluir "${step.name}"? Etapas mapeadas para este passo ficarão sem mapping.`,
+                      confirmLabel: 'Excluir', danger: true,
+                    })
+                    if (ok) remove.mutate(step.id)
                   }}
                 />
               ))}

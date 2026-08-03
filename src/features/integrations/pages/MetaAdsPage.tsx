@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { RefreshCw, Link2, AlertTriangle, CheckCircle, Trash2, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { Spinner } from '@/components/ui/Spinner'
 import {
   fetchMetaCredentials,
@@ -29,6 +30,7 @@ function formatBRL(v: number) {
 }
 
 export function MetaAdsPage() {
+  const confirm = useConfirm()
   const tenantId = useAuthStore((s) => s.tenant?.id)!
   const queryClient = useQueryClient()
   const [syncError, setSyncError] = useState<string | null>(null)
@@ -165,8 +167,8 @@ export function MetaAdsPage() {
                 {isConnected && (
                   <button
                     type="button"
-                    onClick={() => {
-                      if (confirm('Desconectar a conta Meta Ads?')) deleteMutation.mutate()
+                    onClick={async () => {
+                      if (await confirm({ title: 'Desconectar Meta Ads', message: 'Desconectar a conta Meta Ads?', confirmLabel: 'Desconectar', danger: true })) deleteMutation.mutate()
                     }}
                     className="flex items-center gap-1.5 text-sm transition-colors"
                     style={{ color: '#ff4444' }}

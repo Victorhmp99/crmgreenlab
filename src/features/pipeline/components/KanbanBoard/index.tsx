@@ -21,6 +21,8 @@ import { KanbanColumn, KanbanColumnOverlay } from '../KanbanColumn'
 import { KanbanCardOverlay } from '../KanbanCard'
 import { usePipelineMutations } from '../../hooks/usePipelineMutations'
 import { usePipelineManagement } from '../../hooks/usePipelineManagement'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
+import { usePermissions } from '@/hooks/usePermissions'
 import type { KanbanCardData, ColumnData } from '@/services/pipeline'
 import type { PipelineStage, Lead } from '@/types'
 
@@ -323,7 +325,23 @@ function AddStageButton({ pipelineId, nextPosition }: { pipelineId: string; next
   const [name,   setName]     = useState('')
   const [color,  setColor]    = useState('#94a3b8')
   const { addStage }          = usePipelineManagement()
+  const confirm               = useConfirm()
+  const { isManager }         = usePermissions()
   const inputRef = useRef<HTMLInputElement | null>(null)
+
+  // Vendedor não pode criar etapas (RLS bloqueia) — mostra aviso estilizado
+  // em vez de falhar em silêncio.
+  function startAdding() {
+    if (!isManager) {
+      confirm({
+        variant: 'alert',
+        title: 'Sem permissão',
+        message: 'Você não tem permissão para criar etapas na pipeline. Peça a um gestor ou administrador.',
+      })
+      return
+    }
+    setAdding(true)
+  }
 
   const COLORS = ['#00e676','#40a0ff','#a78bfa','#fbbf24','#ec4899','#ff4444','#555']
 
@@ -338,7 +356,7 @@ function AddStageButton({ pipelineId, nextPosition }: { pipelineId: string; next
   if (!adding) {
     return (
       <button
-        onClick={() => setAdding(true)}
+        onClick={startAdding}
         className="shrink-0 flex flex-col items-center justify-center w-52 rounded-xl gap-1.5 py-6 transition-all"
         style={{ border: '2px dashed #1e1e1e', color: '#444' }}
         onMouseEnter={(e) => {

@@ -3,6 +3,7 @@ import { Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Select } from '@/components/ui/Select'
 import { Input } from '@/components/ui/Input'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { FinancialSummaryCards } from '../components/FinancialSummary'
 import { FinancialChart } from '../components/FinancialChart'
 import { TransactionList } from '../components/TransactionList'
@@ -36,11 +37,17 @@ export function RevenuePage() {
   const { data: trend = [],  isLoading: trendLoading   } = useMonthlyTrend(12)
   const { data: transactions, isLoading: listLoading   } = useTransactions(filters)
   const { remove } = useFinancialMutations()
+  const confirm = useConfirm()
 
   const hasFilters = !!(filters.type || filters.dateFrom || filters.dateTo)
 
   async function handleDelete(record: FinancialRecord) {
-    if (!confirm(`Excluir lançamento de ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(record.amount)}?`)) return
+    const ok = await confirm({
+      title: 'Excluir lançamento',
+      message: `Excluir lançamento de ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(record.amount)}?`,
+      confirmLabel: 'Excluir', danger: true,
+    })
+    if (!ok) return
     await remove.mutateAsync(record.id)
   }
 

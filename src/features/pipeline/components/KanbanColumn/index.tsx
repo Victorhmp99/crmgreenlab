@@ -8,6 +8,8 @@ import { KanbanCard } from '../KanbanCard'
 import { usePipelineManagement } from '../../hooks/usePipelineManagement'
 import { useFunnelSteps } from '@/features/funnel/hooks/useFunnelSteps'
 import { Select } from '@/components/ui/Select'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
+import { usePermissions } from '@/hooks/usePermissions'
 import type { ColumnData } from '@/services/pipeline'
 import type { Lead, StageType } from '@/types'
 
@@ -37,6 +39,17 @@ export function KanbanColumn({
 }: KanbanColumnProps) {
   const { stage, cards } = column
   const { editStage, removeStage } = usePipelineManagement()
+  const confirm = useConfirm()
+  const { isManager } = usePermissions()
+
+  // Vendedor não gerencia etapas (RLS bloqueia) — mostra aviso estilizado.
+  function noStagePermission() {
+    confirm({
+      variant: 'alert',
+      title: 'Sem permissão',
+      message: 'Você não tem permissão para gerenciar etapas da pipeline. Peça a um gestor ou administrador.',
+    })
+  }
 
   const [editing,    setEditing]    = useState(false)
   const [stageName,  setStageName]  = useState(stage.name)
@@ -83,11 +96,15 @@ export function KanbanColumn({
   }
 
   async function handleDeleteStage() {
-    if (cards.length > 0) {
-      if (!confirm(`A etapa "${stage.name}" tem ${cards.length} lead(s). Remover os leads desta etapa também?`)) return
-    } else {
-      if (!confirm(`Excluir etapa "${stage.name}"?`)) return
-    }
+    if (!isManager) { noStagePermission(); return }
+    const ok = await confirm({
+      title: 'Excluir etapa',
+      message: cards.length > 0
+        ? `A etapa "${stage.name}" tem ${cards.length} lead(s). Excluir a etapa e remover os leads dela?`
+        : `Excluir etapa "${stage.name}"?`,
+      confirmLabel: 'Excluir', danger: true,
+    })
+    if (!ok) return
     await removeStage.mutateAsync({ id: stage.id, pipelineId })
   }
 
@@ -194,7 +211,7 @@ export function KanbanColumn({
           <>
             <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: stage.color }} />
             <button
-              onClick={() => setEditing(true)}
+              onClick={() => isManager ? setEditing(true) : noStagePermission()}
               className="flex-1 text-left text-sm font-semibold truncate transition-colors flex items-center gap-1.5"
               style={{ color: '#e8e8e8' }}
               onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--tenant-primary)')}
