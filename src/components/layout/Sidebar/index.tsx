@@ -243,7 +243,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           {/* Client Radar — link externo, SOMENTE para o criador (assessoriagreenlab@gmail.com) */}
           {isClientRadarOwner && (
             <a
-              href="https://victorhmp99.github.io/business-health/"
+              href="https://greenhub-tarefas.vercel.app"
               target="_blank"
               rel="noopener noreferrer"
               title={collapsed ? 'Client Radar' : undefined}

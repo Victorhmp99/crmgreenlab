@@ -8,7 +8,7 @@ export type LeadSource = 'manual' | 'import' | 'meta_ads' | 'google' | 'referral
 export type ActivityType = 'call' | 'whatsapp' | 'email' | 'meeting' | 'note' | 'stage_change' | 'import'
 export type GoalPeriod = 'daily' | 'weekly' | 'monthly' | 'quarterly'
 export type RecordType = 'revenue' | 'expense'
-export type StageType  = 'in_progress' | 'won' | 'lost'
+export type StageType  = 'in_progress' | 'won' | 'lost' | 'archived'
 
 export interface Tenant {
   id: string

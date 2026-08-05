@@ -49,6 +49,20 @@ function findColByCardId(columns: ColumnData[], cardId: string): ColumnData | un
   return columns.find((col) => col.cards.some((c) => c.card.id === cardId))
 }
 
+// Resolve a qual COLUNA um id de "over" pertence — pode ser o próprio id da
+// coluna (col-<id>), a área de soltar dela (stage.id) ou um CARD dentro dela
+// (o closestCorners às vezes escolhe o card mais próximo em vez da coluna,
+// especialmente quando ela já tem leads — sem isso, arrastar uma etapa por
+// cima de uma coluna com cards simplesmente não reordenava).
+function resolveOverStageId(overId: string, columns: ColumnData[]): string | null {
+  if (overId.startsWith('col-')) {
+    const stageId = overId.replace('col-', '')
+    return columns.some((c) => c.stage.id === stageId) ? stageId : null
+  }
+  if (columns.some((c) => c.stage.id === overId)) return overId
+  return findColByCardId(columns, overId)?.stage.id ?? null
+}
+
 export function KanbanBoard({ stages, cards, pipelineId, onAddLead, onRemoveCard, onSelectLead }: KanbanBoardProps) {
   const { move, reorder } = usePipelineMutations()
   const { reorderStages }  = usePipelineManagement()
@@ -112,9 +126,15 @@ export function KanbanBoard({ stages, cards, pipelineId, onAddLead, onRemoveCard
     const type     = active.data.current?.type as string
 
     if (type === 'column') {
-      // Reordena colunas em tempo real
-      const activeIdx = displayStages.findIndex((s) => `col-${s.id}` === activeId)
-      const overIdx   = displayStages.findIndex((s) => `col-${s.id}` === overId)
+      // Reordena colunas em tempo real. Resolve o alvo mesmo quando o
+      // closestCorners aponta pra um card dentro da coluna (não só pro
+      // id da própria coluna) — ver resolveOverStageId.
+      const activeStageId = activeId.replace('col-', '')
+      const cols          = localColumns ?? buildColumns(stages, cards)
+      const overStageId   = resolveOverStageId(overId, cols)
+      if (!overStageId) return
+      const activeIdx = displayStages.findIndex((s) => s.id === activeStageId)
+      const overIdx   = displayStages.findIndex((s) => s.id === overStageId)
       if (activeIdx !== -1 && overIdx !== -1 && activeIdx !== overIdx) {
         const reordered = arrayMove([...(localStages ?? stages)], activeIdx, overIdx)
         setLocalStages(reordered)
@@ -160,7 +180,7 @@ export function KanbanBoard({ stages, cards, pipelineId, onAddLead, onRemoveCard
         return col
       })
     })
-  }, [stages, cards, displayStages, localStages])
+  }, [stages, cards, displayStages, localStages, localColumns])
 
   const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     const { active } = event
@@ -227,8 +247,14 @@ export function KanbanBoard({ stages, cards, pipelineId, onAddLead, onRemoveCard
           await supabase.from('leads')
             .update({ status: 'lost', updated_at: new Date().toISOString() })
             .eq('id', movedCard.lead.id)
-        } else if (destType === 'in_progress' && (sourceType === 'won' || sourceType === 'lost')) {
-          // Voltou de uma etapa final para andamento → reverte para ativo
+        } else if (destType === 'archived' && movedCard.lead.status !== 'archived') {
+          // Etapa de arquivamento: arquiva o lead automaticamente — sai do
+          // funil ativo e do financeiro (mesmo padrão de won/lost).
+          await supabase.from('leads')
+            .update({ status: 'archived', updated_at: new Date().toISOString() })
+            .eq('id', movedCard.lead.id)
+        } else if (destType === 'in_progress' && (sourceType === 'won' || sourceType === 'lost' || sourceType === 'archived')) {
+          // Voltou de uma etapa final (ou arquivada) para andamento → reverte para ativo
           await supabase.from('leads')
             .update({ status: 'active', updated_at: new Date().toISOString() })
             .eq('id', movedCard.lead.id)

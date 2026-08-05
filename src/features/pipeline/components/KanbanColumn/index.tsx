@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Plus, GripVertical, Trash2, Check, X, Trophy, XCircle, Activity } from 'lucide-react'
+import { Plus, GripVertical, Trash2, Check, X, Trophy, XCircle, Activity, Archive } from 'lucide-react'
 import { cn, formatCurrencyCompact } from '@/lib/utils'
 import { KanbanCard } from '../KanbanCard'
 import { usePipelineManagement } from '../../hooks/usePipelineManagement'
@@ -17,6 +17,7 @@ const STAGE_TYPE_CONFIG: Record<StageType, { label: string; icon: React.ElementT
   in_progress: { label: 'Em andamento', icon: Activity, color: '#666'    },
   won:         { label: 'Ganho',        icon: Trophy,   color: '#00e676' },
   lost:        { label: 'Perdido',      icon: XCircle,  color: '#ff4444' },
+  archived:    { label: 'Arquivado',    icon: Archive,  color: '#888888' },
 }
 
 const PRESET_COLORS = [
@@ -171,15 +172,15 @@ export function KanbanColumn({
             </div>
 
             {/* Seletor de tipo de etapa */}
-            <div className="flex gap-1 mt-1">
-              {(['in_progress', 'won', 'lost'] as StageType[]).map((t) => {
+            <div className="grid grid-cols-2 gap-1 mt-1">
+              {(['in_progress', 'won', 'lost', 'archived'] as StageType[]).map((t) => {
                 const cfg = STAGE_TYPE_CONFIG[t]
                 const Icon = cfg.icon
                 return (
                   <button
                     key={t}
                     onClick={() => setStageType(t)}
-                    className="flex-1 flex items-center justify-center gap-1 h-6 rounded text-[10px] font-medium transition-all"
+                    className="flex items-center justify-center gap-1 h-6 rounded text-[10px] font-medium transition-all"
                     style={{
                       background: stageType === t ? `${cfg.color}22` : 'transparent',
                       border:     stageType === t ? `1px solid ${cfg.color}` : '1px solid #2a2a2a',
@@ -192,6 +193,11 @@ export function KanbanColumn({
                 )
               })}
             </div>
+            {stageType === 'archived' && (
+              <p className="text-[10px] mt-1" style={{ color: '#888' }}>
+                Leads movidos pra cá ficam com status <strong style={{ color: '#aaa' }}>arquivado</strong> automaticamente — saem do funil e do financeiro ativo.
+              </p>
+            )}
 
             {/* Mapeamento para passo do funil */}
             {funnelSteps.length > 0 && (
