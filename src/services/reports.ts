@@ -738,16 +738,39 @@ export async function fetchPipelineFunnel(
   }
   const cardList = (cards ?? []) as CardRow[]
 
-  // Histórico de movimentação → maior etapa de FLUXO já visitada por cada lead
-  // (from + to são nomes de etapa). Cobre principalmente os que já saíram.
+  // ── REGRA DE DEDUP: 1 lead = 1 posição no funil ──────────────────────────
+  // Cada lead conta UMA única vez. Se (por qualquer anomalia) o lead tiver mais
+  // de um card nesta pipeline, fica com o card MAIS AVANÇADO (maior posição) =
+  // onde ele realmente está. Isso garante que histórico repetido, idas e voltas
+  // ou cards duplicados nunca inflem a contagem.
+  const posOfStage = new Map(stageList.map((s) => [s.id, s.position ?? 0]))
+  const leadNow    = new Map<string, { stageId: string; status: string; value: number }>()
+  for (const c of cardList) {
+    const lead    = Array.isArray(c.leads) ? c.leads[0] : c.leads
+    const prev    = leadNow.get(c.lead_id)
+    const curPos  = posOfStage.get(c.stage_id) ?? -1
+    const prevPos = prev ? (posOfStage.get(prev.stageId) ?? -1) : Number.NEGATIVE_INFINITY
+    if (!prev || curPos > prevPos) {
+      leadNow.set(c.lead_id, {
+        stageId: c.stage_id,
+        status:  lead?.status ?? 'active',
+        value:   Number(lead?.value ?? 0),
+      })
+    }
+  }
+
+  // Histórico de movimentação → maior etapa de FLUXO já visitada por cada lead.
+  // Só considera leads DESTA pipeline (leadNow) e nomes de etapa DESTA pipeline.
+  // Usa o MÁXIMO por lead — evento repetido/duplicado nunca conta duas vezes.
   const histMaxByLead = new Map<string, number>()
-  if (flowStages.length > 0 && cardList.length > 0) {
+  if (flowStages.length > 0 && leadNow.size > 0) {
     const { data: acts } = await supabase
       .from('lead_activities')
       .select('lead_id, metadata')
       .eq('tenant_id', tenantId)
       .eq('type', 'stage_change')
     for (const a of (acts ?? []) as Array<{ lead_id: string; metadata: { from?: string; to?: string } | null }>) {
+      if (!leadNow.has(a.lead_id)) continue    // só leads que estão nesta pipeline
       const md = a.metadata
       if (!md) continue
       for (const nm of [md.from, md.to]) {
@@ -764,12 +787,12 @@ export async function fetchPipelineFunnel(
   const furthest  = new Array(flowStages.length).fill(0)  // tally: nº de leads cuja etapa MAIS distante alcançada = i
   let won = 0, wonValue = 0, lost = 0, archived = 0, entered = 0
 
-  for (const c of cardList) {
-    const role = roleById.get(c.stage_id)
+  // Um lead por iteração (já deduplicado em leadNow)
+  for (const [leadId, info] of leadNow) {
+    const role = roleById.get(info.stageId)
     if (!role) continue
-    const lead  = Array.isArray(c.leads) ? c.leads[0] : c.leads
-    const st    = lead?.status
-    const value = Number(lead?.value ?? 0)
+    const st    = info.status
+    const value = info.value
     entered++
 
     // Bucket de desfecho: STATUS do lead primeiro (fonte de verdade), depois o papel da etapa
@@ -791,9 +814,9 @@ export async function fetchPipelineFunnel(
     // Etapa mais distante alcançada = max(etapa atual se for fluxo, histórico, e
     // "todas" se ganhou). Piso 0: todo lead que entrou passou pela 1ª etapa.
     let maxPos = -1
-    const curIdx = flowIdxById.get(c.stage_id)
+    const curIdx = flowIdxById.get(info.stageId)
     if (curIdx != null) maxPos = curIdx
-    const h = histMaxByLead.get(c.lead_id)
+    const h = histMaxByLead.get(leadId)
     if (h != null && h > maxPos) maxPos = h
     if (bucket === 'won') maxPos = lastFlow          // ganho passou por tudo
     if (maxPos < 0)        maxPos = 0
