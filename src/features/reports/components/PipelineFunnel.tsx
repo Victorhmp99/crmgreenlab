@@ -72,9 +72,11 @@ export function PipelineFunnel({ data }: { data: PipelineFunnelData }) {
         </p>
       )}
       <p className="text-[11px] leading-relaxed" style={{ color: '#555' }}>
-        O funil usa a <strong style={{ color: '#888' }}>etapa atual</strong> de cada lead. A barra mostra quantos chegaram
-        naquela etapa ou além — onde ela encolhe muito é onde o comercial está travando. Perdidos e arquivados aparecem
-        no resumo (sem histórico completo, não dá pra cravar em qual etapa exata cada um foi perdido).
+        Cada barra = quantos leads <strong style={{ color: '#888' }}>já passaram</strong> por aquela etapa (não só os que
+        estão nela agora) — reconstruído pela jornada de cada lead: etapa atual + histórico de movimentação. Onde a barra
+        encolhe muito é onde você está perdendo. <strong style={{ color: '#888' }}>Observação:</strong> o histórico de
+        movimentação começou a ser gravado recentemente, então leads perdidos há mais tempo podem contar só na 1ª etapa;
+        a precisão aumenta conforme os leads vão sendo movimentados.
       </p>
     </div>
   )

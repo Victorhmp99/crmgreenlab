@@ -653,17 +653,22 @@ export async function fetchConversionFunnelMetrics(tenantId: string): Promise<Co
   }
 }
 
-// ── Funil por pipeline (preciso, sem configuração) ─────────────────────────────
-// Usa as PRÓPRIAS etapas da pipeline (na ordem) + a etapa ATUAL de cada lead.
-// Funciona pra qualquer empresa sem precisar mapear "passos do funil".
+// ── Funil por pipeline (CUMULATIVO — quantos leads JÁ PASSARAM por cada etapa) ──
+// Usa as próprias etapas da pipeline (na ordem) + a JORNADA de cada lead:
+// - etapa atual do lead (ativo em X já passou por X)
+// - histórico de movimentação (lead_activities type='stage_change', metadata
+//   {from,to} com os nomes das etapas) → reconstrói por onde o lead passou,
+//   inclusive os que já saíram (perdidos). É o que responde "quantos passaram
+//   de etapa por etapa", não só o momento atual.
+// Ganhos passaram por todas as etapas. Todo lead que entrou conta na 1ª etapa.
 
 export interface PipelineFunnelStage {
   id:        string
   name:      string
   color:     string
-  atStage:   number   // leads ativos parados exatamente nesta etapa
-  reached:   number   // chegaram nesta etapa ou além (ativos) + ganhos
-  pctOfTop:  number   // reached / topo do funil
+  atStage:   number   // leads ativos parados exatamente nesta etapa (agora)
+  reached:   number   // leads que JÁ PASSARAM por esta etapa (ou além)
+  pctOfTop:  number   // reached / topo do funil (% do total que entrou)
   pctOfPrev: number   // reached / etapa anterior (conversão etapa a etapa)
 }
 
@@ -711,8 +716,15 @@ export async function fetchPipelineFunnel(
   const stageList = stages ?? []
   if (stageList.length === 0) return empty
 
+  const norm      = (s: string) => (s || '').trim().toLowerCase()
   const roleById  = new Map(stageList.map((s) => [s.id, stageRole(s.name, s.stage_type)]))
   const stageIds  = stageList.map((s) => s.id)
+
+  // Etapas de "fluxo" = degraus reais do funil (na ordem). Desfechos ficam fora.
+  const flowStages   = stageList.filter((s) => roleById.get(s.id) === 'flow')
+  const flowIdxById  = new Map(flowStages.map((s, i) => [s.id, i]))
+  const flowIdxByName = new Map(flowStages.map((s, i) => [norm(s.name), i]))
+  const lastFlow     = flowStages.length - 1
 
   const { data: cards, error: cErr } = await supabase
     .from('pipeline_cards')
@@ -720,45 +732,86 @@ export async function fetchPipelineFunnel(
     .eq('tenant_id', tenantId)
     .in('stage_id', stageIds)
   if (cErr) throw cErr
-
-  // Etapas de "fluxo" = degraus reais do funil (na ordem). Desfechos ficam fora.
-  const flowStages = stageList.filter((s) => roleById.get(s.id) === 'flow')
-  const flowIndex  = new Map(flowStages.map((s, i) => [s.id, i]))
-  const atFlow     = new Array(flowStages.length).fill(0)
-
-  let won = 0, wonValue = 0, lost = 0, archived = 0, entered = 0
-
   type CardRow = {
     lead_id: string; stage_id: string
     leads: { status: string; value: number | null } | { status: string; value: number | null }[] | null
   }
-  for (const c of (cards ?? []) as CardRow[]) {
+  const cardList = (cards ?? []) as CardRow[]
+
+  // Histórico de movimentação → maior etapa de FLUXO já visitada por cada lead
+  // (from + to são nomes de etapa). Cobre principalmente os que já saíram.
+  const histMaxByLead = new Map<string, number>()
+  if (flowStages.length > 0 && cardList.length > 0) {
+    const { data: acts } = await supabase
+      .from('lead_activities')
+      .select('lead_id, metadata')
+      .eq('tenant_id', tenantId)
+      .eq('type', 'stage_change')
+    for (const a of (acts ?? []) as Array<{ lead_id: string; metadata: { from?: string; to?: string } | null }>) {
+      const md = a.metadata
+      if (!md) continue
+      for (const nm of [md.from, md.to]) {
+        if (!nm) continue
+        const idx = flowIdxByName.get(norm(nm))
+        if (idx == null) continue
+        const cur = histMaxByLead.get(a.lead_id) ?? -1
+        if (idx > cur) histMaxByLead.set(a.lead_id, idx)
+      }
+    }
+  }
+
+  const atFlow    = new Array(flowStages.length).fill(0)  // ativos parados AGORA em cada etapa
+  const furthest  = new Array(flowStages.length).fill(0)  // tally: nº de leads cuja etapa MAIS distante alcançada = i
+  let won = 0, wonValue = 0, lost = 0, archived = 0, entered = 0
+
+  for (const c of cardList) {
     const role = roleById.get(c.stage_id)
     if (!role) continue
     const lead  = Array.isArray(c.leads) ? c.leads[0] : c.leads
     const st    = lead?.status
     const value = Number(lead?.value ?? 0)
     entered++
-    // 1) Desfecho pelo STATUS do lead (fonte de verdade, sincronizado ao arrastar)
-    if (st === 'converted') { won++; wonValue += value; continue }
-    if (st === 'archived')  { archived++; continue }
-    if (st === 'lost')      { lost++; continue }
-    // 2) Lead ativo: usa o papel da etapa onde ele está
-    if (role === 'won')      { won++; wonValue += value; continue }
-    if (role === 'archived') { archived++; continue }
-    if (role === 'lost')     { lost++; continue }
-    const idx = flowIndex.get(c.stage_id)
-    if (idx != null) atFlow[idx]++
+
+    // Bucket de desfecho: STATUS do lead primeiro (fonte de verdade), depois o papel da etapa
+    let bucket: StageRole | 'flow'
+    if (st === 'converted')      bucket = 'won'
+    else if (st === 'archived')  bucket = 'archived'
+    else if (st === 'lost')      bucket = 'lost'
+    else if (role === 'won')     bucket = 'won'
+    else if (role === 'archived')bucket = 'archived'
+    else if (role === 'lost')    bucket = 'lost'
+    else                         bucket = 'flow'
+
+    if (bucket === 'won')      { won++; wonValue += value }
+    else if (bucket === 'lost')     lost++
+    else if (bucket === 'archived') archived++
+
+    if (flowStages.length === 0) continue
+
+    // Etapa mais distante alcançada = max(etapa atual se for fluxo, histórico, e
+    // "todas" se ganhou). Piso 0: todo lead que entrou passou pela 1ª etapa.
+    let maxPos = -1
+    const curIdx = flowIdxById.get(c.stage_id)
+    if (curIdx != null) maxPos = curIdx
+    const h = histMaxByLead.get(c.lead_id)
+    if (h != null && h > maxPos) maxPos = h
+    if (bucket === 'won') maxPos = lastFlow          // ganho passou por tudo
+    if (maxPos < 0)        maxPos = 0
+    if (maxPos > lastFlow) maxPos = lastFlow
+    furthest[maxPos]++
+
+    // "Parados aqui agora" = só ativos que estão nesta etapa de fluxo
+    if (bucket === 'flow' && curIdx != null) atFlow[curIdx]++
   }
 
-  const active  = atFlow.reduce((a, b) => a + b, 0)
-  // reached[i] = ativos parados em i, i+1, ... + ganhos (ganhos passaram por tudo)
+  // reached[i] = leads cuja etapa mais distante foi >= i (cumulativo)
   const reached = flowStages.map((_, i) => {
-    let sum = won
-    for (let j = i; j < atFlow.length; j++) sum += atFlow[j]
+    let sum = 0
+    for (let j = i; j < furthest.length; j++) sum += furthest[j]
     return sum
   })
-  const top = reached[0] || 1
+  const top    = reached[0] || 1
+  const active = atFlow.reduce((a, b) => a + b, 0)
 
   const stagesOut: PipelineFunnelStage[] = flowStages.map((s, i) => ({
     id:        s.id,
