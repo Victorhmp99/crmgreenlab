@@ -8,6 +8,7 @@ import {
   fetchChannelBreakdown,
   fetchPipelineBreakdown,
   fetchConversionFunnelMetrics,
+  fetchPipelineFunnel,
 } from '@/services/reports'
 
 export function useSellerPerformance(startDate: string, endDate: string) {
@@ -76,6 +77,16 @@ export function useConversionFunnelMetrics() {
     queryKey:  ['report-conversion-funnel', tenantId],
     queryFn:   () => fetchConversionFunnelMetrics(tenantId!),
     enabled:   !!tenantId,
+    staleTime: 1000 * 60,
+  })
+}
+
+export function usePipelineFunnel(pipelineId: string | null) {
+  const tenantId = useAuthStore((s) => s.tenant?.id)
+  return useQuery({
+    queryKey:  ['report-pipeline-funnel', tenantId, pipelineId],
+    queryFn:   () => fetchPipelineFunnel(tenantId!, pipelineId!),
+    enabled:   !!tenantId && !!pipelineId,
     staleTime: 1000 * 60,
   })
 }

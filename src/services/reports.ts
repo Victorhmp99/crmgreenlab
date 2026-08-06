@@ -652,3 +652,126 @@ export async function fetchConversionFunnelMetrics(tenantId: string): Promise<Co
     declineRate: totalLeads > 0 ? Math.round((declinedCount / totalLeads) * 100) : 0,
   }
 }
+
+// ── Funil por pipeline (preciso, sem configuração) ─────────────────────────────
+// Usa as PRÓPRIAS etapas da pipeline (na ordem) + a etapa ATUAL de cada lead.
+// Funciona pra qualquer empresa sem precisar mapear "passos do funil".
+
+export interface PipelineFunnelStage {
+  id:        string
+  name:      string
+  color:     string
+  atStage:   number   // leads ativos parados exatamente nesta etapa
+  reached:   number   // chegaram nesta etapa ou além (ativos) + ganhos
+  pctOfTop:  number   // reached / topo do funil
+  pctOfPrev: number   // reached / etapa anterior (conversão etapa a etapa)
+}
+
+export interface PipelineFunnelData {
+  stages:   PipelineFunnelStage[]
+  entered:  number    // total de leads que entraram (todos os cards da pipeline)
+  active:   number    // ainda ativos nas etapas de andamento
+  won:      number
+  wonValue: number
+  lost:     number
+  archived: number
+  convRate: number    // ganhos / entraram
+}
+
+// Papel da etapa no funil. Usa stage_type (quando o usuário configurou) e,
+// como reforço, o NOME — porque na prática muita etapa de desfecho ("Fechado",
+// "Perdido", "Noshow", "Inativos") ficou marcada como in_progress. Assim essas
+// etapas não viram degraus vazios no funil e os leads caem no bucket certo.
+type StageRole = 'won' | 'lost' | 'archived' | 'flow'
+function stageRole(name: string, stageType: string | null): StageRole {
+  if (stageType === 'won')      return 'won'
+  if (stageType === 'lost')     return 'lost'
+  if (stageType === 'archived') return 'archived'
+  const n = (name || '').toLowerCase()
+  if (/arquiv|archiv/.test(n))                                                              return 'archived'
+  if (/fechad|ganho|convertid|\bwon\b|conclu[ií]|contrato assinado/.test(n))                return 'won'
+  if (/perdid|\blost\b|n[ãa]o ?fechou|recusad|declin|cancelad|churn|chrun|inativ|desqualif|descartad|n[ãa]o ?[ée] ?lead|no[-\s]?show|noshow/.test(n)) return 'lost'
+  return 'flow'
+}
+
+export async function fetchPipelineFunnel(
+  tenantId: string, pipelineId: string,
+): Promise<PipelineFunnelData> {
+  const empty: PipelineFunnelData = {
+    stages: [], entered: 0, active: 0, won: 0, wonValue: 0, lost: 0, archived: 0, convRate: 0,
+  }
+
+  const { data: stages, error: sErr } = await supabase
+    .from('pipeline_stages')
+    .select('id, name, color, position, stage_type')
+    .eq('tenant_id', tenantId)
+    .eq('pipeline_id', pipelineId)
+    .order('position', { ascending: true })
+  if (sErr) throw sErr
+  const stageList = stages ?? []
+  if (stageList.length === 0) return empty
+
+  const roleById  = new Map(stageList.map((s) => [s.id, stageRole(s.name, s.stage_type)]))
+  const stageIds  = stageList.map((s) => s.id)
+
+  const { data: cards, error: cErr } = await supabase
+    .from('pipeline_cards')
+    .select('lead_id, stage_id, leads(status, value)')
+    .eq('tenant_id', tenantId)
+    .in('stage_id', stageIds)
+  if (cErr) throw cErr
+
+  // Etapas de "fluxo" = degraus reais do funil (na ordem). Desfechos ficam fora.
+  const flowStages = stageList.filter((s) => roleById.get(s.id) === 'flow')
+  const flowIndex  = new Map(flowStages.map((s, i) => [s.id, i]))
+  const atFlow     = new Array(flowStages.length).fill(0)
+
+  let won = 0, wonValue = 0, lost = 0, archived = 0, entered = 0
+
+  type CardRow = {
+    lead_id: string; stage_id: string
+    leads: { status: string; value: number | null } | { status: string; value: number | null }[] | null
+  }
+  for (const c of (cards ?? []) as CardRow[]) {
+    const role = roleById.get(c.stage_id)
+    if (!role) continue
+    const lead  = Array.isArray(c.leads) ? c.leads[0] : c.leads
+    const st    = lead?.status
+    const value = Number(lead?.value ?? 0)
+    entered++
+    // 1) Desfecho pelo STATUS do lead (fonte de verdade, sincronizado ao arrastar)
+    if (st === 'converted') { won++; wonValue += value; continue }
+    if (st === 'archived')  { archived++; continue }
+    if (st === 'lost')      { lost++; continue }
+    // 2) Lead ativo: usa o papel da etapa onde ele está
+    if (role === 'won')      { won++; wonValue += value; continue }
+    if (role === 'archived') { archived++; continue }
+    if (role === 'lost')     { lost++; continue }
+    const idx = flowIndex.get(c.stage_id)
+    if (idx != null) atFlow[idx]++
+  }
+
+  const active  = atFlow.reduce((a, b) => a + b, 0)
+  // reached[i] = ativos parados em i, i+1, ... + ganhos (ganhos passaram por tudo)
+  const reached = flowStages.map((_, i) => {
+    let sum = won
+    for (let j = i; j < atFlow.length; j++) sum += atFlow[j]
+    return sum
+  })
+  const top = reached[0] || 1
+
+  const stagesOut: PipelineFunnelStage[] = flowStages.map((s, i) => ({
+    id:        s.id,
+    name:      s.name,
+    color:     s.color || '#40a0ff',
+    atStage:   atFlow[i],
+    reached:   reached[i],
+    pctOfTop:  Math.round((reached[i] / top) * 100),
+    pctOfPrev: i === 0 ? 100 : (reached[i - 1] > 0 ? Math.round((reached[i] / reached[i - 1]) * 100) : 0),
+  }))
+
+  return {
+    stages: stagesOut, entered, active, won, wonValue, lost, archived,
+    convRate: entered > 0 ? Math.round((won / entered) * 100) : 0,
+  }
+}

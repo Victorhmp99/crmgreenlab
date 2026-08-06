@@ -1,21 +1,20 @@
-import { useState } from 'react'
-import { Users, Kanban, Megaphone, ArrowUpRight, Tag, Filter, BarChart3, Settings as SettingsIcon } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Users, Megaphone, ArrowUpRight, Tag, Filter, BarChart3, Settings as SettingsIcon } from 'lucide-react'
 import { Input } from '@/components/ui/Input'
+import { Select } from '@/components/ui/Select'
 import { Spinner } from '@/components/ui/Spinner'
 import { formatCurrency, formatCurrencyCompact } from '@/lib/utils'
-import { HorizontalFunnel } from '@/features/funnel/components/HorizontalFunnel'
 import { FunnelStepsManager } from '@/features/funnel/components/FunnelStepsManager'
 import { PipelineMapping } from '@/features/funnel/components/PipelineMapping'
+import { PipelineFunnel } from '../components/PipelineFunnel'
+import { usePipelines } from '@/features/pipeline/hooks/usePipelines'
 import {
   useSellerPerformance,
-  useFunnelBreakdown,
   useCampaignPerformance,
   useSourceBreakdown,
   usePipelineBreakdown,
+  usePipelineFunnel,
 } from '../hooks/useReports'
-import {
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell,
-} from 'recharts'
 
 // Cores por posição para origens
 const SOURCE_COLORS = ['#00e676', '#a78bfa', '#fbbf24', '#ec4899', '#40a0ff', '#555']
@@ -56,10 +55,17 @@ export function ReportsPage() {
   const [tab, setTab] = useState<ReportsTab>('overview')
 
   const { data: sellers   = [], isLoading: sellersLoading }   = useSellerPerformance(dateFrom, dateTo)
-  const { data: funnel    = [], isLoading: funnelLoading }    = useFunnelBreakdown()
   const { data: campaigns = [], isLoading: campaignsLoading } = useCampaignPerformance()
   const { data: sources   = [], isLoading: sourcesLoading }   = useSourceBreakdown()
   const { data: pipelines = [], isLoading: pipelinesLoading } = usePipelineBreakdown()
+
+  // Funil preciso por pipeline (etapas reais + etapa atual de cada lead)
+  const { data: pipelinesList = [] } = usePipelines()
+  const [funnelPipelineId, setFunnelPipelineId] = useState('')
+  useEffect(() => {
+    if (!funnelPipelineId && pipelinesList.length > 0) setFunnelPipelineId(pipelinesList[0].id)
+  }, [pipelinesList, funnelPipelineId])
+  const { data: funnelData, isLoading: funnelDataLoading } = usePipelineFunnel(funnelPipelineId || null)
 
   return (
     <div className="flex flex-col gap-6">
@@ -209,102 +215,66 @@ export function ReportsPage() {
         )}
       </DarkCard>
 
-      {/* Funil + Campanhas */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Funil */}
-        <DarkCard>
-          <SectionTitle icon={Kanban} title="Distribuição do Funil" />
-          {funnelLoading ? (
-            <div className="flex justify-center py-8"><Spinner /></div>
-          ) : funnel.length === 0 ? (
-            <p className="text-sm text-center py-6" style={{ color: '#444' }}>Pipeline vazio</p>
-          ) : (
-            <>
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={funnel} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#2a2a2a" vertical={false} />
-                  <XAxis dataKey="stageName" tick={{ fontSize: 11, fill: '#aaa' }}
-                    axisLine={false} tickLine={false}
-                    interval={0}
-                    tickFormatter={(v: string) => v.length > 12 ? v.slice(0, 10) + '…' : v} />
-                  <YAxis tick={{ fontSize: 11, fill: '#aaa' }} axisLine={false} tickLine={false} allowDecimals={false} />
-                  <Tooltip
-                    formatter={(v) => [`${v} leads`, '']}
-                    cursor={{ fill: 'rgba(255,255,255,0.04)' }}
-                    contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #2a2a2a', background: '#1a1a1a', color: '#e8e8e8' }}
-                    labelStyle={{ color: '#e8e8e8' }}
-                  />
-                  <Bar dataKey="count" radius={[6, 6, 0, 0]} maxBarSize={48}>
-                    {funnel.map((entry) => (
-                      <Cell key={entry.stageId} fill={entry.color} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-              <div className="flex flex-col gap-2 mt-3">
-                {funnel.map((s) => (
-                  <div key={s.stageId} className="flex items-center justify-between text-sm rounded-lg px-2 py-1.5"
-                    style={{ background: '#0f0f0f' }}>
-                    <div className="flex items-center gap-2" style={{ color: '#e8e8e8' }}>
-                      <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
-                      <span className="font-medium">{s.stageName}</span>
-                      <span className="font-bold tabular-nums px-2 py-0.5 rounded-full text-xs"
-                        style={{ background: `${s.color}22`, color: s.color }}>
-                        {s.count}
-                      </span>
-                    </div>
-                    {s.totalValue > 0 && (
-                      <span className="font-semibold tabular-nums text-xs"
-                        style={{ color: s.stageType === 'won' ? '#00e676' : s.stageType === 'lost' ? '#ff4444' : '#40a0ff' }}>
-                        {formatCurrencyCompact(s.totalValue)}
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-        </DarkCard>
-
-        {/* Campanhas */}
-        <DarkCard>
-          <SectionTitle icon={Megaphone} title="Performance por Campanha" />
-          {campaignsLoading ? (
-            <div className="flex justify-center py-8"><Spinner /></div>
-          ) : campaigns.length === 0 ? (
-            <p className="text-sm text-center py-6" style={{ color: '#444' }}>Nenhuma campanha registrada</p>
-          ) : (
-            <div className="flex flex-col gap-2 max-h-52 overflow-y-auto">
-              {campaigns.slice(0, 10).map((c, i) => (
-                <div key={c.campaign} className="flex items-center gap-3">
-                  <span className="text-xs w-4 tabular-nums" style={{ color: '#444' }}>{i + 1}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium truncate" style={{ color: '#e8e8e8' }}>{c.campaign}</p>
-                    <div className="h-1.5 w-full rounded-full mt-1" style={{ background: '#1a1a1a' }}>
-                      <div
-                        className="h-full rounded-full"
-                        style={{
-                          width: `${Math.max((c.leads / (campaigns[0]?.leads || 1)) * 100, 4)}%`,
-                          background: 'var(--tenant-primary)',
-                        }}
-                      />
-                    </div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-xs font-semibold tabular-nums" style={{ color: '#e8e8e8' }}>{c.leads}</p>
-                    <p className="text-[10px]" style={{ color: 'var(--tenant-primary)' }}>{c.convRate}% conv</p>
-                  </div>
-                </div>
-              ))}
+      {/* ── Funil da Pipeline (preciso — usa as etapas reais) ──────────────── */}
+      <DarkCard>
+        <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
+          <div className="flex items-center gap-2">
+            <Filter size={16} style={{ color: 'var(--tenant-primary)' }} />
+            <h3 className="text-sm font-semibold" style={{ color: '#e8e8e8' }}>Funil da Pipeline</h3>
+          </div>
+          {pipelinesList.length > 0 && (
+            <div className="w-56">
+              <Select
+                value={funnelPipelineId}
+                onChange={(e) => setFunnelPipelineId(e.target.value)}
+                options={pipelinesList.map((p) => ({ value: p.id, label: p.name }))}
+              />
             </div>
           )}
-        </DarkCard>
-      </div>
+        </div>
+        {funnelDataLoading ? (
+          <div className="flex justify-center py-8"><Spinner /></div>
+        ) : !funnelData || funnelData.entered === 0 ? (
+          <p className="text-sm text-center py-6" style={{ color: '#444' }}>
+            {pipelinesList.length === 0 ? 'Nenhuma pipeline criada ainda.' : 'Sem leads nesta pipeline ainda.'}
+          </p>
+        ) : (
+          <PipelineFunnel data={funnelData} />
+        )}
+      </DarkCard>
 
-      {/* ── Funil de Conversão (horizontal, configurável) ──────────────────── */}
+      {/* Campanhas */}
       <DarkCard>
-        <SectionTitle icon={Filter} title="Funil de Conversão" />
-        <HorizontalFunnel height={200} />
+        <SectionTitle icon={Megaphone} title="Performance por Campanha" />
+        {campaignsLoading ? (
+          <div className="flex justify-center py-8"><Spinner /></div>
+        ) : campaigns.length === 0 ? (
+          <p className="text-sm text-center py-6" style={{ color: '#444' }}>Nenhuma campanha registrada</p>
+        ) : (
+          <div className="flex flex-col gap-2 max-h-52 overflow-y-auto">
+            {campaigns.slice(0, 10).map((c, i) => (
+              <div key={c.campaign} className="flex items-center gap-3">
+                <span className="text-xs w-4 tabular-nums" style={{ color: '#444' }}>{i + 1}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium truncate" style={{ color: '#e8e8e8' }}>{c.campaign}</p>
+                  <div className="h-1.5 w-full rounded-full mt-1" style={{ background: '#1a1a1a' }}>
+                    <div
+                      className="h-full rounded-full"
+                      style={{
+                        width: `${Math.max((c.leads / (campaigns[0]?.leads || 1)) * 100, 4)}%`,
+                        background: 'var(--tenant-primary)',
+                      }}
+                    />
+                  </div>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-xs font-semibold tabular-nums" style={{ color: '#e8e8e8' }}>{c.leads}</p>
+                  <p className="text-[10px]" style={{ color: 'var(--tenant-primary)' }}>{c.convRate}% conv</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </DarkCard>
 
       {/* ── Performance por Pipeline (cada linha = 1 pipeline) ──────────── */}
