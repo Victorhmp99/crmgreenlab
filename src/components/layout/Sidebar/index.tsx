@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
-  LayoutDashboard, Users, Kanban, Zap, Target,
+  LayoutDashboard, Users, Kanban, History, Target,
   UserCog, LogOut, ChevronLeft, ChevronRight,
   DollarSign, BarChart2, Megaphone, Settings, Globe,
   Code2, ExternalLink, Sun, Moon, CheckSquare, MessageSquare, Radar, BookOpen, HelpCircle,
@@ -26,7 +26,7 @@ const NAV_ITEMS = [
   { to: '/dashboard',  label: 'Dashboard', icon: LayoutDashboard },
   { to: '/leads',      label: 'Leads',     icon: Users           },
   { to: '/pipeline',   label: 'Pipeline',  icon: Kanban          },
-  { to: '/activities', label: 'Disparos',  icon: Zap             },
+  { to: '/activities', label: 'Movimentações', icon: History      },
   { to: '/tasks',      label: 'Tarefas',   icon: CheckSquare     },
   { to: '/goals',      label: 'Metas',     icon: Target          },
 ]

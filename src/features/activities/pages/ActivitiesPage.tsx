@@ -73,7 +73,7 @@ export function ActivitiesPage() {
       {/* Cabeçalho */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-xl font-semibold" style={{ color: '#e8e8e8' }}>Disparos</h2>
+          <h2 className="text-xl font-semibold" style={{ color: '#e8e8e8' }}>Movimentações</h2>
           <div className="flex items-center gap-3 mt-1 flex-wrap">
             {stats ? (
               <>
@@ -96,7 +96,7 @@ export function ActivitiesPage() {
           {!selectionMode && (
             <Button onClick={() => setShowForm(true)}>
               <Zap size={15} />
-              Registrar Disparo
+              Registrar atividade
             </Button>
           )}
         </div>
@@ -106,7 +106,7 @@ export function ActivitiesPage() {
       {selectionMode && (
         <BulkActionBar
           count={selectedIds.size}
-          label="disparo"
+          label="movimentação"
           onCancel={exitSelection}
           onDelete={() => setConfirmBulk(true)}
           deleting={removeMany.isPending}
@@ -127,7 +127,7 @@ export function ActivitiesPage() {
             <div className="h-14 w-14 rounded-2xl flex items-center justify-center" style={{ background: '#1a1a1a' }}>
               <Zap size={26} style={{ color: '#333' }} />
             </div>
-            <p className="font-medium" style={{ color: '#666' }}>Nenhum disparo encontrado</p>
+            <p className="font-medium" style={{ color: '#666' }}>Nenhuma movimentação encontrada</p>
             <p className="text-sm" style={{ color: '#444' }}>Ajuste os filtros ou registre o primeiro contato</p>
           </div>
         ) : (
@@ -168,7 +168,7 @@ export function ActivitiesPage() {
               <div className="flex items-center justify-between px-5 py-3"
                 style={{ borderTop: '1px solid #1a1a1a' }}>
                 <span className="text-sm" style={{ color: '#555' }}>
-                  {data.count} disparo{data.count !== 1 ? 's' : ''}
+                  {data.count} movimentaç{data.count !== 1 ? 'ões' : 'ão'}
                 </span>
                 <div className="flex items-center gap-1">
                   <button onClick={() => handlePageChange(data.page - 1)} disabled={data.page <= 1}
@@ -206,10 +206,10 @@ export function ActivitiesPage() {
             style={{ background: '#141414', border: '1px solid #2a2a2a' }}>
             <div>
               <h3 className="text-lg font-semibold" style={{ color: '#ff4444' }}>
-                Excluir {selectedIds.size} disparo{selectedIds.size !== 1 ? 's' : ''}?
+                Excluir {selectedIds.size} movimentaç{selectedIds.size !== 1 ? 'ões' : 'ão'}?
               </h3>
               <p className="text-sm mt-1" style={{ color: '#888' }}>
-                Esta ação não pode ser desfeita. Os disparos serão excluídos permanentemente.
+                Esta ação não pode ser desfeita. As movimentações serão excluídas permanentemente.
               </p>
             </div>
             <div className="flex justify-end gap-2">

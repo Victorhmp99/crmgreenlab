@@ -13,8 +13,31 @@ function Stat({ label, value, sub, color }: {
   )
 }
 
+interface Bar {
+  name:      string
+  color:     string
+  reached:   number
+  pctOfTop:  number
+  pctOfPrev: number
+}
+
 export function PipelineFunnel({ data }: { data: PipelineFunnelData }) {
   const top = data.stages[0]?.reached || 1
+
+  // Monta as barras do funil: as etapas de fluxo + a etapa final "Convertido"
+  // (os ganhos), pra o funil terminar na conversão — igual "15 leads / 15% converteu".
+  const flowBars: Bar[] = data.stages.map((s) => ({
+    name: s.name, color: s.color, reached: s.reached, pctOfTop: s.pctOfTop, pctOfPrev: s.pctOfPrev,
+  }))
+  const lastReached = data.stages.length ? data.stages[data.stages.length - 1].reached : 0
+  const convertedBar: Bar = {
+    name: 'Convertido',
+    color: '#00e676',
+    reached: data.won,
+    pctOfTop:  Math.round((data.won / top) * 100),
+    pctOfPrev: lastReached > 0 ? Math.round((data.won / lastReached) * 100) : 0,
+  }
+  const bars: Bar[] = data.stages.length > 0 ? [...flowBars, convertedBar] : []
 
   return (
     <div className="flex flex-col gap-4">
@@ -22,43 +45,51 @@ export function PipelineFunnel({ data }: { data: PipelineFunnelData }) {
       <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
         <Stat label="Entraram"     value={data.entered} color="#e8e8e8" />
         <Stat label="Em andamento" value={data.active}  color="#40a0ff" />
-        <Stat label="Ganhos"       value={data.won}     sub={data.wonValue > 0 ? formatCurrencyCompact(data.wonValue) : undefined} color="#00e676" />
+        <Stat label="Convertidos"  value={data.won}     sub={data.wonValue > 0 ? formatCurrencyCompact(data.wonValue) : undefined} color="#00e676" />
         <Stat label="Perdidos"     value={data.lost}    color="#ff4444" />
         <Stat label="Conversão"    value={`${data.convRate}%`} color="#a78bfa" />
       </div>
 
-      {/* Funil — cada barra = etapa de andamento, largura ∝ leads que chegaram nela ou além */}
-      {data.stages.length === 0 ? (
+      {/* Funil visual — barras centralizadas que afunilam de cima pra baixo */}
+      {bars.length === 0 ? (
         <p className="text-sm text-center py-4" style={{ color: '#555' }}>
           Esta pipeline não tem etapas de andamento configuradas.
         </p>
       ) : (
-        <div className="flex flex-col gap-2">
-          {data.stages.map((s, i) => {
-            const w = Math.max((s.reached / top) * 100, 4)
+        <div className="flex flex-col gap-1 py-1">
+          {bars.map((b, i) => {
+            const w = Math.max(b.pctOfTop, 7)   // largura mínima pra caber o número
             return (
-              <div key={s.id} className="flex flex-col gap-0.5">
-                <div className="flex items-center gap-3">
-                  <div
-                    className="h-9 rounded-lg flex items-center px-3 transition-all overflow-hidden"
-                    style={{ width: `${w}%`, minWidth: 110, background: `${s.color}22`, border: `1px solid ${s.color}66` }}
-                  >
-                    <span className="text-xs font-medium truncate" style={{ color: '#e8e8e8' }}>{s.name}</span>
+              <div key={`${b.name}-${i}`} className="flex flex-col items-center gap-1">
+                {/* Conector: % que avançou da etapa anterior */}
+                {i > 0 && (
+                  <span className="text-[10px] tabular-nums"
+                    style={{ color: b.pctOfPrev < 40 ? '#ff6b6b' : '#666' }}>
+                    ↓ {b.pctOfPrev}% avançaram
+                  </span>
+                )}
+                {/* Linha: nome · barra centralizada · % do total */}
+                <div className="w-full flex items-center gap-2">
+                  <span className="text-xs text-right shrink-0 truncate" style={{ width: 104, color: '#aaa' }}>
+                    {b.name}
+                  </span>
+                  <div className="flex-1 flex justify-center">
+                    <div
+                      className="h-9 rounded-md flex items-center justify-center transition-all"
+                      style={{
+                        width: `${w}%`, minWidth: 44,
+                        background: `${b.color}2e`,
+                        border: `1px solid ${b.color}`,
+                      }}
+                    >
+                      <span className="text-sm font-bold tabular-nums" style={{ color: b.color }}>
+                        {b.reached}
+                      </span>
+                    </div>
                   </div>
-                  <div className="shrink-0 text-right" style={{ minWidth: 78 }}>
-                    <span className="text-sm font-bold tabular-nums" style={{ color: s.color }}>{s.reached}</span>
-                    <span className="text-[10px] ml-1" style={{ color: '#666' }}>{s.pctOfTop}%</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 pl-1 text-[10px]" style={{ color: '#555' }}>
-                  {i > 0 && (
-                    <span style={{ color: s.pctOfPrev < 40 ? '#ff6b6b' : '#666' }}>
-                      {s.pctOfPrev}% avançaram da etapa anterior
-                    </span>
-                  )}
-                  {s.atStage > 0 && (
-                    <span>· {s.atStage} parado{s.atStage !== 1 ? 's' : ''} nesta etapa</span>
-                  )}
+                  <span className="text-xs text-left shrink-0 tabular-nums" style={{ width: 52, color: '#777' }}>
+                    {b.pctOfTop}%
+                  </span>
                 </div>
               </div>
             )
@@ -73,10 +104,11 @@ export function PipelineFunnel({ data }: { data: PipelineFunnelData }) {
       )}
       <p className="text-[11px] leading-relaxed" style={{ color: '#555' }}>
         Cada barra = quantos leads <strong style={{ color: '#888' }}>já passaram</strong> por aquela etapa (não só os que
-        estão nela agora) — reconstruído pela jornada de cada lead: etapa atual + histórico de movimentação. Onde a barra
-        encolhe muito é onde você está perdendo. <strong style={{ color: '#888' }}>Observação:</strong> o histórico de
-        movimentação começou a ser gravado recentemente, então leads perdidos há mais tempo podem contar só na 1ª etapa;
-        a precisão aumenta conforme os leads vão sendo movimentados.
+        estão nela agora), reconstruído pela jornada de cada lead: etapa atual + histórico de movimentação. O
+        <strong style={{ color: '#888' }}> % do total</strong> (à direita) e o <strong style={{ color: '#888' }}>% que
+        avançaram</strong> (entre as barras) mostram onde você mais perde. <strong style={{ color: '#888' }}>Observação:</strong> o
+        histórico começou a ser gravado há pouco, então leads perdidos há mais tempo podem contar só na 1ª etapa; a
+        precisão aumenta conforme os leads vão sendo movimentados.
       </p>
     </div>
   )

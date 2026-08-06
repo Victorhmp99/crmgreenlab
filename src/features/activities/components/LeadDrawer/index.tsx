@@ -170,7 +170,7 @@ export function LeadDrawer({ lead, onClose, onEdit }: LeadDrawerProps) {
             <TabBtn active={tab === 'data'}         onClick={() => setTab('data')}
               icon={<FileText size={13} />}      label="Dados" />
             <TabBtn active={tab === 'activities'}   onClick={() => setTab('activities')}
-              icon={<ListChecks size={13} />}    label="Disparos" />
+              icon={<ListChecks size={13} />}    label="Movimentações" />
             <TabBtn active={tab === 'organization'} onClick={() => setTab('organization')}
               icon={<FolderTree size={13} />}    label="Organização" />
           </div>
@@ -347,7 +347,7 @@ export function LeadDrawer({ lead, onClose, onEdit }: LeadDrawerProps) {
                 <button onClick={() => setShowActivityForm(true)}
                   className="flex items-center gap-1.5 text-xs rounded-lg px-2.5 py-1.5 font-medium transition-colors"
                   style={{ background: 'var(--tenant-primary)', color: '#000' }}>
-                  <ListChecks size={12} /> Registrar Disparo
+                  <ListChecks size={12} /> Registrar atividade
                 </button>
               </div>
               <LeadTimeline leadId={lead.id} onRegister={() => setShowActivityForm(true)} />

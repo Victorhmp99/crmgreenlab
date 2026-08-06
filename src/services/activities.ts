@@ -174,20 +174,21 @@ export async function fetchActivityStats(tenantId: string): Promise<ActivityStat
   weekStart.setHours(0, 0, 0, 0)
   const monthStart  = new Date(now.getFullYear(), now.getMonth(), 1)
 
+  // Conta TODAS as movimentações do histórico (mudança de etapa, whatsapp,
+  // ligação, e-mail, anotação, reunião...). Antes excluía stage_change, o que
+  // deixava o contador em 0 para empresas cujo histórico é só movimentação
+  // de etapa (ex.: Green Hub).
   const [todayRes, weekRes, monthRes] = await Promise.all([
     supabase.from('lead_activities').select('*', { count: 'exact', head: true })
       .eq('tenant_id', tenantId)
-      .not('type', 'in', '("stage_change","import")')
       .gte('created_at', todayStart.toISOString()),
 
     supabase.from('lead_activities').select('*', { count: 'exact', head: true })
       .eq('tenant_id', tenantId)
-      .not('type', 'in', '("stage_change","import")')
       .gte('created_at', weekStart.toISOString()),
 
     supabase.from('lead_activities').select('*', { count: 'exact', head: true })
       .eq('tenant_id', tenantId)
-      .not('type', 'in', '("stage_change","import")')
       .gte('created_at', monthStart.toISOString()),
   ])
 
