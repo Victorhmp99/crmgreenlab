@@ -1,11 +1,9 @@
 import { useState, useEffect } from 'react'
-import { Users, Megaphone, ArrowUpRight, Tag, Filter, BarChart3, Settings as SettingsIcon } from 'lucide-react'
+import { Users, Megaphone, ArrowUpRight, Tag, Filter } from 'lucide-react'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Spinner } from '@/components/ui/Spinner'
 import { formatCurrency, formatCurrencyCompact } from '@/lib/utils'
-import { FunnelStepsManager } from '@/features/funnel/components/FunnelStepsManager'
-import { PipelineMapping } from '@/features/funnel/components/PipelineMapping'
 import { PipelineFunnel } from '../components/PipelineFunnel'
 import { usePipelines } from '@/features/pipeline/hooks/usePipelines'
 import {
@@ -45,14 +43,11 @@ function DarkCard({ children, className = '' }: { children: React.ReactNode; cla
   )
 }
 
-type ReportsTab = 'overview' | 'funnel-config'
-
 // ── Page ─────────────────────────────────────────────────────────────────────
 export function ReportsPage() {
   const { from, to } = currentMonthRange()
   const [dateFrom, setDateFrom] = useState(from)
   const [dateTo,   setDateTo]   = useState(to)
-  const [tab, setTab] = useState<ReportsTab>('overview')
 
   const { data: sellers   = [], isLoading: sellersLoading }   = useSellerPerformance(dateFrom, dateTo)
   const { data: campaigns = [], isLoading: campaignsLoading } = useCampaignPerformance()
@@ -76,51 +71,21 @@ export function ReportsPage() {
           <p className="text-sm mt-0.5" style={{ color: '#555' }}>Performance por vendedor e canal</p>
         </div>
 
-        {/* Filtro de período (só na aba Visão Geral) */}
-        {tab === 'overview' && (
-          <div className="flex items-end gap-2">
-            <div className="flex flex-col gap-1">
-              <label className="text-xs uppercase tracking-wide" style={{ color: '#666' }}>De</label>
-              <Input type="date" value={dateFrom} className="w-32"
-                onChange={(e) => setDateFrom(e.target.value)} />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs uppercase tracking-wide" style={{ color: '#666' }}>Até</label>
-              <Input type="date" value={dateTo} className="w-32"
-                onChange={(e) => setDateTo(e.target.value)} />
-            </div>
+        <div className="flex items-end gap-2">
+          <div className="flex flex-col gap-1">
+            <label className="text-xs uppercase tracking-wide" style={{ color: '#666' }}>De</label>
+            <Input type="date" value={dateFrom} className="w-32"
+              onChange={(e) => setDateFrom(e.target.value)} />
           </div>
-        )}
+          <div className="flex flex-col gap-1">
+            <label className="text-xs uppercase tracking-wide" style={{ color: '#666' }}>Até</label>
+            <Input type="date" value={dateTo} className="w-32"
+              onChange={(e) => setDateTo(e.target.value)} />
+          </div>
+        </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex items-center gap-1 rounded-xl p-1 self-start"
-        style={{ background: 'var(--bg-surface2)', border: '1px solid var(--border-dim)' }}>
-        {([
-          { id: 'overview',     label: 'Visão Geral',          icon: BarChart3 },
-          { id: 'funnel-config',label: 'Configuração do Funil',icon: SettingsIcon },
-        ] as const).map(({ id, label, icon: Icon }) => (
-          <button key={id} onClick={() => setTab(id)}
-            className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-all"
-            style={
-              tab === id
-                ? { background: 'var(--bg-surface)', color: 'var(--text)', border: '1px solid var(--border)' }
-                : { color: 'var(--text-dim)' }
-            }>
-            <Icon size={13} />
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {tab === 'funnel-config' && (
-        <>
-          <FunnelStepsManager />
-          <PipelineMapping />
-        </>
-      )}
-
-      {tab === 'overview' && (<>
+      {(<>
 
       {/* Performance por vendedor */}
       <DarkCard>
@@ -277,7 +242,7 @@ export function ReportsPage() {
         )}
       </DarkCard>
 
-      {/* ── Performance por Pipeline (cada linha = 1 pipeline) ──────────── */}
+      {/* ── Performance por Pipeline — resumo de cada pipeline ───────────── */}
       <DarkCard>
         <SectionTitle icon={Tag} title="Performance por Pipeline" />
         {pipelinesLoading ? (
@@ -287,54 +252,14 @@ export function ReportsPage() {
             Nenhuma pipeline criada ainda.
           </p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr style={{ borderBottom: '1px solid #2a2a2a' }}>
-                  {['Pipeline', 'Leads', 'Contato', 'Reunião', 'Negociação', 'Fechado', 'Tx Marcação', 'Tx Comparec.', 'Tx Conv.'].map((h, i) => (
-                    <th key={h} className={`pb-2 px-2 text-xs font-medium uppercase tracking-wide ${i > 0 ? 'text-right' : 'text-left'}`}
-                      style={{ color: '#888' }}>
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {pipelines.map((p) => (
-                  <tr key={p.pipelineId} style={{ borderBottom: '1px solid #1a1a1a' }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = '#191919')}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
-                    <td className="py-3 px-2">
-                      <div className="flex items-center gap-2">
-                        <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: p.color }} />
-                        <span className="font-medium" style={{ color: '#e8e8e8' }}>{p.pipelineName}</span>
-                      </div>
-                    </td>
-                    <td className="py-3 px-2 text-right tabular-nums font-semibold" style={{ color: '#e8e8e8' }}>{p.leads}</td>
-                    <td className="py-3 px-2 text-right tabular-nums" style={{ color: '#a78bfa' }}>{p.contatosFeitos}</td>
-                    <td className="py-3 px-2 text-right tabular-nums" style={{ color: '#40a0ff' }}>{p.reunioes}</td>
-                    <td className="py-3 px-2 text-right tabular-nums" style={{ color: '#fbbf24' }}>{p.negociacao}</td>
-                    <td className="py-3 px-2 text-right tabular-nums" style={{ color: '#00e676' }}>{p.conversions}</td>
-                    <td className="py-3 px-2 text-right">
-                      <RatePill value={p.txMarcacaoReuniao} />
-                    </td>
-                    <td className="py-3 px-2 text-right">
-                      <RatePill value={p.txComparecimento} />
-                    </td>
-                    <td className="py-3 px-2 text-right">
-                      <RatePill value={p.txConversao} highlight />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <div className="text-[11px] mt-3 leading-relaxed" style={{ color: '#666' }}>
-              <strong style={{ color: '#aaa' }}>Como as taxas são calculadas:</strong><br />
-              <strong style={{ color: '#40a0ff' }}>Tx Marcação</strong> = Reunião / Contato (% de quem foi contatado e marcou reunião)<br />
-              <strong style={{ color: '#fbbf24' }}>Tx Comparecimento</strong> = Negociação / Reunião (% de quem marcou e foi pra negociação)<br />
-              <strong style={{ color: '#00e676' }}>Tx Conv.</strong> = Fechado / Negociação (% de quem negociou e fechou)<br />
-              <em>Cada fase usa os passos do funil em <a href="#/reports" style={{ color: 'var(--tenant-primary)' }}>Configuração do Funil</a> — você define quais disparos e etapas contam em cada coluna.</em>
-            </div>
+          <div className="flex flex-col gap-4">
+            {pipelines.map((p) => (
+              <PipelineBreakdownRow key={p.pipelineId} pipeline={p} />
+            ))}
+            <p className="text-[11px] leading-relaxed" style={{ color: '#666' }}>
+              <em>Cada pipeline mostra suas próprias etapas — quantos leads já passaram por cada uma
+              (não só os que estão nela agora). Onde a barra encolhe muito é onde o comercial mais perde.</em>
+            </p>
           </div>
         )}
       </DarkCard>
@@ -369,17 +294,77 @@ export function ReportsPage() {
   )
 }
 
-// Pill colorida pra taxa percentual — verde (≥30), amarelo (≥15), cinza (resto)
-function RatePill({ value, highlight = false }: { value: number; highlight?: boolean }) {
-  const style =
-    value >= 50 ? { background: 'rgba(0,230,118,0.18)', color: '#00e676' } :
-    value >= 25 ? { background: 'rgba(251,191,36,0.18)', color: '#fbbf24' } :
-    value >  0  ? { background: 'rgba(255,255,255,0.05)', color: '#aaa' } :
-                  { background: 'rgba(255,255,255,0.03)', color: '#555' }
+// ── Linha "Performance por Pipeline" ──────────────────────────────────────────
+// Mostra as ETAPAS REAIS da pipeline como mini-funil (leads que já passaram por
+// cada uma, com % do topo e % que avançou da anterior). Sem depender de nenhuma
+// configuração de "passos do funil".
+function PipelineBreakdownRow({ pipeline }: {
+  pipeline: {
+    pipelineId: string; pipelineName: string; color: string
+    leads: number; conversions: number; declined: number; convRate: number
+    stages: Array<{ name: string; reached: number; pctOfTop: number; pctOfPrev: number }>
+  }
+}) {
   return (
-    <span className="text-xs font-semibold px-2 py-0.5 rounded-full tabular-nums inline-block"
-      style={{ ...style, ...(highlight && value >= 50 ? { boxShadow: '0 0 8px rgba(0,230,118,0.25)' } : {}) }}>
-      {value}%
-    </span>
+    <div className="rounded-lg p-3" style={{ background: '#0f0f0f', border: '1px solid #1a1a1a' }}>
+      {/* Cabeçalho da pipeline */}
+      <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: pipeline.color }} />
+          <span className="text-sm font-semibold truncate" style={{ color: '#e8e8e8' }}>{pipeline.pipelineName}</span>
+        </div>
+        <div className="flex items-center gap-3 text-xs shrink-0">
+          <span style={{ color: '#888' }}>
+            <strong style={{ color: '#e8e8e8' }}>{pipeline.leads}</strong> leads
+          </span>
+          <span style={{ color: '#888' }}>
+            <strong style={{ color: '#00e676' }}>{pipeline.conversions}</strong> convertidos
+          </span>
+          {pipeline.declined > 0 && (
+            <span style={{ color: '#888' }}>
+              <strong style={{ color: '#ff5555' }}>{pipeline.declined}</strong> perdidos
+            </span>
+          )}
+          <span className="rounded-full px-2 py-0.5 font-semibold tabular-nums"
+            style={{ background: 'rgba(167,139,250,0.15)', color: '#a78bfa' }}>
+            {pipeline.convRate}% conv
+          </span>
+        </div>
+      </div>
+
+      {/* Mini-funil das etapas reais */}
+      {pipeline.stages.length === 0 || pipeline.leads === 0 ? (
+        <p className="text-xs py-1" style={{ color: '#555' }}>Sem leads nesta pipeline ainda.</p>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1.5">
+          {pipeline.stages.map((s, i) => {
+            const w = Math.max(s.pctOfTop, 6)
+            return (
+              <div key={i} className="flex items-center gap-2">
+                <span className="text-[11px] shrink-0 truncate" style={{ width: 96, color: '#aaa' }}>{s.name}</span>
+                <div className="flex-1 h-4 rounded-sm relative overflow-hidden" style={{ background: '#151515' }}>
+                  <div className="h-full rounded-sm transition-all"
+                    style={{ width: `${w}%`, background: `${pipeline.color}55`, borderRight: `1px solid ${pipeline.color}` }} />
+                </div>
+                <span className="text-[11px] shrink-0 tabular-nums text-right" style={{ width: 40, color: '#e8e8e8' }}>
+                  {s.reached}
+                </span>
+                <span className="text-[10px] shrink-0 tabular-nums text-right" style={{ width: 36, color: '#666' }}>
+                  {s.pctOfTop}%
+                </span>
+                {i > 0 && (
+                  <span className="text-[10px] shrink-0 tabular-nums text-right"
+                    style={{ width: 44, color: s.pctOfPrev < 40 ? '#ff6b6b' : '#666' }}
+                    title="% que avançou da etapa anterior">
+                    ↓{s.pctOfPrev}%
+                  </span>
+                )}
+                {i === 0 && <span className="shrink-0" style={{ width: 44 }} />}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
   )
 }

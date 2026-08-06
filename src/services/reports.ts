@@ -55,23 +55,26 @@ export interface ChannelBreakdown {
   convRate:     number    // % conversões / leads
 }
 
-// Performance agrupada por PIPELINE (cada linha = 1 pipeline do tenant)
-// Cada coluna representa uma fase do FUNIL (configurada via funnel_steps).
-// As taxas são calculadas entre fases adjacentes.
+// Performance agrupada por PIPELINE (cada linha = 1 pipeline do tenant).
+// Cada pipeline mostra suas PRÓPRIAS etapas (não passos genéricos configurados)
+// — usa o mesmo cálculo preciso do funil (etapas reais + jornada). Assim
+// funciona pra qualquer empresa sem depender de "passos do funil" configurados.
 export interface PipelineBreakdown {
   pipelineId:    string
   pipelineName:  string
   color:         string
-  leads:         number  // total de cards na pipeline
-  contatosFeitos: number // leads que passaram por "Contato feito"
-  reunioes:      number  // leads que passaram por "Reunião agendada"
-  negociacao:    number  // leads que passaram por "Em negociação"
-  conversions:   number  // leads em estado "Fechado" (status=converted)
-  declined:      number  // leads com status='lost'
-  // Taxas entre fases (% de avanço de uma pra próxima)
-  txMarcacaoReuniao:   number  // (reunioes / contatos)  · marcação
-  txComparecimento:    number  // (negociacao / reunioes) · comparecimento
-  txConversao:         number  // (conversions / negociacao) · conversão
+  leads:         number             // total de leads que passaram pela pipeline
+  conversions:   number             // convertidos (status='converted' ou etapa won)
+  declined:      number             // perdidos
+  convRate:      number             // conversions / leads
+  // Etapas reais da pipeline (na ordem), cada uma com quantos JÁ passaram e
+  // as % em relação ao topo e à etapa anterior.
+  stages:        Array<{
+    name:      string
+    reached:   number    // leads que já passaram por esta etapa (ou além)
+    pctOfTop:  number    // % do total que entrou
+    pctOfPrev: number    // % que avançou da etapa anterior
+  }>
 }
 
 export interface ConversionFunnelMetrics {
@@ -394,66 +397,38 @@ async function fetchLeadCategorization(tenantId: string): Promise<{
 // Lead conta uma vez por pipeline em que tem card. Mesmo lead em 2 pipelines
 // conta nas duas (por isso somar todas != total do funil).
 export async function fetchPipelineBreakdown(tenantId: string): Promise<PipelineBreakdown[]> {
-  const { byLead, pipelines } = await fetchLeadCategorization(tenantId)
+  // Lista todas as pipelines do tenant
+  const { data: pipelines, error: pErr } = await supabase
+    .from('pipelines')
+    .select('id, name, color, position')
+    .eq('tenant_id', tenantId)
+    .order('position')
+  if (pErr) throw pErr
 
-  // Inicializa buckets por pipeline
-  type Bucket = {
-    leadSet:    Set<string>
-    contatos:   Set<string>
-    reunioes:   Set<string>
-    negociacao: Set<string>
-    fechado:    Set<string>
-    lost:       Set<string>
-  }
-  const buckets = new Map<string, Bucket>()
-  for (const p of pipelines) {
-    buckets.set(p.id, {
-      leadSet: new Set(), contatos: new Set(), reunioes: new Set(),
-      negociacao: new Set(), fechado: new Set(), lost: new Set(),
-    })
-  }
-
-  // Distribui cada lead em CADA pipeline em que ele tem card.
-  // Categorias independentes (não cumulativo).
-  for (const [leadId, data] of byLead) {
-    for (const pipelineId of data.pipelines) {
-      const bucket = buckets.get(pipelineId)
-      if (!bucket) continue
-      bucket.leadSet.add(leadId)
-      if (data.cats.has('contato'))    bucket.contatos.add(leadId)
-      if (data.cats.has('reuniao'))    bucket.reunioes.add(leadId)
-      if (data.cats.has('negociacao')) bucket.negociacao.add(leadId)
-      if (data.cats.has('fechado'))    bucket.fechado.add(leadId)
-      if (data.cats.has('lost'))       bucket.lost.add(leadId)
-    }
-  }
-
-  return pipelines.map((p) => {
-    const b = buckets.get(p.id)
-    const leads      = b?.leadSet.size    ?? 0
-    const contatos   = b?.contatos.size   ?? 0
-    const reunioes   = b?.reunioes.size   ?? 0
-    const negociacao = b?.negociacao.size ?? 0
-    const won        = b?.fechado.size    ?? 0
-    const lost       = b?.lost.size       ?? 0
-    const txMarcacaoReuniao = contatos   > 0 ? Math.round((reunioes   / contatos)   * 100) : 0
-    const txComparecimento  = reunioes   > 0 ? Math.round((negociacao / reunioes)   * 100) : 0
-    const txConversao       = negociacao > 0 ? Math.round((won        / negociacao) * 100) : 0
-    return {
-      pipelineId:        p.id,
-      pipelineName:      p.name,
-      color:             p.color,
-      leads,
-      contatosFeitos:    contatos,
-      reunioes,
-      negociacao,
-      conversions:       won,
-      declined:          lost,
-      txMarcacaoReuniao,
-      txComparecimento,
-      txConversao,
-    }
-  })
+  // Roda o cálculo preciso do funil pra cada pipeline em paralelo (reusa a
+  // mesma lógica já validada — etapas reais + jornada, sem depender de
+  // "passos do funil" configurados).
+  const results = await Promise.all(
+    (pipelines ?? []).map(async (p) => {
+      const funnel = await fetchPipelineFunnel(tenantId, p.id)
+      return {
+        pipelineId:   p.id,
+        pipelineName: p.name,
+        color:        p.color,
+        leads:        funnel.entered,
+        conversions:  funnel.won,
+        declined:     funnel.lost,
+        convRate:     funnel.convRate,
+        stages:       funnel.stages.map((s) => ({
+          name:      s.name,
+          reached:   s.reached,
+          pctOfTop:  s.pctOfTop,
+          pctOfPrev: s.pctOfPrev,
+        })),
+      }
+    }),
+  )
+  return results
 }
 
 // ── Totais GLOBAIS — soma de todas as pipelines, sem duplicar lead ──────────
