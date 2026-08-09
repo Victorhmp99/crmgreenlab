@@ -1,7 +1,7 @@
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Phone, X, GripVertical, DollarSign, Building2 } from 'lucide-react'
-import { formatPhone, formatCurrency } from '@/lib/utils'
+import { Phone, X, GripVertical, DollarSign, Building2, CalendarPlus, RefreshCw } from 'lucide-react'
+import { formatPhone, formatCurrency, formatDateTimeShort } from '@/lib/utils'
 import { LeadSourceBadge } from '@/features/leads/components/LeadSourceBadge'
 import { useTagDefinitions } from '@/features/leads/hooks/useLeadTags'
 import type { KanbanCardData } from '@/services/pipeline'
@@ -112,6 +112,17 @@ export function KanbanCard({ data, onRemove, onSelect, isDraggingOverlay = false
             }>
             {days === 0 ? 'hoje' : `${days}d`}
           </span>
+        </div>
+
+        <div className="flex flex-col gap-0.5 mt-2 text-[10px] tabular-nums" style={{ color: '#444' }}>
+          <div className="flex items-center gap-1">
+            <CalendarPlus size={10} className="shrink-0" />
+            <span>{formatDateTimeShort(lead.created_at)}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <RefreshCw size={10} className="shrink-0" />
+            <span>{formatDateTimeShort(card.moved_at)}</span>
+          </div>
         </div>
 
         {(lead.tags ?? []).length > 0 && (

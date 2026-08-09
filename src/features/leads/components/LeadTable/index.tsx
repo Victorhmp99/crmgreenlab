@@ -2,7 +2,7 @@ import { Pencil, Trash2, ChevronLeft, ChevronRight, UserX, CheckSquare, Square }
 import { LeadStatusBadge } from '../LeadStatusBadge'
 import { LeadSourceBadge } from '../LeadSourceBadge'
 import { Spinner } from '@/components/ui/Spinner'
-import { formatDate, formatPhone, formatCurrency } from '@/lib/utils'
+import { formatDateTime, formatPhone, formatCurrency } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 import type { Lead } from '@/types'
 import type { PaginatedLeads } from '@/services/leads'
@@ -109,7 +109,7 @@ export function LeadTable({
                   </button>
                 </th>
               )}
-              {['Nome', 'Telefone', 'E-mail', 'Valor', 'Status', 'Origem', 'Cadastro', 'Ações'].map((h, i) => (
+              {['Nome', 'Telefone', 'E-mail', 'Valor', 'Status', 'Origem', 'Datas', 'Ações'].map((h, i) => (
                 <th key={h}
                   className={`px-4 py-3 text-xs font-medium uppercase tracking-wide ${i === 7 ? 'text-right' : 'text-left'}`}
                   style={{ color: '#444' }}>
@@ -201,8 +201,13 @@ export function LeadTable({
                       </p>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-xs whitespace-nowrap" style={{ color: '#666' }}>
-                    {formatDate(lead.created_at)}
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <p className="text-[11px] tabular-nums" style={{ color: '#777' }}>
+                      {formatDateTime(lead.created_at)}
+                    </p>
+                    <p className="text-[10px] tabular-nums mt-0.5" style={{ color: '#555' }}>
+                      Atualiz. {formatDateTime(lead.updated_at)}
+                    </p>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1">

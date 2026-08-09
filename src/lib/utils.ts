@@ -13,14 +13,36 @@ export function formatDate(date: string | Date): string {
   }).format(new Date(date))
 }
 
+export function formatDateTime(date: string | Date): string {
+  return new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(date))
+}
+
+export function formatDateTimeShort(date: string | Date): string {
+  const d = new Date(date)
+  const now = new Date()
+  const sameYear = d.getFullYear() === now.getFullYear()
+  return new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    ...(sameYear ? {} : { year: '2-digit' }),
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(d)
+}
+
 export function formatPhone(phone: string): string {
-  const digits = phone.replace(/\D/g, '')
-  if (digits.length === 11) {
-    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`
-  }
-  if (digits.length === 10) {
-    return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`
-  }
+  let digits = phone.replace(/\D/g, '')
+  if (digits.startsWith('55') && digits.length >= 12) digits = digits.slice(2)
+  if (digits.length === 11) return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`
+  if (digits.length === 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`
+  if (digits.length === 9)  return `${digits.slice(0, 5)}-${digits.slice(5)}`
+  if (digits.length === 8)  return `${digits.slice(0, 4)}-${digits.slice(4)}`
   return phone
 }
 

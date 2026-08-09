@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { ArrowRight } from 'lucide-react'
 import { LeadStatusBadge } from '@/features/leads/components/LeadStatusBadge'
 import { LeadSourceBadge } from '@/features/leads/components/LeadSourceBadge'
-import { formatDate, formatPhone } from '@/lib/utils'
+import { formatDateTime, formatPhone } from '@/lib/utils'
 import type { Lead } from '@/types'
 
 interface RecentLeadsTableProps {
@@ -83,8 +83,8 @@ export function RecentLeadsTable({ leads, isLoading }: RecentLeadsTableProps) {
                   <td className="px-4 py-3">
                     <LeadSourceBadge source={lead.source} />
                   </td>
-                  <td className="px-4 py-3 text-xs whitespace-nowrap" style={{ color: '#666' }}>
-                    {formatDate(lead.created_at)}
+                  <td className="px-4 py-3 text-[11px] whitespace-nowrap tabular-nums" style={{ color: '#666' }}>
+                    {formatDateTime(lead.created_at)}
                   </td>
                 </tr>
               ))
