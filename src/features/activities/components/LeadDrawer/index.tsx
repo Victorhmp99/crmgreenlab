@@ -14,7 +14,7 @@ import { LeadTimeline } from '../LeadTimeline'
 import { LeadComments } from '../LeadComments'
 import { ActivityForm } from '../ActivityForm'
 import { TaskList } from '@/features/tasks/components/TaskList'
-import { formatPhone, formatCurrency } from '@/lib/utils'
+import { formatPhone, formatCurrency, formatDateTime } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
 import { fetchLeadFields } from '@/services/leadFieldDefinitions'
@@ -163,6 +163,20 @@ export function LeadDrawer({ lead, onClose, onEdit }: LeadDrawerProps) {
           </div>
         </div>
 
+        {/* Datas — cadastro + última atualização */}
+        <div className="flex items-center gap-4 px-5 py-2 shrink-0 tabular-nums"
+          style={{ borderBottom: '1px solid #1a1a1a', background: '#111' }}>
+          <div className="flex items-center gap-1.5 text-[11px]">
+            <Calendar size={11} style={{ color: '#555' }} />
+            <span style={{ color: '#555' }}>Cadastro:</span>
+            <span style={{ color: '#888' }}>{formatDateTime(lead.created_at)}</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-[11px]">
+            <span style={{ color: '#555' }}>Atualiz.:</span>
+            <span style={{ color: '#888' }}>{formatDateTime(lead.updated_at)}</span>
+          </div>
+        </div>
+
         {/* Tabs */}
         <div className="px-5 pt-3 pb-2 shrink-0" style={{ borderBottom: '1px solid #1a1a1a' }}>
           <div className="flex items-center gap-1 rounded-xl p-1"
@@ -244,7 +258,7 @@ export function LeadDrawer({ lead, onClose, onEdit }: LeadDrawerProps) {
                 </Field>
 
                 <Field icon={<Calendar size={13} />} label="Criado em">
-                  <span className="text-xs" style={{ color: '#aaa' }}>{formatDate(lead.created_at)}</span>
+                  <span className="text-xs tabular-nums" style={{ color: '#aaa' }}>{formatDateTime(lead.created_at)}</span>
                 </Field>
               </div>
 
@@ -458,11 +472,6 @@ function TabBtn({ active, onClick, icon, label }: {
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
-
-function formatDate(iso: string): string {
-  if (!iso) return ''
-  return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
-}
 
 function formatCustomValue(value: unknown, def: LeadFieldDefinition): string {
   if (value == null || value === '') return '—'
