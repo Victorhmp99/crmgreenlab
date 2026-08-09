@@ -15,8 +15,11 @@ interface KanbanCardProps {
 }
 
 function daysAgo(dateStr: string): number {
-  const diff = Date.now() - new Date(dateStr).getTime()
-  return Math.floor(diff / (1000 * 60 * 60 * 24))
+  const d = new Date(dateStr)
+  const now = new Date()
+  const dDay = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+  const nDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  return Math.round((nDay.getTime() - dDay.getTime()) / 86_400_000)
 }
 
 export function KanbanCard({ data, onRemove, onSelect, isDraggingOverlay = false }: KanbanCardProps) {
