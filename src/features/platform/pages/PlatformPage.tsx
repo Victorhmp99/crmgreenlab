@@ -116,7 +116,10 @@ function StatusBadge({ status }: { status: string }) {
 
 // ── Modal de Convite da Plataforma ────────────────────────────────────────────
 
-function PlatformInviteModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+function PlatformInviteModal({ open, onClose, presetTenantId, presetTenantName }: {
+  open: boolean; onClose: () => void
+  presetTenantId?: string; presetTenantName?: string
+}) {
   const currentUser = useAuthStore((s) => s.user)
   const [email, setEmail]         = useState('')
   const [tenantId, setTenantId]   = useState('')
@@ -126,18 +129,21 @@ function PlatformInviteModal({ open, onClose }: { open: boolean; onClose: () => 
   const [copied, setCopied]       = useState(false)
   const [err, setErr]             = useState<string | null>(null)
 
+  const hasPreset = !!presetTenantId
+  const effectiveTenantId = hasPreset ? presetTenantId : tenantId
+
   const { data: tenants = [] } = useQuery({
     queryKey: ['all-tenants'],
     queryFn:  fetchAllTenants,
-    enabled:  open,
+    enabled:  open && !hasPreset,
   })
 
   async function handleSend() {
-    if (!email || !tenantId || !currentUser?.id) return
+    if (!email || !effectiveTenantId || !currentUser?.id) return
     setSending(true)
     setErr(null)
     try {
-      const inv = await createInvite(tenantId, email, role, currentUser.id)
+      const inv = await createInvite(effectiveTenantId!, email, role, currentUser.id)
       const url = `${window.location.origin}${window.location.pathname}#/convite/${inv.token}`
       setInviteUrl(url)
     } catch (e) {
@@ -171,7 +177,7 @@ function PlatformInviteModal({ open, onClose }: { open: boolean; onClose: () => 
           <>
             <Button variant="ghost" onClick={handleClose} disabled={sending}>Cancelar</Button>
             <Button onClick={handleSend} loading={sending}
-              disabled={!email || !tenantId}>
+              disabled={!email || !effectiveTenantId}>
               Gerar link
             </Button>
           </>
@@ -224,15 +230,25 @@ function PlatformInviteModal({ open, onClose }: { open: boolean; onClose: () => 
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
-          <Select
-            label="Empresa (tenant)"
-            value={tenantId}
-            onChange={(e) => setTenantId(e.target.value)}
-            options={[
-              { value: '', label: 'Selecione a empresa...' },
-              ...tenants.map((t) => ({ value: t.id, label: t.name })),
-            ]}
-          />
+          {hasPreset ? (
+            <div>
+              <label className="text-xs font-medium mb-1 block" style={{ color: '#888' }}>Empresa</label>
+              <div className="h-10 rounded-lg px-3 flex items-center text-sm"
+                style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', color: '#e8e8e8' }}>
+                {presetTenantName}
+              </div>
+            </div>
+          ) : (
+            <Select
+              label="Empresa (tenant)"
+              value={tenantId}
+              onChange={(e) => setTenantId(e.target.value)}
+              options={[
+                { value: '', label: 'Selecione a empresa...' },
+                ...tenants.map((t) => ({ value: t.id, label: t.name })),
+              ]}
+            />
+          )}
           <Select
             label="Nível de acesso"
             value={role}
@@ -996,6 +1012,7 @@ function TenantsTab() {
   const currentTenantId = useAuthStore((s) => s.tenant?.id)
   const [editing,  setEditing]  = useState<TenantStat | null>(null)
   const [deleting, setDeleting] = useState<TenantStat | null>(null)
+  const [inviting, setInviting] = useState<TenantStat | null>(null)
   const [confirmName, setConfirmName] = useState('')
   const [deleteErr,   setDeleteErr]   = useState<string | null>(null)
 
@@ -1108,6 +1125,15 @@ function TenantsTab() {
 
                 <td className="px-4 py-3">
                   <div className="flex items-center justify-center gap-1">
+                    {/* Convidar pessoa para a empresa */}
+                    <ActionBtn
+                      title="Convidar pessoa"
+                      color="#00e676"
+                      hoverBg="rgba(0,230,118,0.08)"
+                      icon={<UserPlus size={13} />}
+                      disabled={false}
+                      onClick={() => setInviting(t)}
+                    />
                     {/* Editar — sempre disponível */}
                     <ActionBtn
                       title="Editar empresa"
@@ -1149,6 +1175,14 @@ function TenantsTab() {
 
       {/* Modal editar */}
       <EditTenantModal tenant={editing} onClose={() => setEditing(null)} />
+
+      {/* Modal convidar pessoa */}
+      <PlatformInviteModal
+        open={!!inviting}
+        onClose={() => setInviting(null)}
+        presetTenantId={inviting?.tenant_id}
+        presetTenantName={inviting?.tenant_name}
+      />
 
       {/* Modal confirmar exclusão */}
       <Modal
