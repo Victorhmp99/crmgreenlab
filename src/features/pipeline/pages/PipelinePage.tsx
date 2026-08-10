@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { ArrowLeft, Settings, RefreshCw, Pencil } from 'lucide-react'
+import { ArrowLeft, Settings, RefreshCw, Pencil, Search } from 'lucide-react'
 import { KanbanBoard } from '../components/KanbanBoard'
 import { PipelineGrid } from '../components/PipelineGrid'
 import { PipelineToolsPanel } from '../components/PipelineToolsPanel'
@@ -7,6 +7,7 @@ import { PipelineCreationWizard } from '../components/PipelineCreationWizard'
 import { DeletePipelineModal } from '../components/DeletePipelineModal'
 import { PipelineAutomationsModal } from '../components/PipelineAutomationsModal'
 import { QuickAddLeadModal } from '../components/QuickAddLeadModal'
+import { PipelineSearchPopover } from '../components/PipelineSearchPopover'
 import { LeadDrawer } from '@/features/activities/components/LeadDrawer'
 import { LeadForm } from '@/features/leads/components/LeadForm'
 import { ImportModal } from '@/features/leads/components/ImportModal'
@@ -75,6 +76,7 @@ export function PipelinePage() {
   const [confirmRemove,   setConfirmRemove]   = useState<{ cardId: string; leadName: string } | null>(null)
   const [removeError,     setRemoveError]     = useState<string | null>(null)
   const [refreshing,      setRefreshing]      = useState(false)
+  const [showSearch,      setShowSearch]      = useState(false)
 
   // ── Dados ─────────────────────────────────────────────────────────────────
   const { data: pipelines = [],  isLoading: pipelinesLoading } = usePipelines()
@@ -226,6 +228,41 @@ export function PipelinePage() {
 
         {/* Direita: ações */}
         <div className="flex items-center gap-2 shrink-0">
+          {/* 🔍 Buscar lead */}
+          <div className="relative">
+            <button
+              onClick={() => setShowSearch((s) => !s)}
+              className="flex items-center gap-1.5 h-9 px-3 rounded-lg text-sm font-medium transition-all"
+              style={{
+                border: `1px solid ${showSearch ? '#3a3a3a' : '#2a2a2a'}`,
+                color: showSearch ? '#e8e8e8' : '#888',
+                background: showSearch ? '#1a1a1a' : 'transparent',
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.background = '#1a1a1a'
+                ;(e.currentTarget as HTMLButtonElement).style.color = '#e8e8e8'
+              }}
+              onMouseLeave={(e) => {
+                if (showSearch) return
+                ;(e.currentTarget as HTMLButtonElement).style.background = 'transparent'
+                ;(e.currentTarget as HTMLButtonElement).style.color = '#888'
+              }}
+              title="Buscar lead nas pipelines">
+              <Search size={14} />
+              Buscar
+            </button>
+            <PipelineSearchPopover
+              open={showSearch}
+              onClose={() => setShowSearch(false)}
+              currentPipelineId={selectedPipelineId}
+              allCards={allCards}
+              allStages={allStages}
+              pipelines={pipelines}
+              onOpenLead={(lead) => setSelectedLead(lead)}
+              onGoToPipeline={(id) => { setSelectedPipelineId(id); setView('board') }}
+            />
+          </div>
+
           {/* ✏️ Editar Pipeline */}
           <button
             onClick={() => setShowEditWizard(true)}
