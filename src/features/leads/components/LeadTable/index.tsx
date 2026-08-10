@@ -193,14 +193,14 @@ export function LeadTable({
                   <td className="px-4 py-3 whitespace-nowrap" style={{ color: '#777' }}>
                     {lead.phone ? formatPhone(lead.phone) : <span style={{ color: '#333' }}>—</span>}
                   </td>
-                  <td className="px-4 py-3 max-w-[180px]" style={{ color: '#777' }}>
+                  <td className="px-4 py-3 max-w-[140px]" style={{ color: '#777' }}>
                     {lead.email
-                      ? <span className="block truncate" title={lead.email}>{lead.email}</span>
+                      ? <span className="block truncate cursor-default" title={lead.email}>{lead.email}</span>
                       : <span style={{ color: '#333' }}>—</span>}
                   </td>
-                  <td className="px-4 py-3 max-w-[160px]">
+                  <td className="px-4 py-3 max-w-[120px]">
                     {lead.notes
-                      ? <p className="text-xs truncate" style={{ color: '#888', fontStyle: 'italic' }}>{lead.notes}</p>
+                      ? <p className="text-xs truncate cursor-default" title={lead.notes} style={{ color: '#888', fontStyle: 'italic' }}>{lead.notes}</p>
                       : <span style={{ color: '#333' }}>—</span>}
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap tabular-nums">

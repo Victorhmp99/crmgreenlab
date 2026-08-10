@@ -5,7 +5,7 @@ import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Spinner } from '@/components/ui/Spinner'
 import { usePipelines, usePipelineStagesByPipeline } from '@/features/pipeline/hooks/usePipelines'
-import { addLeadToPipeline, moveCard } from '@/services/pipeline'
+import { addLeadToPipeline, moveCard, logStageChange } from '@/services/pipeline'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
 import type { Lead } from '@/types'
@@ -91,12 +91,17 @@ export function AddToPipelineModal({ lead, onClose }: Props) {
     mutationFn: async (stageId: string) => {
       if (!tenantId || !lead) throw new Error('missing')
       const stage = stages.find((s) => s.id === stageId)
+      const stageName = stage?.name ?? ''
+
       if (currentPos) {
         await moveCard(currentPos.cardId, stageId, 0, userId ?? '')
+        await logStageChange(tenantId, lead.id, userId ?? '', currentPos.stageName, stageName)
       } else {
         await addLeadToPipeline(tenantId, lead.id, stageId, 0)
+        await logStageChange(tenantId, lead.id, userId ?? '', '—', stageName)
       }
-      return stage?.name ?? ''
+
+      return stageName
     },
     onSuccess: (stageName) => {
       queryClient.invalidateQueries({ queryKey: ['pipeline-cards'] })
