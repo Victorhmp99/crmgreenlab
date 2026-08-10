@@ -80,7 +80,7 @@ export function PipelineSearchPopover({
       if (!nameMatch && !phoneMatch) continue
 
       const stage = stageMap.get(c.card.stage_id)
-      if (!stage) continue
+      if (!stage || !stage.pipeline_id) continue
       const pipeline = pipelineMap.get(stage.pipeline_id)
       if (!pipeline) continue
 
