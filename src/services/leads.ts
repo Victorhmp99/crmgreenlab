@@ -1,6 +1,8 @@
 import { supabase } from '@/lib/supabase'
 import type { Lead, LeadStatus, LeadSource } from '@/types'
 
+export type LeadSortField = 'created_at' | 'updated_at'
+
 export interface LeadFilters {
   search?: string
   status?: LeadStatus | ''
@@ -8,6 +10,7 @@ export interface LeadFilters {
   assignedTo?: string
   page?: number
   pageSize?: number
+  sortBy?: LeadSortField
 }
 
 export interface LeadFormData {
@@ -35,7 +38,7 @@ export interface PaginatedLeads {
 }
 
 export async function fetchLeads(tenantId: string, filters: LeadFilters = {}): Promise<PaginatedLeads> {
-  const { search, status, source, assignedTo, page = 1, pageSize = 20 } = filters
+  const { search, status, source, assignedTo, page = 1, pageSize = 20, sortBy = 'created_at' } = filters
   const from = (page - 1) * pageSize
   const to = from + pageSize - 1
 
@@ -43,7 +46,7 @@ export async function fetchLeads(tenantId: string, filters: LeadFilters = {}): P
     .from('leads')
     .select('*', { count: 'exact' })
     .eq('tenant_id', tenantId)
-    .order('created_at', { ascending: false })
+    .order(sortBy, { ascending: false })
     .range(from, to)
 
   if (search) {

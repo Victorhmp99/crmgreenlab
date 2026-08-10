@@ -8,6 +8,7 @@ import { LeadForm } from '../components/LeadForm'
 import { ImportModal } from '../components/ImportModal'
 import { ExportModal } from '../components/ExportModal'
 import { DeleteConfirmModal } from '../components/DeleteConfirmModal'
+import { AddToPipelineModal } from '../components/AddToPipelineModal'
 import { LeadDrawer } from '@/features/activities/components/LeadDrawer'
 import { useLeads } from '../hooks/useLeads'
 import { useLeadMutations } from '../hooks/useLeadMutations'
@@ -22,6 +23,7 @@ export function LeadsPage() {
   const [showImport, setShowImport]     = useState(false)
   const [showExport, setShowExport]     = useState(false)
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
+  const [pipelineLead, setPipelineLead] = useState<Lead | null>(null)
 
   // Modo seleção em massa
   const [selectionMode, setSelectionMode] = useState(false)
@@ -135,6 +137,7 @@ export function LeadsPage() {
         onDelete={setDeletingLead}
         onSelect={setSelectedLead}
         onPageChange={(page) => setFilters((f) => ({ ...f, page }))}
+        onAddToPipeline={setPipelineLead}
         selectionMode={selectionMode}
         selectedIds={selectedIds}
         onToggleSelect={toggleSelect}
@@ -161,6 +164,11 @@ export function LeadsPage() {
       <DeleteConfirmModal
         lead={deletingLead}
         onClose={() => setDeletingLead(null)}
+      />
+
+      <AddToPipelineModal
+        lead={pipelineLead}
+        onClose={() => setPipelineLead(null)}
       />
 
       {/* Confirmação de exclusão em massa */}

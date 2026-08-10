@@ -2,7 +2,12 @@ import { Search, X } from 'lucide-react'
 import { Select } from '@/components/ui/Select'
 import { STATUS_OPTIONS } from '../LeadStatusBadge'
 import { SOURCE_OPTIONS } from '../LeadSourceBadge'
-import type { LeadFilters } from '@/services/leads'
+import type { LeadFilters, LeadSortField } from '@/services/leads'
+
+const SORT_OPTIONS: { label: string; value: LeadSortField }[] = [
+  { label: 'Mais recentes (criação)', value: 'created_at' },
+  { label: 'Mais recentes (atualiz.)', value: 'updated_at' },
+]
 
 interface LeadFiltersBarProps {
   filters:  LeadFilters
@@ -52,10 +57,20 @@ export function LeadFiltersBar({ filters, onChange }: LeadFiltersBarProps) {
         />
       </div>
 
+      {/* Ordenar */}
+      <div className="w-52">
+        <Select
+          value={filters.sortBy ?? 'created_at'}
+          onChange={(e) => onChange({ ...filters, sortBy: e.target.value as LeadSortField, page: 1 })}
+          options={SORT_OPTIONS}
+          aria-label="Ordenar por"
+        />
+      </div>
+
       {/* Limpar filtros */}
       {hasActiveFilters && (
         <button
-          onClick={() => onChange({ page: 1, pageSize: filters.pageSize })}
+          onClick={() => onChange({ page: 1, pageSize: filters.pageSize, sortBy: filters.sortBy })}
           className="flex items-center gap-1.5 text-sm transition-colors"
           style={{ color: '#555' }}
           onMouseEnter={(e) => (e.currentTarget.style.color = '#aaa')}

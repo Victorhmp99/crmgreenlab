@@ -1,20 +1,21 @@
-import { Pencil, Trash2, ChevronLeft, ChevronRight, UserX, CheckSquare, Square } from 'lucide-react'
+import { Pencil, Trash2, ChevronLeft, ChevronRight, UserX, CheckSquare, Square, GitBranch } from 'lucide-react'
 import { LeadStatusBadge } from '../LeadStatusBadge'
 import { LeadSourceBadge } from '../LeadSourceBadge'
 import { Spinner } from '@/components/ui/Spinner'
 import { formatDateTime, formatPhone, formatCurrency } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
+import { useTagDefinitions } from '@/features/leads/hooks/useLeadTags'
 import type { Lead } from '@/types'
 import type { PaginatedLeads } from '@/services/leads'
 
 interface LeadTableProps {
   result?: PaginatedLeads
   isLoading: boolean
-  onEdit:       (lead: Lead) => void
-  onDelete:     (lead: Lead) => void
-  onSelect:     (lead: Lead) => void
-  onPageChange: (page: number) => void
-  /** Quando true, mostra checkboxes pra seleção em massa */
+  onEdit:          (lead: Lead) => void
+  onDelete:        (lead: Lead) => void
+  onSelect:        (lead: Lead) => void
+  onPageChange:    (page: number) => void
+  onAddToPipeline: (lead: Lead) => void
   selectionMode?: boolean
   selectedIds?:   Set<string>
   onToggleSelect?:    (id: string) => void
@@ -81,17 +82,20 @@ function Pagination({ page, totalPages, count, pageSize, onPage }: PaginationPro
 }
 
 export function LeadTable({
-  result, isLoading, onEdit, onDelete, onSelect, onPageChange,
+  result, isLoading, onEdit, onDelete, onSelect, onPageChange, onAddToPipeline,
   selectionMode = false, selectedIds, onToggleSelect, onToggleSelectAll,
 }: LeadTableProps) {
   const leads = result?.data ?? []
   const allSelectedOnPage = leads.length > 0 && leads.every((l) => selectedIds?.has(l.id))
   const totalCols = selectionMode ? 9 : 8
 
-  // Permissão de excluir: admin, gestor ou super admin. Vendedor não vê o botão.
   const role         = useAuthStore((s) => s.membership?.role)
   const isSuperAdmin = useAuthStore((s) => s.isSuperAdmin)
   const canDeleteLead = role === 'admin' || role === 'manager' || isSuperAdmin
+
+  const { data: tagDefs = [] } = useTagDefinitions()
+  const tagColorMap = new Map<string, string>()
+  for (const t of tagDefs) tagColorMap.set(t.name, t.color)
 
   return (
     <div className="rounded-xl overflow-hidden" style={{ background: '#141414', border: '1px solid #1e1e1e' }}>
@@ -153,7 +157,7 @@ export function LeadTable({
                       </button>
                     </td>
                   )}
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 max-w-[240px]">
                     <button
                       onClick={() => selectionMode ? onToggleSelect?.(lead.id) : onSelect(lead)}
                       className="font-medium text-left transition-colors block"
@@ -164,18 +168,30 @@ export function LeadTable({
                       {lead.name}
                     </button>
                     {lead.company_name && (
-                      <p className="text-xs mt-0.5" style={{ color: '#666' }}>
+                      <p className="text-xs mt-0.5 truncate" style={{ color: '#666' }}>
                         {lead.company_name}
                       </p>
                     )}
-                    {lead.tags.length > 0 && (
+                    {lead.notes && (
+                      <p className="text-[10px] mt-0.5 truncate max-w-[220px]" style={{ color: '#555', fontStyle: 'italic' }}>
+                        {lead.notes}
+                      </p>
+                    )}
+                    {(lead.tags ?? []).length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-1">
-                        {lead.tags.map((tag) => (
-                          <span key={tag} className="text-[10px] rounded px-1.5 py-0.5"
-                            style={{ background: '#1e1e1e', color: '#666' }}>
-                            {tag}
-                          </span>
-                        ))}
+                        {(lead.tags ?? []).map((tag) => {
+                          const color = tagColorMap.get(tag) ?? '#666'
+                          return (
+                            <span key={tag} className="text-[10px] rounded-full px-1.5 py-0.5"
+                              style={{
+                                background: `${color}22`,
+                                color,
+                                border: `1px solid ${color}55`,
+                              }}>
+                              {tag}
+                            </span>
+                          )
+                        })}
                       </div>
                     )}
                   </td>
@@ -211,6 +227,22 @@ export function LeadTable({
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onAddToPipeline(lead) }}
+                        className="h-8 w-8 rounded-lg flex items-center justify-center transition-colors"
+                        style={{ color: '#555' }}
+                        onMouseEnter={(e) => {
+                          (e.currentTarget as HTMLButtonElement).style.color = '#a78bfa'
+                          ;(e.currentTarget as HTMLButtonElement).style.background = 'rgba(167,139,250,0.08)'
+                        }}
+                        onMouseLeave={(e) => {
+                          (e.currentTarget as HTMLButtonElement).style.color = '#555'
+                          ;(e.currentTarget as HTMLButtonElement).style.background = 'transparent'
+                        }}
+                        title="Adicionar à pipeline"
+                      >
+                        <GitBranch size={15} />
+                      </button>
                       <button
                         onClick={() => onEdit(lead)}
                         className="h-8 w-8 rounded-lg flex items-center justify-center transition-colors"
