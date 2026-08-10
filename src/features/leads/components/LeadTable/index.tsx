@@ -23,7 +23,7 @@ interface LeadTableProps {
 }
 
 function SkeletonRow({ extraColumn = false }: { extraColumn?: boolean }) {
-  const cols = (extraColumn ? 1 : 0) + 6
+  const cols = (extraColumn ? 1 : 0) + 7
   return (
     <tr>
       {Array.from({ length: cols }).map((_, i) => (
@@ -87,7 +87,7 @@ export function LeadTable({
 }: LeadTableProps) {
   const leads = result?.data ?? []
   const allSelectedOnPage = leads.length > 0 && leads.every((l) => selectedIds?.has(l.id))
-  const totalCols = selectionMode ? 9 : 8
+  const totalCols = selectionMode ? 10 : 9
 
   const role         = useAuthStore((s) => s.membership?.role)
   const isSuperAdmin = useAuthStore((s) => s.isSuperAdmin)
@@ -113,9 +113,9 @@ export function LeadTable({
                   </button>
                 </th>
               )}
-              {['Nome', 'Telefone', 'E-mail', 'Valor', 'Status', 'Origem', 'Datas', 'Ações'].map((h, i) => (
+              {['Nome', 'Telefone', 'E-mail', 'Obs.', 'Valor', 'Status', 'Origem', 'Datas', 'Ações'].map((h, i) => (
                 <th key={h}
-                  className={`px-4 py-3 text-xs font-medium uppercase tracking-wide ${i === 7 ? 'text-right' : 'text-left'}`}
+                  className={`px-4 py-3 text-xs font-medium uppercase tracking-wide ${i === 8 ? 'text-right' : 'text-left'}`}
                   style={{ color: '#444' }}>
                   {h}
                 </th>
@@ -172,11 +172,6 @@ export function LeadTable({
                         {lead.company_name}
                       </p>
                     )}
-                    {lead.notes && (
-                      <p className="text-[10px] mt-0.5 truncate max-w-[220px]" style={{ color: '#555', fontStyle: 'italic' }}>
-                        {lead.notes}
-                      </p>
-                    )}
                     {(lead.tags ?? []).length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-1">
                         {(lead.tags ?? []).map((tag) => {
@@ -200,6 +195,11 @@ export function LeadTable({
                   </td>
                   <td className="px-4 py-3 max-w-[180px] truncate" style={{ color: '#777' }}>
                     {lead.email ?? <span style={{ color: '#333' }}>—</span>}
+                  </td>
+                  <td className="px-4 py-3 max-w-[160px]">
+                    {lead.notes
+                      ? <p className="text-xs truncate" style={{ color: '#888', fontStyle: 'italic' }}>{lead.notes}</p>
+                      : <span style={{ color: '#333' }}>—</span>}
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap tabular-nums">
                     {lead.value != null && Number(lead.value) > 0
