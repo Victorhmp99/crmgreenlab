@@ -2,11 +2,13 @@ import { Search, X } from 'lucide-react'
 import { Select } from '@/components/ui/Select'
 import { STATUS_OPTIONS } from '../LeadStatusBadge'
 import { SOURCE_OPTIONS } from '../LeadSourceBadge'
-import type { LeadFilters, LeadSortField } from '@/services/leads'
+import type { LeadFilters } from '@/services/leads'
 
-const SORT_OPTIONS: { label: string; value: LeadSortField }[] = [
-  { label: 'Mais recentes (criação)', value: 'created_at' },
-  { label: 'Mais recentes (atualiz.)', value: 'updated_at' },
+const SORT_OPTIONS: { label: string; value: string }[] = [
+  { label: 'Criação (recentes)', value: 'created_at:desc' },
+  { label: 'Criação (antigos)', value: 'created_at:asc' },
+  { label: 'Atualização (recentes)', value: 'updated_at:desc' },
+  { label: 'Atualização (antigos)', value: 'updated_at:asc' },
 ]
 
 interface LeadFiltersBarProps {
@@ -60,8 +62,8 @@ export function LeadFiltersBar({ filters, onChange }: LeadFiltersBarProps) {
       {/* Ordenar */}
       <div className="w-52">
         <Select
-          value={filters.sortBy ?? 'created_at'}
-          onChange={(e) => onChange({ ...filters, sortBy: e.target.value as LeadSortField, page: 1 })}
+          value={filters.sortBy ?? 'created_at:desc'}
+          onChange={(e) => onChange({ ...filters, sortBy: e.target.value, page: 1 })}
           options={SORT_OPTIONS}
           aria-label="Ordenar por"
         />

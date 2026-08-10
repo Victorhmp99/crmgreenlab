@@ -26,24 +26,32 @@ interface CurrentPosition {
 }
 
 async function fetchLeadCurrentCard(leadId: string): Promise<CurrentPosition | null> {
-  const { data, error } = await supabase
+  const { data: card, error: cardErr } = await supabase
     .from('pipeline_cards')
-    .select(`
-      id, stage_id,
-      pipeline_stages!inner ( id, name, color, pipeline_id,
-        pipelines!inner ( id, name, color )
-      )
-    `)
+    .select('id, stage_id')
     .eq('lead_id', leadId)
     .maybeSingle()
 
-  if (error || !data) return null
+  if (cardErr || !card) return null
 
-  const stage = data.pipeline_stages as any
-  const pipeline = stage?.pipelines as any
+  const { data: stage, error: stageErr } = await supabase
+    .from('pipeline_stages')
+    .select('id, name, color, pipeline_id')
+    .eq('id', card.stage_id)
+    .single()
+
+  if (stageErr || !stage) return null
+
+  const { data: pipeline, error: pipeErr } = await supabase
+    .from('pipelines')
+    .select('id, name, color')
+    .eq('id', stage.pipeline_id)
+    .single()
+
+  if (pipeErr || !pipeline) return null
 
   return {
-    cardId: data.id,
+    cardId: card.id,
     stageId: stage.id,
     stageName: stage.name,
     stageColor: stage.color,
@@ -65,6 +73,7 @@ export function AddToPipelineModal({ lead, onClose }: Props) {
     queryKey: ['lead-card-position', lead?.id],
     queryFn:  () => fetchLeadCurrentCard(lead!.id),
     enabled:  !!lead,
+    staleTime: 0,
   })
 
   const { data: pipelines = [], isLoading: loadingPipelines } = usePipelines()
@@ -117,7 +126,6 @@ export function AddToPipelineModal({ lead, onClose }: Props) {
       description={done ? undefined : lead?.name}
       size="sm"
     >
-      {/* Success */}
       {done ? (
         <div className="flex flex-col items-center gap-3 py-4">
           <div className="h-12 w-12 rounded-full flex items-center justify-center"
@@ -134,14 +142,14 @@ export function AddToPipelineModal({ lead, onClose }: Props) {
         <div className="flex justify-center py-8"><Spinner size="md" /></div>
       ) : (
         <>
-          {/* Current position banner */}
+          {/* Banner posição atual */}
           {currentPos && !selectedPipelineId && (
             <div className="rounded-xl px-4 py-3 mb-3"
               style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)' }}>
               <p className="text-[11px] font-medium uppercase tracking-wide mb-1.5" style={{ color: '#888' }}>
                 Posição atual
               </p>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: currentPos.pipelineColor }} />
                 <span className="text-sm font-medium" style={{ color: '#e8e8e8' }}>{currentPos.pipelineName}</span>
                 <ArrowRight size={12} style={{ color: '#555' }} />
@@ -190,7 +198,6 @@ export function AddToPipelineModal({ lead, onClose }: Props) {
               )}
             </div>
           ) : (
-            /* Step 2: Pick stage */
             <div className="flex flex-col gap-1">
               <button
                 onClick={() => setSelectedPipelineId(null)}
@@ -201,6 +208,20 @@ export function AddToPipelineModal({ lead, onClose }: Props) {
               >
                 ← {selectedPipeline?.name ?? 'Voltar'}
               </button>
+
+              {/* Banner posição atual dentro do step 2 */}
+              {currentPos && (
+                <div className="rounded-lg px-3 py-2 mb-2"
+                  style={{ background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.15)' }}>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] uppercase tracking-wide" style={{ color: '#818cf8' }}>Atual:</span>
+                    <span className="h-2 w-2 rounded-full" style={{ background: currentPos.stageColor }} />
+                    <span className="text-xs" style={{ color: '#aaa' }}>{currentPos.stageName}</span>
+                    <span className="text-[10px]" style={{ color: '#555' }}>em {currentPos.pipelineName}</span>
+                  </div>
+                </div>
+              )}
+
               <p className="text-xs font-medium uppercase tracking-wide mb-1" style={{ color: '#555' }}>
                 Selecione a etapa
               </p>
@@ -218,10 +239,14 @@ export function AddToPipelineModal({ lead, onClose }: Props) {
                       key={s.id}
                       onClick={() => { if (!isCurrent) mutation.mutate(s.id) }}
                       disabled={mutation.isPending || isCurrent}
-                      className="flex items-center gap-3 rounded-xl px-4 py-3 text-left transition-colors disabled:opacity-50"
-                      style={{ border: `1px solid ${isCurrent ? 'rgba(99,102,241,0.3)' : '#1e1e1e'}` }}
+                      className="flex items-center gap-3 rounded-xl px-4 py-3 text-left transition-colors disabled:cursor-not-allowed"
+                      style={{
+                        border: `1px solid ${isCurrent ? 'rgba(99,102,241,0.3)' : '#1e1e1e'}`,
+                        background: isCurrent ? 'rgba(99,102,241,0.05)' : 'transparent',
+                        opacity: isCurrent ? 0.7 : 1,
+                      }}
                       onMouseEnter={(e) => { if (!mutation.isPending && !isCurrent) e.currentTarget.style.background = '#1a1a1a' }}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = isCurrent ? 'rgba(99,102,241,0.05)' : 'transparent' }}
                     >
                       <span className="h-3 w-3 rounded-full shrink-0" style={{ background: s.color }} />
                       <span className="flex-1 text-sm font-medium" style={{ color: isCurrent ? '#888' : '#e8e8e8' }}>
