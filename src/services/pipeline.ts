@@ -87,11 +87,11 @@ export async function moveCard(
   cardId: string,
   newStageId: string,
   newPosition: number,
-  movedBy: string,
+  movedBy: string | null,
 ): Promise<void> {
   const { error } = await supabase
     .from('pipeline_cards')
-    .update({ stage_id: newStageId, position: newPosition, moved_at: new Date().toISOString(), moved_by: movedBy })
+    .update({ stage_id: newStageId, position: newPosition, moved_at: new Date().toISOString(), moved_by: movedBy || null })
     .eq('id', cardId)
 
   if (error) throw error
@@ -177,14 +177,14 @@ export async function fetchLeadsNotInPipeline(tenantId: string): Promise<Lead[]>
 export async function logStageChange(
   tenantId: string,
   leadId: string,
-  userId: string,
+  userId: string | null,
   fromStageName: string,
   toStageName: string,
 ): Promise<void> {
   await supabase.from('lead_activities').insert({
     tenant_id:   tenantId,
     lead_id:     leadId,
-    user_id:     userId,
+    user_id:     userId || null,
     type:        'stage_change',
     description: `Movido de "${fromStageName}" para "${toStageName}"`,
     metadata:    { from: fromStageName, to: toStageName },

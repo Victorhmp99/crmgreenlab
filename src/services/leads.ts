@@ -35,9 +35,16 @@ export interface PaginatedLeads {
   totalPages: number
 }
 
+const ALLOWED_SORT_FIELDS = new Set(['created_at', 'updated_at', 'name'])
+
+function escapePostgrestOrValue(v: string): string {
+  return v.replace(/[\\,()"%]/g, (m) => '\\' + m)
+}
+
 export async function fetchLeads(tenantId: string, filters: LeadFilters = {}): Promise<PaginatedLeads> {
   const { search, status, source, assignedTo, page = 1, pageSize = 20, sortBy = 'created_at:desc' } = filters
-  const [sortField, sortDir] = sortBy.split(':') as [string, string]
+  const [rawField, sortDir] = sortBy.split(':') as [string, string]
+  const sortField = ALLOWED_SORT_FIELDS.has(rawField) ? rawField : 'created_at'
   const ascending = sortDir === 'asc'
   const from = (page - 1) * pageSize
   const to = from + pageSize - 1
@@ -50,7 +57,8 @@ export async function fetchLeads(tenantId: string, filters: LeadFilters = {}): P
     .range(from, to)
 
   if (search) {
-    query = query.or(`name.ilike.%${search}%,phone.ilike.%${search}%,email.ilike.%${search}%`)
+    const s = escapePostgrestOrValue(search)
+    query = query.or(`name.ilike.%${s}%,phone.ilike.%${s}%,email.ilike.%${s}%`)
   }
   if (status) query = query.eq('status', status)
   if (source) query = query.eq('source', source)

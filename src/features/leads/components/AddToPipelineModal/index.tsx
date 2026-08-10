@@ -94,11 +94,11 @@ export function AddToPipelineModal({ lead, onClose }: Props) {
       const stageName = stage?.name ?? ''
 
       if (currentPos) {
-        await moveCard(currentPos.cardId, stageId, 0, userId ?? '')
-        await logStageChange(tenantId, lead.id, userId ?? '', currentPos.stageName, stageName)
+        await moveCard(currentPos.cardId, stageId, 0, userId ?? null)
+        await logStageChange(tenantId, lead.id, userId ?? null, currentPos.stageName, stageName)
       } else {
         await addLeadToPipeline(tenantId, lead.id, stageId, 0)
-        await logStageChange(tenantId, lead.id, userId ?? '', '—', stageName)
+        await logStageChange(tenantId, lead.id, userId ?? null, '—', stageName)
       }
 
       return stageName
