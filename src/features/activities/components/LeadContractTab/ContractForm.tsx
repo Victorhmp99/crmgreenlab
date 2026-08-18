@@ -79,6 +79,11 @@ export function ContractForm({ open, onClose, leadId, leadName, contract }: Prop
   const pending = create.isPending || update.isPending
   const error   = create.error || update.error
 
+  // Contrato retroativo: as parcelas que já passaram contam como recebidas,
+  // mas não geram lembrete de cobrança (não faz sentido cobrar mês passado)
+  const todayStr  = new Date().toLocaleDateString('en-CA') // yyyy-mm-dd local
+  const isBackdated = !isEditing && startDate < todayStr
+
   return (
     <Modal
       open={open}
@@ -140,6 +145,15 @@ export function ContractForm({ open, onClose, leadId, leadName, contract }: Prop
               />
             )}
           </>
+        )}
+
+        {isBackdated && (
+          <p className="text-xs rounded-lg px-3 py-2"
+            style={{ color: '#fbbf24', background: 'rgba(251,191,36,0.08)' }}>
+            Data retroativa: as parcelas que já passaram entram como recebidas e somam no valor
+            do lead, mas <strong>não geram lembrete de cobrança</strong>. Só o que vence de hoje
+            em diante vira tarefa.
+          </p>
         )}
 
         <label className="flex items-center gap-2 text-sm cursor-pointer select-none" style={{ color: '#ccc' }}>
