@@ -9,6 +9,7 @@ import {
 import { useAuth } from '@/hooks/useAuth'
 import { PILLARS, INTEGRATIONS, FAQ, FATURAMENTO_OPTIONS } from '../content'
 import { submitLandingLead, leadCaptureEnabled } from '../leadCapture'
+import { validarLanding, formatPhoneBR, normalizeInstagramHandle, type CamposLanding } from '../leadValidation'
 import { CountUp, Reveal } from '../components/Motion'
 
 const PILLAR_ICONS = [Zap, Kanban, Wallet, Compass]
@@ -683,11 +684,28 @@ function LeadForm({ idPrefix }: { idPrefix: string }) {
   const [faturamento, setFaturamento] = useState('')
   const [status, setStatus]           = useState<'idle' | 'sending' | 'done' | 'error'>('idle')
   const [erro, setErro]               = useState('')
+  // Erros só aparecem depois que o campo perde o foco pelo menos uma vez —
+  // validar a cada tecla faria a mensagem piscar no meio da digitação.
+  const [tocados, setTocados] = useState<Partial<Record<keyof CamposLanding, boolean>>>({})
   const honeypot = useRef<HTMLInputElement>(null)
+
+  const camposAtuais: CamposLanding = { nome, whatsapp, instagram, faturamento }
+  const errosCampos = validarLanding(camposAtuais)
+  const erroVisivel = (campo: keyof CamposLanding) => (tocados[campo] ? errosCampos[campo] : undefined)
+  function tocar(campo: keyof CamposLanding) {
+    setTocados((t) => ({ ...t, [campo]: true }))
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     if (status === 'sending') return
+
+    // Marca tudo como tocado pra revelar qualquer erro que ainda não apareceu
+    // (ex: a pessoa nunca chegou a sair de um campo obrigatório vazio).
+    setTocados({ nome: true, whatsapp: true, instagram: true, faturamento: true })
+    const erros = validarLanding(camposAtuais)
+    if (Object.keys(erros).length > 0) return
+
     setStatus('sending')
     setErro('')
     try {
@@ -787,10 +805,22 @@ function LeadForm({ idPrefix }: { idPrefix: string }) {
         </fieldset>
 
         <Field id={`${idPrefix}-nome`} label="Nome e sobrenome" value={nome} onChange={setNome}
+          onBlur={() => tocar('nome')} error={erroVisivel('nome')}
           placeholder="Como podemos te chamar" required autoComplete="name" />
-        <Field id={`${idPrefix}-whatsapp`} label="WhatsApp" value={whatsapp} onChange={setWhatsapp}
+        <Field id={`${idPrefix}-whatsapp`} label="WhatsApp" value={whatsapp}
+          onChange={(v) => setWhatsapp(formatPhoneBR(v))}
+          onBlur={() => tocar('whatsapp')} error={erroVisivel('whatsapp')}
           placeholder="(11) 99999-9999" required type="tel" autoComplete="tel" />
-        <Field id={`${idPrefix}-instagram`} label="Instagram" value={instagram} onChange={setInstagram}
+        <Field id={`${idPrefix}-instagram`} label="Instagram" value={instagram}
+          onChange={setInstagram}
+          onBlur={() => {
+            tocar('instagram')
+            // Se colaram o link do perfil, devolve só o @ — a pessoa vê o
+            // que foi entendido em vez de continuar olhando pra uma URL.
+            const handle = normalizeInstagramHandle(instagram)
+            if (handle) setInstagram(`@${handle}`)
+          }}
+          error={erroVisivel('instagram')}
           placeholder="@seuperfil" />
 
         <div className="flex flex-col gap-1.5">
@@ -800,11 +830,19 @@ function LeadForm({ idPrefix }: { idPrefix: string }) {
           </label>
           <select id={`${idPrefix}-faturamento`} value={faturamento} required
             onChange={(e) => setFaturamento(e.target.value)}
+            onBlur={() => tocar('faturamento')}
             className="h-11 rounded-lg px-3 text-sm focus:outline-none"
-            style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.12)', color: faturamento ? '#e8e8e8' : '#666' }}>
+            style={{
+              background: '#141414',
+              border: `1px solid ${erroVisivel('faturamento') ? '#ff6060' : 'rgba(255,255,255,0.12)'}`,
+              color: faturamento ? '#e8e8e8' : '#666',
+            }}>
             <option value="">Selecione</option>
             {FATURAMENTO_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
           </select>
+          {erroVisivel('faturamento') && (
+            <p className="text-[11px] leading-snug" style={{ color: '#ff8080' }}>{erroVisivel('faturamento')}</p>
+          )}
         </div>
 
         {/* Honeypot: fora da tela e fora da navegação por teclado. Robô preenche, gente não. */}
@@ -839,9 +877,10 @@ function LeadForm({ idPrefix }: { idPrefix: string }) {
   )
 }
 
-function Field({ id, label, value, onChange, placeholder, required, type = 'text', autoComplete }: {
+function Field({ id, label, value, onChange, onBlur, placeholder, required, type = 'text', autoComplete, error }: {
   id: string; label: string; value: string; onChange: (v: string) => void
-  placeholder?: string; required?: boolean; type?: string; autoComplete?: string
+  onBlur?: () => void
+  placeholder?: string; required?: boolean; type?: string; autoComplete?: string; error?: string
 }) {
   return (
     <div className="flex flex-col gap-1.5">
@@ -850,11 +889,16 @@ function Field({ id, label, value, onChange, placeholder, required, type = 'text
       </label>
       <input id={id} type={type} value={value} required={required} placeholder={placeholder}
         autoComplete={autoComplete}
+        aria-invalid={!!error}
         onChange={(e) => onChange(e.target.value)}
+        onBlur={(e) => {
+          onBlur?.()
+          if (!error) e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)'
+        }}
         className="h-11 rounded-lg px-3 text-sm focus:outline-none transition-colors"
-        style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.12)', color: '#e8e8e8' }}
-        onFocus={(e) => (e.currentTarget.style.borderColor = NEON)}
-        onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)')} />
+        style={{ background: '#141414', border: `1px solid ${error ? '#ff6060' : 'rgba(255,255,255,0.12)'}`, color: '#e8e8e8' }}
+        onFocus={(e) => { if (!error) e.currentTarget.style.borderColor = NEON }} />
+      {error && <p className="text-[11px] leading-snug" style={{ color: '#ff8080' }}>{error}</p>}
     </div>
   )
 }
