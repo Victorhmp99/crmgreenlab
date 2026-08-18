@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { useAuth } from '@/hooks/useAuth'
@@ -176,14 +176,26 @@ export function LoginPage() {
                 </Button>
               </form>
 
+              {/* Conta nova não é self-service: passa por formulário, call e
+                  contratação. Convidado por link (#/registrar?ref=) segue
+                  entrando direto, sem passar por aqui. */}
               <p className="mt-5 text-center text-sm" style={{ color: '#555' }}>
-                Primeira vez?{' '}
-                <Link to="/registrar" className="font-medium transition-colors"
-                  style={{ color: '#00ff88' }}>
-                  Criar conta gratuitamente
+                Ainda não tem acesso?{' '}
+                <Link to="/" state={{ focarFormulario: true }}
+                  className="font-medium transition-colors" style={{ color: '#00ff88' }}>
+                  Criar conta
                 </Link>
               </p>
             </div>
+
+            <p className="mt-5 text-center">
+              <Link to="/" className="inline-flex items-center gap-1.5 text-sm transition-colors"
+                style={{ color: '#666' }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = '#00ff88')}
+                onMouseLeave={(e) => (e.currentTarget.style.color = '#666')}>
+                <ArrowLeft size={14} /> Conhecer a plataforma
+              </Link>
+            </p>
 
             <p className="text-center text-[11px] mt-6" style={{ color: '#444' }}>
               © {new Date().getFullYear()} Green Hub · Todos os direitos reservados

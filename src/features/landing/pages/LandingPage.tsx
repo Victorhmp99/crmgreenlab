@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, type FormEvent } from 'react'
-import { Link, Navigate } from 'react-router-dom'
+import { Link, Navigate, useLocation } from 'react-router-dom'
 import {
   ArrowRight, Check, ChevronDown, Menu, X,
   Zap, Kanban, Wallet, Compass, Megaphone, MessageCircle,
@@ -67,6 +67,7 @@ function AnchorLink({ to, children, className, style, onNavigate, onMouseEnter, 
 export function LandingPage() {
   const { isAuthenticated, isLoading } = useAuth()
   const [menuOpen, setMenuOpen] = useState(false)
+  const location = useLocation()
 
   // Suavização da rolagem só enquanto a landing está na tela — o resto do CRM
   // tem listas longas onde o salto instantâneo é o comportamento desejado.
@@ -76,6 +77,25 @@ export function LandingPage() {
     root.style.scrollBehavior = 'smooth'
     return () => { root.style.scrollBehavior = anterior }
   }, [])
+
+  // Quem clicou em "Criar conta" no login cai direto no formulário, em vez de
+  // ter que caçar onde pedir acesso.
+  const querFormulario = (location.state as { focarFormulario?: boolean } | null)?.focarFormulario
+  useEffect(() => {
+    if (!querFormulario) return
+    // Espera o layout assentar antes de medir a posição da seção.
+    const t = window.setTimeout(() => {
+      // Chegada de página é salto, não animação: quem veio clicando em "Criar
+      // conta" quer ver o formulário, não assistir a página deslizar. Forçar
+      // `auto` também evita depender da animação, que trava sem quadros.
+      const root = document.documentElement
+      const anterior = root.style.scrollBehavior
+      root.style.scrollBehavior = 'auto'
+      scrollToSection('diagnostico')
+      root.style.scrollBehavior = anterior
+    }, 80)
+    return () => clearTimeout(t)
+  }, [querFormulario])
 
   // Quem já está logado não tem o que fazer na página de vendas.
   if (!isLoading && isAuthenticated) return <Navigate to="/dashboard" replace />
@@ -690,11 +710,34 @@ function LeadForm({ idPrefix }: { idPrefix: string }) {
           style={{ background: 'rgba(0,230,118,0.14)' }}>
           <Check size={22} style={{ color: NEON }} />
         </div>
-        <p className="text-lg font-semibold mb-2" style={{ color: '#f0f0f0' }}>Recebemos seus dados</p>
-        <p className="text-sm leading-relaxed" style={{ color: '#9a9a9a' }}>
-          Vamos te chamar no WhatsApp para agendar o diagnóstico. Se preferir adiantar, já pode
-          responder por lá quando a mensagem chegar.
+        <p className="text-lg font-semibold mb-2" style={{ color: '#f0f0f0' }}>
+          Recebemos seus dados
         </p>
+        <p className="text-sm leading-relaxed" style={{ color: '#9a9a9a' }}>
+          Nosso time entra em contato pelo WhatsApp para marcar uma call, entender sua operação
+          e te mostrar o sistema por dentro. Depois disso você decide se faz sentido.
+        </p>
+
+        <div className="mt-6 pt-5 flex flex-col gap-2.5 text-left"
+          style={{ borderTop: '1px solid rgba(0,230,118,0.2)' }}>
+          <p className="text-[11px] font-semibold tracking-[0.14em] uppercase" style={{ color: NEON }}>
+            Próximos passos
+          </p>
+          {[
+            'Nosso time entra em contato pelo WhatsApp',
+            'Call para entender sua operação',
+            'Apresentação do sistema com os seus números',
+            'Você decide, e o acesso é liberado',
+          ].map((passo, i) => (
+            <div key={passo} className="flex gap-2.5 items-start">
+              <span className="h-5 w-5 rounded-md flex items-center justify-center text-[11px] font-bold shrink-0"
+                style={{ background: 'rgba(0,230,118,0.14)', color: NEON }}>
+                {i + 1}
+              </span>
+              <span className="text-[13px] leading-relaxed" style={{ color: '#a8a8a8' }}>{passo}</span>
+            </div>
+          ))}
+        </div>
       </div>
     )
   }
@@ -706,7 +749,8 @@ function LeadForm({ idPrefix }: { idPrefix: string }) {
         Diagnóstico gratuito
       </p>
       <p className="text-sm mb-6" style={{ color: '#8f8f8f' }}>
-        Preencha para receber um diagnóstico inicial da sua operação.
+        Preencha para receber um diagnóstico inicial da sua operação — é também por aqui que
+        começa a liberação do seu acesso.
       </p>
 
       <div className="flex flex-col gap-4">

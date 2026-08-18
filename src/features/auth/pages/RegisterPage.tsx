@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Eye, EyeOff, CheckCircle, Building2, Clock, UserCheck } from 'lucide-react'
+import { Eye, EyeOff, CheckCircle, Building2, Clock, UserCheck, ArrowLeft } from 'lucide-react'
 import { AuthLayout } from '@/components/layout/AuthLayout'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -280,6 +280,15 @@ export function RegisterPage() {
         Já tem conta?{' '}
         <Link to="/login" className="font-medium" style={{ color: 'var(--tenant-primary)' }}>
           Entrar
+        </Link>
+      </p>
+
+      <p className="mt-4 text-center">
+        <Link to="/" className="inline-flex items-center gap-1.5 text-sm transition-colors"
+          style={{ color: '#555' }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--tenant-primary)')}
+          onMouseLeave={(e) => (e.currentTarget.style.color = '#555')}>
+          <ArrowLeft size={14} /> Conhecer a plataforma
         </Link>
       </p>
     </AuthLayout>
