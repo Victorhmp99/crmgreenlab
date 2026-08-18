@@ -17,7 +17,16 @@ const PIPELINE_ID = import.meta.env.VITE_LEAD_PIPELINE_ID as string | undefined
 /** Se faltar qualquer credencial, o formulário se desativa em vez de falhar no envio. */
 export const leadCaptureEnabled = Boolean(ENDPOINT && TENANT_ID && WEBHOOK_KEY && PIPELINE_ID)
 
+/** O que a pessoa quer: usar na própria empresa ou revender como parceiro. */
+export type LeadObjetivo = 'empresa' | 'revenda'
+
+const OBJETIVO_LABEL: Record<LeadObjetivo, string> = {
+  empresa: 'Quer usar na própria empresa',
+  revenda: 'Quer revender como parceiro',
+}
+
 export interface LandingLead {
+  objetivo:    LeadObjetivo
   nome:        string
   whatsapp:    string
   instagram:   string
@@ -46,11 +55,17 @@ export async function submitLandingLead(lead: LandingLead): Promise<void> {
       name:        lead.nome.trim(),
       phone,
       source:      'other',
+      // Vai também em `notes` porque campo personalizado só é gravado quando
+      // existe um campo ativo com essa chave na empresa. Em `notes` a
+      // informação aparece no lead de qualquer jeito — e é justamente ela que
+      // decide quem atende.
+      notes:       OBJETIVO_LABEL[lead.objetivo],
       custom_fields: {
         nome_e_sobrenome:                 lead.nome.trim(),
         instagram:                        lead.instagram.trim(),
         whatsapp:                         phone,
         qual_seu_faturamento_medio_mensal: lead.faturamento,
+        objetivo:                          OBJETIVO_LABEL[lead.objetivo],
       },
       ...(lead._hp ? { _hp: lead._hp } : {}),
     }),

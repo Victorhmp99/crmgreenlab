@@ -3,6 +3,7 @@ import { Link, Navigate } from 'react-router-dom'
 import {
   ArrowRight, Check, ChevronDown, Menu, X,
   Zap, Kanban, Wallet, Compass, Megaphone, MessageCircle,
+  Workflow, Plug, ShieldCheck, BarChart3, Building2, Handshake,
 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { PILLARS, INTEGRATIONS, FAQ, FATURAMENTO_OPTIONS } from '../content'
@@ -189,42 +190,66 @@ function Nav({ menuOpen, setMenuOpen }: { menuOpen: boolean; setMenuOpen: (v: bo
 
 /* ── Hero ──────────────────────────────────────────────────────────────────── */
 
+/** Os quatro pilares técnicos, logo abaixo do título — o que sustenta a promessa. */
+const HERO_PILLS = [
+  { icon: Workflow,   label: 'Automações',  desc: 'O lead entra, avança e é cobrado sem ninguém lembrar' },
+  { icon: Plug,       label: 'Integrações', desc: 'Meta Ads, WhatsApp e seus formulários na mesma base' },
+  { icon: ShieldCheck, label: 'Seguro',      desc: 'Dados isolados por empresa, validados no banco' },
+  { icon: BarChart3,  label: 'Dados',       desc: 'Cada decisão sai de número medido, não de palpite' },
+]
+
 function Hero() {
   return (
-    <section id="topo" className="mx-auto max-w-6xl px-5 pt-20 pb-16 md:pt-28 md:pb-24">
-      <p className="text-[11px] font-semibold tracking-[0.28em] uppercase mb-5"
-        style={{ color: NEON, opacity: 0.85 }}>
-        Captar · Converter · Cobrar · Decidir
-      </p>
+    <section id="topo" className="mx-auto max-w-6xl px-5 pt-14 pb-14 md:pt-20 md:pb-20">
+      <div className="grid gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:gap-14 lg:items-start">
+        {/* Coluna da mensagem */}
+        <div>
+          <p className="text-[11px] font-semibold tracking-[0.28em] uppercase mb-5"
+            style={{ color: NEON, opacity: 0.85 }}>
+            Captar · Converter · Cobrar · Decidir
+          </p>
 
-      <h1 className="text-4xl md:text-6xl font-bold leading-[1.08] tracking-tight max-w-4xl"
-        style={{ color: '#f2f2f2' }}>
-        Seu CRM conta leads.
-        <br />
-        <span style={{ color: NEON }}>Este conta o caixa.</span>
-      </h1>
+          <h1 className="text-4xl md:text-5xl xl:text-6xl font-bold leading-[1.08] tracking-tight"
+            style={{ color: '#f2f2f2' }}>
+            Seu CRM conta leads.
+            <br />
+            <span style={{ color: NEON }}>Este conta o caixa.</span>
+          </h1>
 
-      <p className="mt-6 text-base md:text-lg leading-relaxed max-w-2xl" style={{ color: '#a0a0a0' }}>
-        Captação automática, funil visual, atendimento no WhatsApp, contratos, previsão de caixa
-        e o custo real das suas campanhas. Um sistema, uma fonte de verdade — sem cinco
-        ferramentas conversando por planilha.
-      </p>
+          <p className="mt-6 text-base md:text-lg leading-relaxed" style={{ color: '#a0a0a0' }}>
+            Uma plataforma que automatiza a captação, integra o que você já usa e protege seus
+            dados — para transformar a operação em <span style={{ color: '#e0e0e0' }}>resultado
+            medido</span>, não em achismo de reunião.
+          </p>
 
-      <div className="mt-9 flex flex-wrap items-center gap-3">
-        <AnchorLink to="diagnostico"
-          className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl font-semibold transition-transform"
-          style={{ background: NEON, color: '#04120a', boxShadow: '0 8px 30px rgba(0,230,118,0.18)' }}
-          onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
-          onMouseLeave={(e) => (e.currentTarget.style.transform = 'none')}>
-          Diagnóstico gratuito <ArrowRight size={17} />
-        </AnchorLink>
-        <AnchorLink to="plataforma"
-          className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl font-medium transition-colors"
-          style={{ color: '#d8d8d8', border: '1px solid rgba(255,255,255,0.14)' }}
-          onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'rgba(0,230,118,0.5)')}
-          onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.14)')}>
-          Ver a plataforma
-        </AnchorLink>
+          <div className="mt-9 grid gap-4 sm:grid-cols-2">
+            {HERO_PILLS.map((p) => (
+              <div key={p.label} className="flex gap-3">
+                <span className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0"
+                  style={{ background: 'rgba(0,230,118,0.1)', border: '1px solid rgba(0,230,118,0.2)' }}>
+                  <p.icon size={14} style={{ color: NEON }} />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold" style={{ color: '#e4e4e4' }}>{p.label}</p>
+                  <p className="text-xs leading-relaxed mt-0.5" style={{ color: '#858585' }}>{p.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <AnchorLink to="plataforma"
+            className="mt-9 inline-flex items-center gap-2 text-sm font-medium transition-colors"
+            style={{ color: '#b8b8b8' }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = NEON)}
+            onMouseLeave={(e) => (e.currentTarget.style.color = '#b8b8b8')}>
+            Ver tudo que a plataforma faz <ArrowRight size={15} />
+          </AnchorLink>
+        </div>
+
+        {/* Coluna do formulário — na primeira dobra, sem precisar rolar */}
+        <div id="diagnostico" className="lg:sticky lg:top-24">
+          <LeadForm idPrefix="hero" />
+        </div>
       </div>
     </section>
   )
@@ -492,7 +517,7 @@ const CTA_POINTS = [
 
 function FinalCta() {
   return (
-    <section id="diagnostico" className="mx-auto max-w-6xl px-5 py-16 md:py-24">
+    <section className="mx-auto max-w-6xl px-5 py-16 md:py-24">
       <div className="grid gap-10 lg:grid-cols-2 lg:items-start">
         <div>
           <h2 className="text-2xl md:text-4xl font-bold tracking-tight leading-tight"
@@ -516,13 +541,19 @@ function FinalCta() {
           </ul>
         </div>
 
-        <LeadForm />
+        <LeadForm idPrefix="final" />
       </div>
     </section>
   )
 }
 
-function LeadForm() {
+/**
+ * O formulário aparece duas vezes (primeira dobra e fechamento), então cada
+ * instância recebe um prefixo — id repetido quebra a associação label/campo
+ * e confunde leitor de tela.
+ */
+function LeadForm({ idPrefix }: { idPrefix: string }) {
+  const [objetivo, setObjetivo]       = useState<'empresa' | 'revenda'>('empresa')
   const [nome, setNome]               = useState('')
   const [whatsapp, setWhatsapp]       = useState('')
   const [instagram, setInstagram]     = useState('')
@@ -538,7 +569,7 @@ function LeadForm() {
     setErro('')
     try {
       await submitLandingLead({
-        nome, whatsapp, instagram, faturamento,
+        objetivo, nome, whatsapp, instagram, faturamento,
         _hp: honeypot.current?.value || undefined,
       })
       setStatus('done')
@@ -576,19 +607,51 @@ function LeadForm() {
       </p>
 
       <div className="flex flex-col gap-4">
-        <Field label="Nome e sobrenome" value={nome} onChange={setNome}
+        {/* Separa quem quer usar de quem quer revender já na entrada: o
+            atendimento dos dois é diferente e a conversa começa certa. */}
+        <fieldset className="flex flex-col gap-1.5">
+          <legend className="text-xs font-medium uppercase tracking-wide mb-1.5"
+            style={{ color: '#8a8a8a' }}>
+            O que você procura?
+          </legend>
+          <div className="grid grid-cols-2 gap-2">
+            {([
+              { key: 'empresa', icon: Building2, label: 'Usar na minha empresa' },
+              { key: 'revenda', icon: Handshake, label: 'Revender como parceiro' },
+            ] as const).map((op) => {
+              const ativo = objetivo === op.key
+              return (
+                <button key={op.key} type="button" onClick={() => setObjetivo(op.key)}
+                  aria-pressed={ativo}
+                  className="flex flex-col items-start gap-1.5 rounded-xl px-3 py-3 text-left transition-colors"
+                  style={{
+                    background: ativo ? 'rgba(0,230,118,0.09)' : '#141414',
+                    border: `1px solid ${ativo ? 'rgba(0,230,118,0.5)' : 'rgba(255,255,255,0.12)'}`,
+                  }}>
+                  <op.icon size={15} style={{ color: ativo ? NEON : '#777' }} />
+                  <span className="text-xs font-medium leading-snug"
+                    style={{ color: ativo ? '#e8e8e8' : '#9a9a9a' }}>
+                    {op.label}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </fieldset>
+
+        <Field id={`${idPrefix}-nome`} label="Nome e sobrenome" value={nome} onChange={setNome}
           placeholder="Como podemos te chamar" required autoComplete="name" />
-        <Field label="WhatsApp" value={whatsapp} onChange={setWhatsapp}
+        <Field id={`${idPrefix}-whatsapp`} label="WhatsApp" value={whatsapp} onChange={setWhatsapp}
           placeholder="(11) 99999-9999" required type="tel" autoComplete="tel" />
-        <Field label="Instagram" value={instagram} onChange={setInstagram}
+        <Field id={`${idPrefix}-instagram`} label="Instagram" value={instagram} onChange={setInstagram}
           placeholder="@seuperfil" />
 
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="faturamento" className="text-xs font-medium uppercase tracking-wide"
+          <label htmlFor={`${idPrefix}-faturamento`} className="text-xs font-medium uppercase tracking-wide"
             style={{ color: '#8a8a8a' }}>
-            Faturamento médio mensal
+            {objetivo === 'revenda' ? 'Faturamento da sua agência' : 'Faturamento médio mensal'}
           </label>
-          <select id="faturamento" value={faturamento} required
+          <select id={`${idPrefix}-faturamento`} value={faturamento} required
             onChange={(e) => setFaturamento(e.target.value)}
             className="h-11 rounded-lg px-3 text-sm focus:outline-none"
             style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.12)', color: faturamento ? '#e8e8e8' : '#666' }}>
@@ -629,11 +692,10 @@ function LeadForm() {
   )
 }
 
-function Field({ label, value, onChange, placeholder, required, type = 'text', autoComplete }: {
-  label: string; value: string; onChange: (v: string) => void
+function Field({ id, label, value, onChange, placeholder, required, type = 'text', autoComplete }: {
+  id: string; label: string; value: string; onChange: (v: string) => void
   placeholder?: string; required?: boolean; type?: string; autoComplete?: string
 }) {
-  const id = label.toLowerCase().replace(/\s+/g, '-')
   return (
     <div className="flex flex-col gap-1.5">
       <label htmlFor={id} className="text-xs font-medium uppercase tracking-wide" style={{ color: '#8a8a8a' }}>
