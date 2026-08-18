@@ -491,3 +491,64 @@ html { -webkit-text-size-adjust: 100%; }
 @media (prefers-reduced-motion: reduce) {
   .landing-reveal { animation: none !important; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Impressão de relatório (Meta Ads)
+
+   Ao imprimir, só o bloco #relatorio-impressao sobrevive: escondemos tudo e
+   depois reexibimos a cadeia de ancestrais dele. Esconder só o "resto" não
+   funcionaria — o relatório mora dentro do modal, que mora dentro do app.
+   ═══════════════════════════════════════════════════════════════════════════ */
+@media print {
+  /* Esconde tudo por padrão */
+  body * { visibility: hidden !important; }
+
+  /* Reexibe o relatório e o que está dentro dele */
+  #relatorio-impressao,
+  #relatorio-impressao * { visibility: visible !important; }
+
+  /* Tira o relatório de dentro do modal e ocupa a folha inteira */
+  #relatorio-impressao {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #fff !important;
+    color: #111 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  /* Controles do modal não vão pro papel */
+  .no-print { display: none !important; }
+
+  /* O modal limita altura (max-h-90vh) e rola por dentro; na impressão isso
+     cortaria o relatório na primeira página.
+
+     `*:has(#relatorio-impressao)` seleciona exatamente os ancestrais do
+     relatório — quem CONTÉM ele. Depender de nomes de classe do Tailwind
+     (max-h-*, overflow-y-auto) funcionaria hoje e quebraria em silêncio no
+     dia em que o Modal trocasse de classe. */
+  *:has(#relatorio-impressao) {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  #relatorio-impressao,
+  #relatorio-impressao * {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+
+  /* Fundo escuro do app viraria uma folha preta inteira */
+  html, body { background: #fff !important; }
+
+  /* Linha de tabela não deve partir no meio entre páginas */
+  #relatorio-impressao tr { page-break-inside: avoid; }
+  #relatorio-impressao thead { display: table-header-group; }
+
+  @page { margin: 14mm; }
+}

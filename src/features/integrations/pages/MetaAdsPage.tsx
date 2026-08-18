@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, type FormEvent } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { RefreshCw, Link2, AlertTriangle, CheckCircle, Trash2, ExternalLink, Plus, Power } from 'lucide-react'
+import { RefreshCw, Link2, AlertTriangle, CheckCircle, Trash2, ExternalLink, Plus, Power, FileText } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
@@ -22,25 +22,12 @@ import {
 import { Select } from '@/components/ui/Select'
 import { useAuthStore } from '@/store/authStore'
 import { formatDate } from '@/lib/utils'
-
-function formatBRL(v: number) {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v)
-}
-
-/** Célula numérica da tabela — trata null como travessão em vez de 0. */
-function Num({ v, fmt, color = '#888', bold }: {
-  v: number | null | undefined
-  fmt?: (n: number) => string
-  color?: string
-  bold?: boolean
-}) {
-  return (
-    <td className="px-3 py-3 text-right tabular-nums whitespace-nowrap"
-      style={{ color: v != null ? color : '#333', fontWeight: bold ? 600 : undefined }}>
-      {v != null ? (fmt ? fmt(v) : v.toLocaleString('pt-BR')) : '—'}
-    </td>
-  )
-}
+import {
+  META_COLUMNS, somarTotais, totalDaColuna, formatBRL, type ColumnKey,
+} from '../metaColumns'
+import { ColumnPicker } from '../components/ColumnPicker'
+import { lerColunasSalvas } from '../colunasSalvas'
+import { ReportModal } from '../components/ReportModal'
 
 const OBJECTIVE_LABELS: Record<string, string> = {
   OUTCOME_LEADS:        'Cadastros',
@@ -99,6 +86,7 @@ function TotalCard({ label, value, sub, color }: {
 export function MetaAdsPage() {
   const confirm = useConfirm()
   const tenantId = useAuthStore((s) => s.tenant?.id)!
+  const tenantName = useAuthStore((s) => s.tenant?.name)
   const queryClient = useQueryClient()
   const [syncError, setSyncError] = useState<string | null>(null)
   const [syncOk,    setSyncOk]    = useState(false)
@@ -109,6 +97,9 @@ export function MetaAdsPage() {
   const [labelInput,   setLabelInput]   = useState('')
   // 'all' = todas as contas; senão o ad_account_id selecionado
   const [selectedAccount, setSelectedAccount] = useState<string>('all')
+  // Métricas visíveis — lidas do navegador uma vez, na montagem.
+  const [colunas, setColunas] = useState<ColumnKey[]>(() => lerColunasSalvas(tenantId))
+  const [reportOpen, setReportOpen] = useState(false)
 
   const { data: credentials, isLoading: credLoading } = useQuery({
     queryKey: ['meta-credentials', tenantId],
@@ -222,15 +213,12 @@ export function MetaAdsPage() {
     ? campaigns
     : campaigns.filter((c) => c.ad_account_id === effectiveAccount)
 
-  const totals = visibleCampaigns.reduce(
-    (acc, c) => ({
-      spend:       acc.spend       + (c.spend ?? 0),
-      clicks:      acc.clicks      + (c.clicks ?? 0),
-      impressions: acc.impressions + (c.impressions ?? 0),
-      results:     acc.results     + (c.results ?? 0),
-    }),
-    { spend: 0, clicks: 0, impressions: 0, results: 0 },
-  )
+  const totaisBrutos = somarTotais(visibleCampaigns)
+  const totals = totaisBrutos
+
+  // Fixas primeiro, depois as escolhidas — na ordem do catálogo, pra tabela
+  // não embaralhar conforme a ordem em que a pessoa foi clicando.
+  const colunasVisiveis = META_COLUMNS.filter((c) => c.fixed || colunas.includes(c.key))
 
   // Todas as linhas vêm do mesmo período sincronizado
   const syncedPreset = visibleCampaigns[0]?.date_preset
@@ -244,7 +232,7 @@ export function MetaAdsPage() {
           <p className="text-sm mt-0.5" style={{ color: '#555' }}>Métricas de campanhas do Facebook e Instagram</p>
         </div>
         {isConnected && (
-          <div className="flex items-end gap-2 shrink-0">
+          <div className="flex items-end gap-2 shrink-0 flex-wrap justify-end">
             <div className="w-44">
               <Select
                 label="Período"
@@ -253,6 +241,16 @@ export function MetaAdsPage() {
                 options={DATE_PRESETS.map((p) => ({ value: p.value, label: p.label }))}
               />
             </div>
+            <ColumnPicker tenantId={tenantId} selecionadas={colunas} onChange={setColunas} />
+            <Button
+              onClick={() => setReportOpen(true)}
+              disabled={visibleCampaigns.length === 0}
+              title={visibleCampaigns.length === 0 ? 'Sincronize campanhas primeiro' : undefined}
+              variant="secondary"
+            >
+              <FileText size={15} />
+              Relatório
+            </Button>
             <Button
               onClick={() => syncMutation.mutate()}
               loading={syncMutation.isPending}
@@ -543,18 +541,13 @@ export function MetaAdsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ background: '#111', borderBottom: '1px solid #1a1a1a' }}>
-                  {['Campanha','Status','Gasto','Alcance','Impressões','Freq.','Cliques','CTR','CPC','CPM','Resultados','Custo/result.'].map((h, i) => (
-                    <th key={h} className={`px-3 py-3 text-xs font-medium uppercase tracking-wide whitespace-nowrap ${i > 1 ? 'text-right' : 'text-left'}`}
+                  {colunasVisiveis.map((col) => (
+                    <th key={col.key}
+                      className={`px-3 py-3 text-xs font-medium uppercase tracking-wide whitespace-nowrap ${col.align === 'right' ? 'text-right' : 'text-left'}`}
                       style={{ color: '#444' }}
-                      title={
-                        h === 'Freq.'          ? 'Quantas vezes a mesma pessoa viu o anúncio'
-                        : h === 'CTR'          ? 'Cliques ÷ impressões'
-                        : h === 'CPC'          ? 'Custo por clique'
-                        : h === 'CPM'          ? 'Custo por mil impressões'
-                        : h === 'Resultados'   ? 'Leads de formulário + conversas iniciadas'
-                        : h === 'Custo/result.'? 'Gasto ÷ resultados'
-                        : undefined
-                      }>{h}</th>
+                      title={col.hint}>
+                      {col.label}
+                    </th>
                   ))}
                 </tr>
               </thead>
@@ -563,49 +556,97 @@ export function MetaAdsPage() {
                   <tr key={c.id} style={{ borderBottom: '1px solid #191919' }}
                     onMouseEnter={(e) => (e.currentTarget.style.background = '#191919')}
                     onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
-                    <td className="px-3 py-3">
-                      <p className="font-medium truncate max-w-[220px]" style={{ color: '#e8e8e8' }}>{c.name}</p>
-                      {c.objective && (
-                        <p className="text-[10px] mt-0.5" style={{ color: '#444' }}>
-                          {translateObjective(c.objective)}
-                        </p>
-                      )}
-                    </td>
-                    <td className="px-3 py-3">
-                      <span className="text-xs font-medium rounded-full px-2.5 py-1 whitespace-nowrap"
-                        style={c.status === 'ACTIVE'
-                          ? { background: 'rgba(0,230,118,0.1)', color: '#00e676' }
-                          : { background: '#1e1e1e', color: '#555' }}>
-                        {c.status === 'ACTIVE' ? 'Ativa' : c.status === 'PAUSED' ? 'Pausada' : c.status ?? '—'}
-                      </span>
-                    </td>
-                    <Num v={c.spend} fmt={formatBRL} bold color="#e8e8e8" />
-                    <Num v={c.reach} />
-                    <Num v={c.impressions} />
-                    <Num v={c.frequency} fmt={(n) => n.toFixed(2)} />
-                    <Num v={c.clicks} />
-                    <Num v={c.ctr} fmt={(n) => `${n.toFixed(2)}%`} />
-                    <Num v={c.cpc} fmt={formatBRL} />
-                    <Num v={c.cpm} fmt={formatBRL} />
-                    <td className="px-3 py-3 text-right font-semibold tabular-nums whitespace-nowrap"
-                      style={{ color: c.results ? 'var(--tenant-primary)' : '#333' }}
-                      title={`${c.leads_generated ?? 0} leads · ${c.conversations ?? 0} conversas`}>
-                      {c.results || '—'}
-                    </td>
-                    <td className="px-3 py-3 text-right whitespace-nowrap">
-                      <span className="tabular-nums"
-                        style={{ color: c.cpl ? '#fbbf24' : '#333', fontWeight: c.cpl ? 600 : undefined }}>
-                        {c.cpl ? formatBRL(c.cpl) : '—'}
-                      </span>
-                    </td>
+                    {colunasVisiveis.map((col) => {
+                      if (col.key === 'name') {
+                        return (
+                          <td key={col.key} className="px-3 py-3">
+                            <p className="font-medium truncate max-w-[220px]" style={{ color: '#e8e8e8' }}>{c.name}</p>
+                            {c.objective && (
+                              <p className="text-[10px] mt-0.5" style={{ color: '#444' }}>
+                                {translateObjective(c.objective)}
+                              </p>
+                            )}
+                          </td>
+                        )
+                      }
+                      if (col.key === 'status') {
+                        return (
+                          <td key={col.key} className="px-3 py-3">
+                            <span className="text-xs font-medium rounded-full px-2.5 py-1 whitespace-nowrap"
+                              style={c.status === 'ACTIVE'
+                                ? { background: 'rgba(0,230,118,0.1)', color: '#00e676' }
+                                : { background: '#1e1e1e', color: '#555' }}>
+                              {c.status === 'ACTIVE' ? 'Ativa' : c.status === 'PAUSED' ? 'Pausada' : c.status ?? '—'}
+                            </span>
+                          </td>
+                        )
+                      }
+
+                      const v = col.get(c)
+                      // Gasto, resultados e custo por resultado são o que a
+                      // pessoa procura primeiro — ficam destacados.
+                      const cor =
+                        v == null            ? '#333'
+                        : col.key === 'spend'   ? '#e8e8e8'
+                        : col.key === 'results' ? 'var(--tenant-primary)'
+                        : col.key === 'cpl'     ? '#fbbf24'
+                        : '#888'
+                      const destaque = col.key === 'spend' || col.key === 'results' || col.key === 'cpl'
+
+                      return (
+                        <td key={col.key}
+                          className="px-3 py-3 text-right tabular-nums whitespace-nowrap"
+                          style={{ color: cor, fontWeight: destaque && v != null ? 600 : undefined }}
+                          title={col.key === 'results'
+                            ? `${c.leads_generated ?? 0} leads · ${c.conversations ?? 0} conversas`
+                            : undefined}>
+                          {v == null ? '—' : col.format(v)}
+                        </td>
+                      )
+                    })}
                   </tr>
                 ))}
               </tbody>
+              <tfoot>
+                <tr style={{ background: '#111', borderTop: '1px solid #2a2a2a' }}>
+                  {colunasVisiveis.map((col, i) => {
+                    if (i === 0) {
+                      return (
+                        <td key={col.key} className="px-3 py-3 text-xs font-semibold uppercase tracking-wide"
+                          style={{ color: '#666' }}>
+                          Total
+                        </td>
+                      )
+                    }
+                    const t = totalDaColuna(col, totaisBrutos)
+                    return (
+                      <td key={col.key}
+                        className="px-3 py-3 text-right tabular-nums whitespace-nowrap font-semibold"
+                        style={{ color: t == null ? '#333' : '#c8c8c8' }}>
+                        {t == null ? '' : col.format(t)}
+                      </td>
+                    )
+                  })}
+                </tr>
+              </tfoot>
             </table>
           </div>
         )}
       </div>
 
+      <ReportModal
+        open={reportOpen}
+        onClose={() => setReportOpen(false)}
+        campaigns={visibleCampaigns}
+        colunas={colunas}
+        periodo={presetLabel(syncedPreset)}
+        conta={
+          effectiveAccount === 'all'
+            ? 'Todas as contas'
+            : (adAccounts.find((a) => a.ad_account_id === effectiveAccount)?.label || effectiveAccount)
+        }
+        empresa={tenantName ?? 'Meta Ads'}
+      />
     </div>
   )
 }
