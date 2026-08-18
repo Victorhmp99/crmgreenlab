@@ -495,30 +495,55 @@ html { -webkit-text-size-adjust: 100%; }
 /* ═══════════════════════════════════════════════════════════════════════════
    Impressão de relatório (Meta Ads)
 
-   Ao imprimir, só o bloco #relatorio-impressao sobrevive: escondemos tudo e
-   depois reexibimos a cadeia de ancestrais dele. Esconder só o "resto" não
+   Ao imprimir, só #relatorio-impressao sobrevive: escondemos tudo e depois
+   reexibimos a cadeia de ancestrais dele. Esconder só o "resto" não
    funcionaria — o relatório mora dentro do modal, que mora dentro do app.
    ═══════════════════════════════════════════════════════════════════════════ */
 @media print {
-  /* Esconde tudo por padrão */
-  body * { visibility: hidden !important; }
+  /* Remove do FLUXO tudo que não faz parte do relatório.
+     `visibility: hidden` era o caminho óbvio e estava errado: esconde o
+     pixel mas MANTÉM a caixa de layout, então o CRM inteiro continuava
+     reservando altura e o relatório começava lá embaixo — a folha em
+     branco antes do conteúdo.
 
-  /* Reexibe o relatório e o que está dentro dele */
-  #relatorio-impressao,
-  #relatorio-impressao * { visibility: visible !important; }
+     A condição abaixo remove todo elemento que (a) não contém o relatório,
+     (b) não é o relatório e (c) não está dentro dele. Ou seja: sobra
+     exatamente a cadeia de ancestrais mais a subárvore do documento. */
+  body *:not(:has(#relatorio-impressao)):not(#relatorio-impressao):not(#relatorio-impressao *) {
+    display: none !important;
+  }
 
-  /* Tira o relatório de dentro do modal e ocupa a folha inteira */
+  /* Neutraliza os ancestrais.
+     `*:has(#relatorio-impressao)` pega exatamente quem CONTÉM o relatório.
+     Depender de nomes de classe do Tailwind quebraria em silêncio no dia em
+     que o Modal trocasse de classe.
+
+     `position: static` e `display: block` são o que corrige a folha em
+     branco: o Modal é `fixed inset-0 flex items-center justify-center`, e
+     o relatório, posicionado, resolvia contra ESSE ancestral centralizado —
+     começando no meio da página. */
+  *:has(#relatorio-impressao) {
+    position: static !important;
+    display: block !important;
+    max-height: none !important;
+    height: auto !important;
+    overflow: visible !important;
+    transform: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #fff !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
   #relatorio-impressao {
-    position: absolute !important;
-    left: 0 !important;
-    top: 0 !important;
+    position: static !important;
     width: 100% !important;
     max-height: none !important;
     overflow: visible !important;
     padding: 0 !important;
     margin: 0 !important;
     background: #fff !important;
-    color: #111 !important;
     border-radius: 0 !important;
     box-shadow: none !important;
   }
@@ -526,29 +551,38 @@ html { -webkit-text-size-adjust: 100%; }
   /* Controles do modal não vão pro papel */
   .no-print { display: none !important; }
 
-  /* O modal limita altura (max-h-90vh) e rola por dentro; na impressão isso
-     cortaria o relatório na primeira página.
-
-     `*:has(#relatorio-impressao)` seleciona exatamente os ancestrais do
-     relatório — quem CONTÉM ele. Depender de nomes de classe do Tailwind
-     (max-h-*, overflow-y-auto) funcionaria hoje e quebraria em silêncio no
-     dia em que o Modal trocasse de classe. */
-  *:has(#relatorio-impressao) {
-    max-height: none !important;
-    overflow: visible !important;
-  }
-  #relatorio-impressao,
-  #relatorio-impressao * {
-    overflow: visible !important;
-    max-height: none !important;
-  }
-
   /* Fundo escuro do app viraria uma folha preta inteira */
   html, body { background: #fff !important; }
 
-  /* Linha de tabela não deve partir no meio entre páginas */
+  /* A tabela precisa caber na largura da folha: sem isto a última coluna
+     (custo por resultado) sai cortada na direita. Deixar o texto quebrar é
+     melhor que perder a coluna. */
+  #relatorio-impressao table {
+    width: 100% !important;
+    table-layout: auto !important;
+    font-size: 8.5pt !important;
+  }
+  #relatorio-impressao th,
+  #relatorio-impressao td {
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+    padding: 4px 3px !important;
+  }
+  /* O nome da campanha é o que mais estica a tabela */
+  #relatorio-impressao td:first-child,
+  #relatorio-impressao th:first-child {
+    max-width: 150px;
+  }
+
+  /* Linha não deve partir no meio entre páginas */
   #relatorio-impressao tr { page-break-inside: avoid; }
   #relatorio-impressao thead { display: table-header-group; }
 
-  @page { margin: 14mm; }
+  /* Fundos dos temas precisam sair na impressão */
+  #relatorio-impressao * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  @page { margin: 12mm; }
 }
