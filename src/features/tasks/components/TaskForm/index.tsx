@@ -5,6 +5,7 @@ import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
+import { DatePicker } from '@/components/ui/DatePicker'
 import { useAuthStore } from '@/store/authStore'
 import { useTaskMutations } from '../../hooks/useTasks'
 import { fetchTenantUsers } from '@/services/users'
@@ -325,7 +326,8 @@ export function TaskForm({ open, onClose, task = null, presetLeadId = null }: Ta
             <label className="text-xs font-medium uppercase tracking-wide flex items-center gap-1.5" style={{ color: '#888' }}>
               <Calendar size={11} /> Data *
             </label>
-            <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+            <DatePicker value={dueDate} onChange={(v) => v && setDueDate(v)} clearable={false}
+              placeholder="Selecionar" />
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium uppercase tracking-wide" style={{ color: '#888' }}>Horário *</label>

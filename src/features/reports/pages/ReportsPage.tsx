@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Users, Megaphone, ArrowUpRight, Tag, Filter } from 'lucide-react'
-import { Input } from '@/components/ui/Input'
+import { DatePicker } from '@/components/ui/DatePicker'
 import { Select } from '@/components/ui/Select'
 import { Spinner } from '@/components/ui/Spinner'
 import { formatCurrency, formatCurrencyCompact } from '@/lib/utils'
@@ -72,16 +72,10 @@ export function ReportsPage() {
         </div>
 
         <div className="flex items-end gap-2">
-          <div className="flex flex-col gap-1">
-            <label className="text-xs uppercase tracking-wide" style={{ color: '#666' }}>De</label>
-            <Input type="date" value={dateFrom} className="w-32"
-              onChange={(e) => setDateFrom(e.target.value)} />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs uppercase tracking-wide" style={{ color: '#666' }}>Até</label>
-            <Input type="date" value={dateTo} className="w-32"
-              onChange={(e) => setDateTo(e.target.value)} />
-          </div>
+          <DatePicker label="De" placeholder="Data início" className="w-36"
+            value={dateFrom} onChange={setDateFrom} />
+          <DatePicker label="Até" placeholder="Data fim" className="w-36"
+            value={dateTo} onChange={setDateTo} />
         </div>
       </div>
 

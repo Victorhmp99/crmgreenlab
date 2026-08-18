@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Search } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Select } from '@/components/ui/Select'
-import { Input } from '@/components/ui/Input'
+import { DatePicker } from '@/components/ui/DatePicker'
 import { useActivityMutations } from '../../hooks/useActivityMutations'
 import { ACTIVITY_CONFIG, MANUAL_ACTIVITY_TYPES } from '../ActivityTypeIcon'
 import { supabase } from '@/lib/supabase'
@@ -43,7 +43,7 @@ export function ActivityForm({ open, onClose, presetLeadId, presetLeadName }: Ac
   const [loadingLeads, setLoadingLeads] = useState(false)
 
   const {
-    register, handleSubmit, reset, setValue, watch,
+    register, handleSubmit, reset, setValue, watch, control,
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -221,12 +221,21 @@ export function ActivityForm({ open, onClose, presetLeadId, presetLeadName }: Ac
           />
         </div>
 
-        <Input
-          label="Próximo follow-up (opcional)"
-          type="date"
-          hint="Define um lembrete visível na timeline"
-          {...register('followup_at')}
+        <Controller
+          control={control}
+          name="followup_at"
+          render={({ field }) => (
+            <DatePicker
+              label="Próximo follow-up (opcional)"
+              placeholder="Sem follow-up"
+              value={field.value ?? ''}
+              onChange={field.onChange}
+            />
+          )}
         />
+        <p className="text-xs -mt-2" style={{ color: 'var(--text-dim, #666)' }}>
+          Define um lembrete visível na timeline
+        </p>
 
         {create.error && (
           <p className="text-sm rounded-lg px-3 py-2"

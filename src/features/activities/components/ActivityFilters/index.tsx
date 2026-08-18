@@ -1,6 +1,6 @@
 import { X } from 'lucide-react'
 import { Select } from '@/components/ui/Select'
-import { Input } from '@/components/ui/Input'
+import { DatePicker } from '@/components/ui/DatePicker'
 import { ACTIVITY_CONFIG, MANUAL_ACTIVITY_TYPES } from '../ActivityTypeIcon'
 import type { ActivityFilters } from '@/services/activities'
 import type { ActivityType } from '@/types'
@@ -32,25 +32,17 @@ export function ActivityFiltersBar({ filters, onChange }: ActivityFiltersBarProp
         />
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <label className="text-xs font-medium uppercase tracking-wide" style={{ color: '#888' }}>De</label>
-        <Input
-          type="date"
-          value={filters.dateFrom ?? ''}
-          onChange={(e) => onChange({ ...filters, dateFrom: e.target.value, page: 1 })}
-          className="w-36"
-        />
-      </div>
+      <DatePicker
+        label="De" placeholder="Data início" className="w-36"
+        value={filters.dateFrom ?? ''}
+        onChange={(v) => onChange({ ...filters, dateFrom: v || undefined, page: 1 })}
+      />
 
-      <div className="flex flex-col gap-1.5">
-        <label className="text-xs font-medium uppercase tracking-wide" style={{ color: '#888' }}>Até</label>
-        <Input
-          type="date"
-          value={filters.dateTo ?? ''}
-          onChange={(e) => onChange({ ...filters, dateTo: e.target.value, page: 1 })}
-          className="w-36"
-        />
-      </div>
+      <DatePicker
+        label="Até" placeholder="Data fim" className="w-36"
+        value={filters.dateTo ?? ''}
+        onChange={(v) => onChange({ ...filters, dateTo: v || undefined, page: 1 })}
+      />
 
       {hasActive && (
         <button

@@ -9,6 +9,7 @@ interface DatePickerProps {
   className?:   string
   minDate?:     string
   clearable?:   boolean
+  error?:       string
 }
 
 const WEEKDAYS = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S']
@@ -40,7 +41,7 @@ function sameDay(a: Date, b: Date): boolean {
 
 const DROPDOWN_WIDTH = 268
 
-export function DatePicker({ value, onChange, label, placeholder = 'Selecionar...', className, minDate, clearable = true }: DatePickerProps) {
+export function DatePicker({ value, onChange, label, placeholder = 'Selecionar...', className, minDate, clearable = true, error }: DatePickerProps) {
   const [open, setOpen] = useState(false)
   const [align, setAlign] = useState<'left' | 'right'>('left')
   const selected = parseDate(value)
@@ -48,16 +49,19 @@ export function DatePicker({ value, onChange, label, placeholder = 'Selecionar..
   const wrapperRef = useRef<HTMLDivElement>(null)
   const min = parseDate(minDate ?? '')
 
-  useEffect(() => {
-    if (!open) return
+  // Ao abrir: volta o calendário pro mês da data escolhida e decide de que lado
+  // abrir pra não cortar na borda da tela. Feito no clique (e não num efeito)
+  // porque depende do layout no instante da abertura.
+  function toggle() {
+    if (open) { setOpen(false); return }
     setViewDate(selected ?? new Date())
-    // Decide de que lado abrir sem cortar na borda da tela
     const rect = wrapperRef.current?.getBoundingClientRect()
     if (rect) {
       const wouldOverflowRight = rect.left + DROPDOWN_WIDTH > window.innerWidth - 8
       setAlign(wouldOverflowRight ? 'right' : 'left')
     }
-  }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+    setOpen(true)
+  }
 
   useEffect(() => {
     if (!open) return
@@ -109,9 +113,13 @@ export function DatePicker({ value, onChange, label, placeholder = 'Selecionar..
       )}
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={toggle}
         className="h-10 w-full rounded-lg px-3 text-sm flex items-center gap-2 text-left transition-all"
-        style={{ background: '#1a1a1a', border: `1px solid ${open ? 'var(--tenant-primary)' : '#2a2a2a'}`, color: value ? '#e8e8e8' : '#555' }}
+        style={{
+          background: '#1a1a1a',
+          border: `1px solid ${error ? '#ff4444' : open ? 'var(--tenant-primary)' : '#2a2a2a'}`,
+          color: value ? '#e8e8e8' : '#555',
+        }}
       >
         <Calendar size={14} style={{ color: '#555', flexShrink: 0 }} />
         <span className="flex-1 truncate">{value ? formatDisplay(value) : placeholder}</span>
@@ -209,6 +217,8 @@ export function DatePicker({ value, onChange, label, placeholder = 'Selecionar..
           </div>
         </div>
       )}
+
+      {error && <p className="text-xs" style={{ color: '#ff4444' }}>{error}</p>}
     </div>
   )
 }
