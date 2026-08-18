@@ -19,6 +19,7 @@ import { formatPhone, formatCurrency, formatDateTime } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
 import { usePermissions } from '@/hooks/usePermissions'
+import { useFeatures } from '@/hooks/useFeatures'
 import { fetchLeadFields } from '@/services/leadFieldDefinitions'
 import { fetchLeadComments } from '@/services/leadComments'
 import { useQuery } from '@tanstack/react-query'
@@ -37,7 +38,11 @@ type Tab = 'data' | 'activities' | 'organization' | 'contract'
 export function LeadDrawer({ lead, onClose, onEdit, initialTab }: LeadDrawerProps) {
   const tenantId = useAuthStore((s) => s.tenant?.id)
   const { isManager, isSuperAdmin } = usePermissions()
-  const canSeeContract = isManager || isSuperAdmin
+  const { hasFeature } = useFeatures()
+  // Precisa do cargo E da função "financeiro" liberada no plano da empresa.
+  // Sem a função, o valor do lead continua editável pelo "Editar lead" —
+  // só contratos/produtos é que ficam de fora.
+  const canSeeContract = (isManager || isSuperAdmin) && hasFeature('financeiro')
   const [visible,  setVisible]  = useState(false)
   const [tab,      setTab]      = useState<Tab>(initialTab ?? 'data')
   const [showActivityForm, setShowActivityForm] = useState(false)
@@ -71,7 +76,13 @@ export function LeadDrawer({ lead, onClose, onEdit, initialTab }: LeadDrawerProp
   }, [lead, onClose])
 
   // Reseta para "Dados" sempre que abre lead diferente
-  useEffect(() => { if (lead) setTab(initialTab ?? 'data') }, [lead?.id])
+  // Se pedirem a aba de contrato sem a função liberada, cai em "Dados"
+  // em vez de abrir num painel vazio.
+  useEffect(() => {
+    if (!lead) return
+    const wanted = initialTab ?? 'data'
+    setTab(wanted === 'contract' && !canSeeContract ? 'data' : wanted)
+  }, [lead?.id])
 
   useEffect(() => {
     if (!lead || !tenantId) return
