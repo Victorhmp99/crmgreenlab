@@ -1,4 +1,4 @@
-import { TrendingUp, TrendingDown, DollarSign, Percent } from 'lucide-react'
+import { TrendingUp, TrendingDown, DollarSign, Percent, Wallet } from 'lucide-react'
 import type { FinancialSummary } from '@/services/financial'
 
 function formatBRL(value: number): string {
@@ -40,12 +40,13 @@ export function SummaryCard({
           <div className="h-4 w-20 rounded animate-pulse" style={{ background: '#1e1e1e' }} />
         </div>
       ) : (
-        <div>
-          <div className="flex items-center gap-2">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
             <p className="text-2xl font-bold tabular-nums" style={{ color: '#e8e8e8' }}>{value}</p>
             {delta != null && (
               <span className="text-xs font-semibold tabular-nums"
-                style={{ color: deltaIsGood ? '#00e676' : '#ff4444' }}>
+                style={{ color: deltaIsGood ? '#00e676' : '#ff4444' }}
+                title="Comparado ao mês anterior">
                 {delta > 0 ? '+' : ''}{delta}%
               </span>
             )}
@@ -59,34 +60,45 @@ export function SummaryCard({
 }
 
 interface FinancialSummaryProps {
-  data?:         FinancialSummary
-  previousData?: FinancialSummary
-  isLoading:     boolean
-  periodLabel:   string
+  data?:              FinancialSummary
+  previousData?:      FinancialSummary
+  faturamento?:       number
+  wonCount?:          number
+  isLoading:          boolean
+  periodLabel:        string
 }
 
-export function FinancialSummaryCards({ data, previousData, isLoading, periodLabel }: FinancialSummaryProps) {
+export function FinancialSummaryCards({
+  data, previousData, faturamento, wonCount, isLoading, periodLabel,
+}: FinancialSummaryProps) {
   const revenueDelta  = data && previousData ? deltaPercent(data.totalRevenue, previousData.totalRevenue) : null
   const expensesDelta = data && previousData ? deltaPercent(data.totalExpenses, previousData.totalExpenses) : null
   const profitDelta   = data && previousData ? deltaPercent(data.netProfit, previousData.netProfit) : null
 
   return (
-    <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
       <SummaryCard
-        label="Receita Total"
+        label="Faturamento"
+        value={faturamento != null ? formatBRL(faturamento) : 'R$ —'}
+        icon={DollarSign}
+        iconBg="rgba(167,139,250,0.12)"
+        iconColor="#a78bfa"
+        subLabel={`Vendido — ${wonCount ?? 0} fechamento${wonCount === 1 ? '' : 's'}`}
+        isLoading={isLoading}
+      />
+      <SummaryCard
+        label="Receita"
         value={data ? formatBRL(data.totalRevenue) : 'R$ —'}
-        icon={TrendingUp}
+        icon={Wallet}
         iconBg="rgba(0,230,118,0.12)"
         iconColor="#00e676"
-        subLabel={data
-          ? `${formatBRL(data.autoRevenue)} de ${data.autoRevenueCount} leads · ${formatBRL(data.manualRevenue)} manual`
-          : periodLabel}
+        subLabel="Dinheiro que já entrou"
         isLoading={isLoading}
         delta={revenueDelta}
         deltaGoodDirection="up"
       />
       <SummaryCard
-        label="Despesas Total"
+        label="Despesas"
         value={data ? formatBRL(data.totalExpenses) : 'R$ —'}
         icon={TrendingDown}
         iconBg="rgba(255,68,68,0.12)"
@@ -99,10 +111,10 @@ export function FinancialSummaryCards({ data, previousData, isLoading, periodLab
       <SummaryCard
         label="Lucro Líquido"
         value={data ? formatBRL(data.netProfit) : 'R$ —'}
-        icon={DollarSign}
+        icon={TrendingUp}
         iconBg={data && data.netProfit >= 0 ? 'rgba(64,160,255,0.12)' : 'rgba(251,191,36,0.12)'}
         iconColor={data && data.netProfit >= 0 ? '#40a0ff' : '#fbbf24'}
-        subLabel={periodLabel}
+        subLabel="Receita − despesas"
         isLoading={isLoading}
         delta={profitDelta}
         deltaGoodDirection="up"
@@ -113,6 +125,7 @@ export function FinancialSummaryCards({ data, previousData, isLoading, periodLab
         icon={Percent}
         iconBg={data && data.profitMargin >= 30 ? 'rgba(167,139,250,0.12)' : 'rgba(150,150,150,0.1)'}
         iconColor={data && data.profitMargin >= 30 ? '#a78bfa' : '#666'}
+        subLabel="Do que entrou, quanto sobra"
         isLoading={isLoading}
       />
     </div>

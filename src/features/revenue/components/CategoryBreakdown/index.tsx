@@ -2,11 +2,12 @@ import { useCategoryBreakdown } from '../../hooks/useFinancial'
 import { formatCurrency } from '@/lib/utils'
 
 interface Props {
-  dateFrom?: string
-  dateTo?:   string
+  dateFrom?:    string
+  dateTo?:      string
+  periodLabel?: string
 }
 
-export function CategoryBreakdown({ dateFrom, dateTo }: Props) {
+export function CategoryBreakdown({ dateFrom, dateTo, periodLabel }: Props) {
   const { data = [], isLoading } = useCategoryBreakdown(dateFrom, dateTo)
 
   const maxValue = Math.max(1, ...data.map((c) => Math.max(c.revenue, c.expenses)))
@@ -15,7 +16,11 @@ export function CategoryBreakdown({ dateFrom, dateTo }: Props) {
   return (
     <div className="rounded-xl p-5" style={{ background: '#141414', border: '1px solid #1e1e1e' }}>
       <p className="text-sm font-semibold" style={{ color: '#e8e8e8' }}>Receita e Despesa por Categoria</p>
-      <p className="text-xs mt-0.5 mb-4" style={{ color: '#444' }}>Período selecionado nos filtros abaixo</p>
+      <p className="text-xs mt-0.5 mb-4" style={{ color: '#444' }}>
+        {periodLabel ?? 'No período selecionado'}
+        <span className="ml-2" style={{ color: '#00e676' }}>■</span> <span style={{ color: '#555' }}>receita</span>
+        <span className="ml-2" style={{ color: '#ff4444' }}>■</span> <span style={{ color: '#555' }}>despesa</span>
+      </p>
 
       {isLoading ? (
         <div className="flex flex-col gap-2">

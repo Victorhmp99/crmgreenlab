@@ -7,12 +7,13 @@ import {
   deactivateFinancialProduct,
   type CreateFinancialProductData,
 } from '@/services/financialProducts'
+import { isDemo, DEMO_PRODUCTS } from '../demoData'
 
 export function useFinancialProducts() {
   const tenantId = useAuthStore((s) => s.tenant?.id)
   return useQuery({
     queryKey:  ['financial-products', tenantId],
-    queryFn:   () => fetchFinancialProducts(tenantId!),
+    queryFn:   isDemo ? async () => DEMO_PRODUCTS : () => fetchFinancialProducts(tenantId!),
     enabled:   !!tenantId,
     staleTime: 1000 * 60 * 5,
   })

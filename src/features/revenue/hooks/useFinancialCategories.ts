@@ -6,12 +6,13 @@ import {
   deactivateFinancialCategory,
   type FinancialCategoryType,
 } from '@/services/financialCategories'
+import { isDemo, DEMO_CATEGORIES } from '../demoData'
 
 export function useFinancialCategories() {
   const tenantId = useAuthStore((s) => s.tenant?.id)
   return useQuery({
     queryKey:  ['financial-categories', tenantId],
-    queryFn:   () => fetchFinancialCategories(tenantId!),
+    queryFn:   isDemo ? async () => DEMO_CATEGORIES : () => fetchFinancialCategories(tenantId!),
     enabled:   !!tenantId,
     staleTime: 1000 * 60 * 5,
   })

@@ -3,8 +3,9 @@ import { useCategoryBreakdown } from '../../hooks/useFinancial'
 import { formatCurrency } from '@/lib/utils'
 
 interface Props {
-  dateFrom?: string
-  dateTo?:   string
+  dateFrom?:    string
+  dateTo?:      string
+  periodLabel?: string
 }
 
 const COLORS = ['#00e676', '#40a0ff', '#a78bfa', '#fbbf24', '#ec4899', '#22d3ee', '#f97316', '#84cc16']
@@ -23,7 +24,7 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Toolti
   )
 }
 
-export function RevenuePieChart({ dateFrom, dateTo }: Props) {
+export function RevenuePieChart({ dateFrom, dateTo, periodLabel }: Props) {
   const { data = [], isLoading } = useCategoryBreakdown(dateFrom, dateTo)
 
   const revenueData = data
@@ -37,7 +38,9 @@ export function RevenuePieChart({ dateFrom, dateTo }: Props) {
     <div className="rounded-xl p-5" style={{ background: '#141414', border: '1px solid #1e1e1e' }}>
       <p className="text-sm font-semibold" style={{ color: '#e8e8e8' }}>Receita por Categoria</p>
       <p className="text-xs mt-0.5 mb-4" style={{ color: '#444' }}>
-        {total > 0 ? `${formatCurrency(total)} no período` : 'Distribuição da receita'}
+        {total > 0
+          ? `${formatCurrency(total)}${periodLabel ? ` em ${periodLabel}` : ' no período'}`
+          : 'Distribuição da receita'}
       </p>
 
       {isLoading ? (

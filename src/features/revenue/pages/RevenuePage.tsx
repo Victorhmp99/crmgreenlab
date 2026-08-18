@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, X, LayoutGrid, ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react'
+import { Plus, X, LayoutGrid, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Undo2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Select } from '@/components/ui/Select'
 import { DatePicker } from '@/components/ui/DatePicker'
@@ -10,12 +10,11 @@ import { TransactionList } from '../components/TransactionList'
 import { TransactionForm } from '../components/TransactionForm'
 import { CatalogModal } from '../components/CatalogModal'
 import { MRRSummary } from '../components/MRRSummary'
-import { FaturamentoSummary } from '../components/FaturamentoSummary'
 import { CashFlowForecast } from '../components/CashFlowForecast'
 import { CategoryBreakdown } from '../components/CategoryBreakdown'
 import { RevenuePieChart } from '../components/RevenuePieChart'
 import { GoalCalculator } from '../components/GoalCalculator'
-import { useFinancialSummary, useMonthlyTrend, useTransactions } from '../hooks/useFinancial'
+import { useFinancialSummary, useMonthlyTrend, useTransactions, useFaturamentoReceita } from '../hooks/useFinancial'
 import { useFinancialMutations } from '../hooks/useFinancialMutations'
 import { LeadDrawer } from '@/features/activities/components/LeadDrawer'
 import { LeadForm } from '@/features/leads/components/LeadForm'
@@ -55,10 +54,11 @@ export function RevenuePage() {
   const { from, to, label } = monthBounds(viewMonth)
   const { from: prevFrom, to: prevTo } = prevMonthBounds(viewMonth)
 
-  const isCurrentMonth = (() => {
-    const now = new Date()
-    return viewMonth.getFullYear() === now.getFullYear() && viewMonth.getMonth() === now.getMonth()
-  })()
+  const now = new Date()
+  const viewKey    = viewMonth.getFullYear() * 12 + viewMonth.getMonth()
+  const nowKey     = now.getFullYear() * 12 + now.getMonth()
+  const isCurrentMonth = viewKey === nowKey
+  const isFutureMonth  = viewKey > nowKey
 
   const [filters, setFilters]               = useState<FinancialFilters>({ page: 1, pageSize: 25 })
   const [editingRecord, setEditingRecord]   = useState<FinancialRecord | null | undefined>(undefined)
@@ -70,6 +70,7 @@ export function RevenuePage() {
 
   const { data: summary,     isLoading: summaryLoading } = useFinancialSummary(from, to)
   const { data: prevSummary } = useFinancialSummary(prevFrom, prevTo)
+  const { data: faturamentoData } = useFaturamentoReceita(from, to)
   const { data: trend = [],  isLoading: trendLoading   } = useMonthlyTrend(12)
   const { data: transactions, isLoading: listLoading   } = useTransactions(filters)
   const { remove } = useFinancialMutations()
@@ -110,10 +111,21 @@ export function RevenuePage() {
       {/* Período em foco — controla todos os cards abaixo (exceto Previsão de Caixa, que tem período próprio) */}
       <div className="flex items-center justify-between flex-wrap gap-3 rounded-xl px-4 py-3"
         style={{ background: '#141414', border: '1px solid #1e1e1e' }}>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <CalendarIcon size={15} style={{ color: 'var(--tenant-primary)' }} />
           <span className="text-sm" style={{ color: '#666' }}>Mostrando:</span>
           <span className="text-sm font-semibold" style={{ color: '#e8e8e8' }}>{label}</span>
+          {isCurrentMonth ? (
+            <span className="text-[10px] rounded-full px-2 py-0.5"
+              style={{ background: 'rgba(0,230,118,0.12)', color: '#00e676' }}>
+              mês atual
+            </span>
+          ) : (
+            <span className="text-[10px] rounded-full px-2 py-0.5"
+              style={{ background: '#1e1e1e', color: '#888' }}>
+              {isFutureMonth ? 'mês futuro' : 'mês passado'}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-1">
           <button onClick={() => setViewMonth((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
@@ -126,9 +138,18 @@ export function RevenuePage() {
           </button>
           {!isCurrentMonth && (
             <button onClick={() => setViewMonth(new Date())}
-              className="text-xs font-medium rounded-lg px-2.5 py-1.5 transition-colors"
-              style={{ color: 'var(--tenant-primary)' }}>
-              Mês atual
+              className="flex items-center gap-1.5 text-xs font-medium rounded-lg px-3 py-1.5 transition-colors"
+              style={{ border: '1px solid #2a2a2a', color: '#aaa' }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'var(--tenant-primary)'
+                e.currentTarget.style.color = 'var(--tenant-primary)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = '#2a2a2a'
+                e.currentTarget.style.color = '#aaa'
+              }}
+              title="Voltar para o mês atual">
+              <Undo2 size={12} /> Voltar pra hoje
             </button>
           )}
           <button onClick={() => setViewMonth((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1))}
@@ -142,11 +163,16 @@ export function RevenuePage() {
         </div>
       </div>
 
-      {/* Faturamento (vendido) x Receita (recebido) — são coisas diferentes */}
-      <FaturamentoSummary dateFrom={from} dateTo={to} periodLabel={label} />
-
-      {/* Cards do mês em foco (com comparação vs mês anterior) */}
-      <FinancialSummaryCards data={summary} previousData={prevSummary} isLoading={summaryLoading} periodLabel={label} />
+      {/* Cards do mês em foco: Faturamento (vendido) → Receita (recebido) →
+          Despesas → Lucro → Margem, com comparação vs mês anterior */}
+      <FinancialSummaryCards
+        data={summary}
+        previousData={prevSummary}
+        faturamento={faturamentoData?.faturamento}
+        wonCount={faturamentoData?.wonCount}
+        isLoading={summaryLoading}
+        periodLabel={label}
+      />
 
       {/* MRR ativo */}
       <MRRSummary />
@@ -157,11 +183,11 @@ export function RevenuePage() {
       {/* Previsão de caixa + breakdown por categoria */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         <CashFlowForecast />
-        <CategoryBreakdown dateFrom={from} dateTo={to} />
+        <CategoryBreakdown dateFrom={from} dateTo={to} periodLabel={label} />
       </div>
 
       {/* Pizza de receita por categoria */}
-      <RevenuePieChart dateFrom={from} dateTo={to} />
+      <RevenuePieChart dateFrom={from} dateTo={to} periodLabel={label} />
 
       {/* Calculadora de meta */}
       <GoalCalculator />
