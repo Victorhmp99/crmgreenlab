@@ -102,7 +102,22 @@
   .brand .name { font-weight: 700; font-size: 15px; letter-spacing: -.01em; line-height: 1.1; }
   .brand .sub { color: var(--muted); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; }
 
+  .search-wrap { margin-top: 18px; }
+  .search-wrap input {
+    width: 100%; box-sizing: border-box;
+    padding: 8px 10px; border-radius: 8px;
+    background: var(--surface-2); border: 1px solid var(--line);
+    color: var(--ink); font: inherit; font-size: 13px;
+    outline: none;
+  }
+  .search-wrap input::placeholder { color: var(--faint); }
+  .search-wrap input:focus { border-color: var(--accent-strong); }
+  .no-results {
+    color: var(--faint); font-size: 12.5px; padding: 10px 8px; margin: 12px 0 0;
+  }
+
   .nav-group { margin-top: 16px; }
+  .nav-group[hidden] { display: none; }
   .nav-group > .lbl {
     font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
     color: var(--faint); padding: 6px 8px; font-weight: 600;
@@ -240,11 +255,15 @@
         <div class="sub">Documentação</div>
       </div>
     </div>
+    <div class="search-wrap">
+      <input type="search" id="doc-search" placeholder="Buscar na documentação..." autocomplete="off" aria-label="Buscar na documentação">
+    </div>
     <nav>
       <div class="nav-group">
         <div class="lbl">Começando</div>
         <a href="#visao">Visão geral</a>
         <a href="#acesso">Perfis de acesso</a>
+        <a href="#planos">Planos e funções</a>
         <a href="#primeiros-passos">Primeiros passos</a>
         <a href="#empresas">Multi-empresa</a>
       </div>
@@ -255,27 +274,39 @@
         <a href="#pipeline">Pipeline</a>
         <a href="#disparos">Disparos</a>
         <a href="#tarefas">Tarefas &amp; Agenda</a>
+        <a href="#notificacoes">Notificações</a>
         <a href="#metas">Metas</a>
-        <a href="#financeiro">Financeiro</a>
         <a href="#relatorios">Relatórios</a>
         <a href="#funil">Configuração do funil</a>
-        <a href="#metaads">Meta Ads</a>
         <a href="#whatsapp">SDR WhatsApp</a>
         <a href="#usuarios">Usuários</a>
         <a href="#config">Configurações</a>
         <a href="#plataforma">Plataforma</a>
       </div>
       <div class="nav-group">
+        <div class="lbl">Financeiro</div>
+        <a href="#financeiro">Visão do módulo</a>
+        <a href="#faturamento-receita">Faturamento × Receita</a>
+        <a href="#contratos">Contratos de cliente</a>
+        <a href="#produtos">Produtos e compras</a>
+        <a href="#despesas">Despesas</a>
+        <a href="#previsao">Previsão de caixa</a>
+        <a href="#calculadora">Calculadora de meta</a>
+      </div>
+      <div class="nav-group">
         <div class="lbl">Integrações</div>
         <a href="#webhook">Webhook de formulários</a>
         <a href="#campos">Campos personalizados</a>
+        <a href="#metaads">Meta Ads</a>
       </div>
       <div class="nav-group">
         <div class="lbl">Referência</div>
         <a href="#seguranca">Segurança &amp; privacidade</a>
+        <a href="#glossario">Glossário</a>
         <a href="#tecnico">Apêndice técnico</a>
         <a href="#faq">FAQ &amp; suporte</a>
       </div>
+      <p class="no-results" id="search-empty" hidden>Nenhuma seção encontrada.</p>
     </nav>
   </aside>
 
@@ -343,6 +374,57 @@
         <p style="font-size:13.5px;color:var(--muted)">* O vendedor vê e acompanha <strong>apenas as próprias metas</strong>. &nbsp;† O gestor gerencia <strong>apenas vendedores</strong> — não pode criar/editar outros gestores ou admins.</p>
       </section>
 
+      <section id="planos">
+        <h2>Planos e funções</h2>
+        <p>Além do cargo, o que cada empresa enxerga depende das <strong>funções liberadas</strong> para ela. São dois filtros independentes: o cargo diz o que <em>você</em> pode; o plano diz o que a <em>empresa</em> tem.</p>
+
+        <h3>Funções disponíveis</h3>
+        <div class="table-wrap">
+        <table>
+          <thead><tr><th>Função</th><th>O que libera</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Automações da pipeline</strong></td><td>Webhook de formulários, automação de WhatsApp e etapa de entrada dentro do Pipeline.</td></tr>
+            <tr><td><strong>Financeiro</strong></td><td>Menu Financeiro, contratos de cliente, produtos, previsão e os cartões de faturamento/receita.</td></tr>
+            <tr><td><strong>Relatórios</strong></td><td>Menu Relatórios e a configuração do funil analítico.</td></tr>
+            <tr><td><strong>Meta Ads</strong></td><td>Menu Meta Ads e a sincronização de campanhas.</td></tr>
+            <tr><td><strong>SDR WhatsApp</strong></td><td>Atalho para o atendimento por WhatsApp integrado.</td></tr>
+          </tbody>
+        </table>
+        </div>
+
+        <h3>Planos</h3>
+        <p>Planos são <strong>pacotes de funções</strong> — aplicar um plano liga o conjunto de uma vez. Depois disso é possível ligar ou desligar uma função específica para um cliente (override), e a empresa passa a constar como personalizada.</p>
+        <div class="table-wrap">
+        <table>
+          <thead><tr><th>Plano</th><th>Funções incluídas</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Start</strong></td><td>Automações</td></tr>
+            <tr><td><strong>Standard</strong></td><td>Automações, Financeiro, Relatórios, Meta Ads</td></tr>
+            <tr><td><strong>Plus</strong></td><td>Automações, Financeiro, Relatórios, Meta Ads, SDR WhatsApp</td></tr>
+          </tbody>
+        </table>
+        </div>
+        <div class="note"><span class="t">Comercial</span> Os valores praticados não fazem parte desta documentação: em operação white-label, cada revendedor define o próprio preço.</div>
+
+        <h3>Experiência reduzida sem o Financeiro</h3>
+        <p>Empresas sem a função <code>financeiro</code> continuam usando o CRM normalmente; o que muda é o detalhamento do dinheiro:</p>
+        <div class="table-wrap">
+        <table>
+          <thead><tr><th>Com Financeiro</th><th>Sem Financeiro</th></tr></thead>
+          <tbody>
+            <tr><td>Contrato do cliente (recorrente, único, %)</td><td>Não aparece no lead</td></tr>
+            <tr><td>Produtos e compras por lead</td><td>Não aparece no lead</td></tr>
+            <tr><td>Valor do lead calculado automaticamente</td><td>Valor preenchido manualmente</td></tr>
+            <tr><td>Menu Financeiro, previsão, gráficos e cartões de receita</td><td>Ocultos</td></tr>
+          </tbody>
+        </table>
+        </div>
+        <p>Nada é perdido: liberar a função depois reexibe tudo que já existia.</p>
+
+        <h3>Quem altera</h3>
+        <p>Somente quem administra a plataforma (Super Admin), na tela <a href="#plataforma">Plataforma</a>. Não é uma configuração acessível dentro da própria empresa. A verificação é feita no banco de dados: esconder o menu é conveniência de interface, não a proteção.</p>
+      </section>
+
       <section id="primeiros-passos">
         <h2>Primeiros passos</h2>
         <h3>Entrar</h3>
@@ -369,11 +451,13 @@
         <p>A tela inicial resume a saúde comercial da empresa ativa:</p>
         <ul>
           <li><strong>Cartões de métrica</strong> — indicadores-chave com variação (delta) contra o período anterior.</li>
+          <li><strong>Faturamento e Receita</strong> — exibidos lado a lado, com filtro por data. São coisas diferentes; veja <a href="#faturamento-receita">Faturamento × Receita</a>.</li>
           <li><strong>Evolução (30 dias)</strong> — gráfico de área com a captação recente.</li>
           <li><strong>Funil por etapa</strong> — quantos leads em cada estágio do pipeline.</li>
           <li><strong>Origem dos leads</strong> — distribuição por canal (Meta Ads, indicação, etc.).</li>
           <li><strong>Leads recentes</strong> — os últimos que entraram, para ação rápida.</li>
         </ul>
+        <div class="note"><span class="t">Sem o módulo Financeiro</span> Os cartões de faturamento e receita não aparecem para empresas cujo plano não inclui o Financeiro, nem para vendedores.</div>
       </section>
 
       <section id="leads">
@@ -381,8 +465,37 @@
         <p>O cadastro central de contatos. A tabela é paginada e filtrável, com criação, edição e exclusão.</p>
         <h3>Importar leads</h3>
         <p>Traga contatos em massa por <strong>CSV</strong> ou <strong>URL do Google Sheets</strong>. O assistente de importação tem 3 etapas, incluindo o <strong>mapeamento de colunas</strong> — você diz qual coluna da planilha corresponde a nome, telefone, e-mail, etc.</p>
+        <h3>Exportar leads</h3>
+        <p>O botão <strong>Exportar</strong> gera um CSV com os leads que estão passando pelos <strong>filtros ativos</strong> na tela. Para exportar um recorte (uma origem, um status, um período), aplique os filtros antes.</p>
+
+        <h3>Ordenação</h3>
+        <p>Quatro opções, todas resolvidas no banco (a ordenação vale para a base inteira, não só para a página visível):</p>
+        <div class="table-wrap">
+        <table>
+          <thead><tr><th>Opção</th><th>Para que serve</th></tr></thead>
+          <tbody>
+            <tr><td>Criação (recentes)</td><td>Ver o que acabou de entrar.</td></tr>
+            <tr><td>Criação (antigos)</td><td>Achar base antiga nunca trabalhada.</td></tr>
+            <tr><td>Atualização (recentes)</td><td>Ver onde houve movimento — qualquer alteração conta, não só troca de etapa.</td></tr>
+            <tr><td>Atualização (antigos)</td><td>Caçar lead esquecido: quem está há mais tempo sem nenhum toque.</td></tr>
+          </tbody>
+        </table>
+        </div>
+
+        <h3>Etiquetas e comentário</h3>
+        <ul>
+          <li><strong>Etiquetas</strong> — marcadores coloridos livres (ex.: “quente”, “sem budget”, “indicação”), criados pela própria empresa. Aparecem abaixo do nome do lead na listagem.</li>
+          <li><strong>Comentário</strong> — anotação do lead. A prévia aparece na linha da tabela; o texto completo, no painel lateral.</li>
+        </ul>
+
+        <h3>Enviar para uma etapa da pipeline</h3>
+        <p>Na coluna de ações da listagem, o botão de pipeline abre um seletor de <strong>pipeline + etapa</strong>. Antes de confirmar, o sistema mostra <strong>em quais etapas aquele lead já está</strong> — evitando adicionar em duplicidade sem saber. A inclusão registra atividade na timeline e conta como alteração do lead.</p>
+
         <h3>Telefone único por empresa</h3>
         <p>O mesmo telefone não se duplica dentro de uma empresa: se um lead com aquele número já existe, o sistema reaproveita o registro. O mesmo número <em>pode</em> existir em empresas diferentes.</p>
+
+        <h3>Valor do lead</h3>
+        <p>Enquanto não há contrato nem produtos lançados, o valor é <strong>editável manualmente</strong> (estimativa). A partir do primeiro contrato ou produto, passa a ser <strong>calculado</strong> (contrato + compras) e deixa de aceitar edição manual, para não divergir do financeiro. Veja <a href="#contratos">Contratos</a>.</p>
         <div class="note"><span class="t">Campos personalizados</span> Além dos campos padrão, cada empresa define suas próprias “Perguntas do Formulário”. Veja <a href="#campos">Campos personalizados</a>.</div>
       </section>
 
@@ -394,6 +507,7 @@
           <li><strong>Etapas configuráveis</strong> — criar, renomear, recolorir, reordenar, marcar etapa de <em>entrada</em> e etapa <em>final</em>.</li>
           <li><strong>Registro de atividade</strong> a cada movimentação.</li>
           <li><strong>Valor da pipeline</strong> — soma automática do valor dos leads no funil.</li>
+          <li><strong>Busca de lead no funil</strong> — procura por nome ou telefone e mostra <em>em qual etapa</em> o lead está, mesmo que a coluna esteja fora da área visível.</li>
         </ul>
 
         <h3>Criar uma nova pipeline</h3>
@@ -438,7 +552,22 @@
       <section id="tarefas">
         <h2>Tarefas &amp; Agenda</h2>
         <p>Organiza os compromissos da equipe em <strong>calendário</strong> (mês/semana) e <strong>lista</strong>. Filtre entre <strong>Todas</strong> e <strong>Minhas</strong> tarefas, navegue por período e crie novas com data e hora.</p>
+        <ul>
+          <li><strong>Responsável</strong> — cada tarefa tem um dono; o sino avisa só ele.</li>
+          <li><strong>Vencimento</strong> — atrasadas e “vence hoje” recebem destaque visual.</li>
+          <li><strong>Cobrança automática de contratos</strong> — contratos recorrentes geram <em>uma tarefa por parcela</em>, na data correta, sem ninguém criar na mão. Contratos com data de início no passado <strong>não</strong> geram tarefas retroativas.</li>
+        </ul>
         <div class="note"><span class="t">Em evolução</span> Integração com o Google Agenda (sincronização bidirecional por usuário) está planejada como melhoria futura.</div>
+      </section>
+
+      <section id="notificacoes">
+        <h2>Notificações</h2>
+        <p>O sino no topo entrega um <strong>resumo diário</strong> das tarefas de cada pessoa — o que vence hoje e o que está atrasado.</p>
+        <ul>
+          <li><strong>Um aviso por pessoa, não por tarefa</strong> — decisão deliberada para não transformar o sino em ruído.</li>
+          <li><strong>Só o responsável recebe</strong> — não há cópia para gestor.</li>
+          <li><strong>Fuso de Brasília</strong> — o corte do “hoje” usa <code>America/Sao_Paulo</code>, não o fuso do servidor. Sem isso, tarefas do dia apareceriam um dia adiantadas.</li>
+        </ul>
       </section>
 
       <section id="metas">
@@ -453,12 +582,135 @@
 
       <section id="financeiro">
         <h2>Financeiro <span class="tag">Gestor+</span></h2>
-        <p>Centro de receita da empresa.</p>
+        <p>Centro de receita da empresa. Tudo aqui é <strong>por empresa</strong>: catálogo, categorias, contratos, despesas e projeções são isolados — nada é compartilhado entre as empresas de uma mesma conta.</p>
         <ul>
-          <li><strong>Resumo financeiro</strong> — cartões com os números do período.</li>
-          <li><strong>Evolução</strong> — gráfico combinado de receita.</li>
-          <li><strong>Transações</strong> — lista paginada, com criação e edição de lançamentos.</li>
+          <li><strong>Resumo</strong> — Faturamento → Receita → Despesas → Lucro → Margem, na mesma linha.</li>
+          <li><strong>Evolução mensal</strong> — receita e despesa mês a mês.</li>
+          <li><strong>Pizza de receita</strong> e <strong>quebra por categoria</strong> — de onde vem o dinheiro.</li>
+          <li><strong>Previsão de caixa</strong> — projeção 30/60/90 dias ou mais.</li>
+          <li><strong>Calculadora de meta</strong> — quantas vendas para bater um alvo.</li>
+          <li><strong>Transações</strong> — lista paginada com filtro de data próprio, criação e edição.</li>
         </ul>
+
+        <h3>Período de referência</h3>
+        <p>Os cartões e gráficos trabalham sobre um <strong>mês de referência</strong>, exibido no topo. As setas navegam entre meses; fora do mês corrente aparece o botão <strong>Voltar pra hoje</strong>. A lista de transações tem filtro De/Até independente.</p>
+        <div class="note"><span class="t">Acesso</span> Exige cargo <strong>Gestor ou Admin</strong> <em>e</em> a função <code>financeiro</code> liberada no plano da empresa. As duas condições são validadas no banco, não apenas na tela.</div>
+      </section>
+
+      <section id="faturamento-receita">
+        <h2>Faturamento × Receita</h2>
+        <p>São perguntas diferentes, e o sistema responde as duas separadamente. Confundir as duas é a origem mais comum de “o número está errado”.</p>
+        <div class="table-wrap">
+        <table>
+          <thead><tr><th>Indicador</th><th>Pergunta que responde</th><th>Como é calculado</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><strong>Faturamento</strong></td>
+              <td>Quanto foi <em>vendido</em>?</td>
+              <td>Valor total dos contratos fechados — <strong>incluindo</strong> parcelas futuras — mais compras de produtos e receitas manuais.</td>
+            </tr>
+            <tr>
+              <td><strong>Receita</strong></td>
+              <td>Quanto já <em>entrou</em>?</td>
+              <td>Somente as parcelas cuja data já chegou (competência), mais os lançamentos manuais de receita.</td>
+            </tr>
+          </tbody>
+        </table>
+        </div>
+        <p><strong>Exemplo.</strong> Contrato de R$ 1.000/mês por 12 meses, assinado hoje:</p>
+        <ul>
+          <li>Faturamento: <strong>R$ 12.000</strong> imediatamente (a venda inteira).</li>
+          <li>Receita: <strong>R$ 1.000</strong> hoje, subindo R$ 1.000 a cada mês em que a data da parcela chega.</li>
+        </ul>
+        <div class="note"><span class="t">Regra do cancelamento</span> Ao cancelar um contrato, o faturamento <strong>congela no acumulado</strong> — não zera nem apaga histórico. Isso preserva a leitura de quanto aquele cliente rendeu enquanto esteve ativo, e impede o caso absurdo de Receita ficar maior que Faturamento.</div>
+
+        <h3>Reconhecimento automático</h3>
+        <p>Não existe passo de “confirmar recebimento”. Se a data da parcela chegou e o contrato está ativo, ela conta como recebida. Para interromper, cancele (ou pause) o contrato — nada além disso é necessário.</p>
+        <div class="note"><span class="t">Fuso horário</span> A comparação “a data já chegou?” usa o calendário de <strong>Brasília</strong>, tanto no navegador quanto no banco. Usar UTC faria uma parcela do dia 17 aparecer como recebida ainda no dia 16 à noite.</div>
+      </section>
+
+      <section id="contratos">
+        <h2>Contratos de cliente</h2>
+        <p>O contrato é lançado <strong>dentro do lead</strong> (painel lateral, seção de contrato) — é ele que alimenta faturamento, receita, valor do lead, previsão de caixa e as tarefas de cobrança.</p>
+
+        <h3>Tipos de cobrança</h3>
+        <div class="table-wrap">
+        <table>
+          <thead><tr><th>Tipo</th><th>Comportamento</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Recorrente com prazo</strong></td><td>Valor × número de parcelas. Gera uma cobrança por mês até acabar o prazo; depois o contrato é dado como concluído.</td></tr>
+            <tr><td><strong>Recorrente sem prazo</strong></td><td>Sem número de parcelas. Receita e lembretes seguem indefinidamente <em>até o cancelamento</em>. Na previsão de caixa, é projetado até o fim do horizonte escolhido.</td></tr>
+            <tr><td><strong>Pagamento único</strong></td><td>Cobrança de uma vez (projeto, setup, entrada).</td></tr>
+            <tr><td><strong>Porcentagem</strong></td><td>Percentual sobre um valor de referência (ex.: % do faturamento do cliente). Combina com os tipos acima.</td></tr>
+          </tbody>
+        </table>
+        </div>
+
+        <h3>Campos</h3>
+        <ul>
+          <li><strong>Valor</strong> — da parcela, no recorrente; do total, no pagamento único.</li>
+          <li><strong>Data de início</strong> — de onde a régua de parcelas parte. Pode ser no passado.</li>
+          <li><strong>Parcelas</strong> — número de meses, ou vazio para “sem prazo determinado”.</li>
+          <li><strong>Dia de cobrança</strong> — dia do mês usado nos lembretes.</li>
+          <li><strong>Status</strong> — ativo, pausado, cancelado ou concluído.</li>
+        </ul>
+
+        <h3>Contrato com data retroativa</h3>
+        <p>Lançar um contrato que começou no passado é um caso comum (o cliente já entrou pagando). O comportamento é:</p>
+        <ul>
+          <li><strong>Nenhum lembrete retroativo é criado</strong> — não há enxurrada de tarefas vencidas.</li>
+          <li>As parcelas cujas datas já passaram <strong>contam como recebidas</strong> automaticamente.</li>
+          <li>Os lembretes começam apenas na próxima data futura.</li>
+          <li>O valor do lead já reflete o contrato inteiro.</li>
+        </ul>
+
+        <h3>Régua de parcelas</h3>
+        <p>As datas seguem o dia do mês da data de início, com <strong>ajuste para meses curtos</strong>: um contrato iniciado em 31/01 gera a parcela seguinte em 28/02 (ou 29/02 em ano bissexto), e não “transborda” para março. Sem esse ajuste, janeiro geraria duas cobranças em março.</p>
+        <div class="note"><span class="t">Limitação conhecida</span> Em contratos <em>sem prazo</em>, o valor gravado no lead é recalculado quando o contrato ou os produtos mudam. Como o acumulado cresce mês a mês, o valor exibido no card pode ficar defasado até o próximo toque no lead. Os totais do módulo Financeiro, esses, são sempre calculados na hora e não sofrem disso.</div>
+      </section>
+
+      <section id="produtos">
+        <h2>Produtos e compras</h2>
+        <p>Além do contrato principal, um cliente pode comprar itens avulsos. O <strong>catálogo</strong> fica em Financeiro e as <strong>compras</strong> ficam no lead.</p>
+        <ul>
+          <li><strong>Catálogo por empresa</strong> — nome, valor padrão e categoria. Nada é compartilhado entre empresas.</li>
+          <li><strong>Compras no lead</strong> — adicione itens do catálogo ao lead; o valor pode ser ajustado na hora sem alterar o catálogo.</li>
+          <li><strong>Criação rápida</strong> — se o produto ainda não existe, dá para criá-lo direto do card do lead.</li>
+          <li>As compras entram no faturamento, na receita e no valor calculado do lead.</li>
+        </ul>
+      </section>
+
+      <section id="despesas">
+        <h2>Despesas</h2>
+        <p>Toda despesa tem uma <strong>natureza</strong>, e é ela que permite projetar caixa:</p>
+        <div class="table-wrap">
+        <table>
+          <thead><tr><th>Natureza</th><th>O que é</th><th>Entra na previsão?</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Fixa</strong></td><td>Repete todo mês no mesmo valor (aluguel, software, salário).</td><td>Sim, como saída recorrente.</td></tr>
+            <tr><td><strong>Variável</strong></td><td>Repete, mas muda de valor (tráfego pago, comissão, insumo).</td><td>Sim, projetada pela média.</td></tr>
+            <tr><td><strong>Pontual</strong></td><td>Aconteceu uma vez e não se repete (equipamento, taxa avulsa).</td><td>Não se repete adiante.</td></tr>
+          </tbody>
+        </table>
+        </div>
+        <p>As <strong>categorias</strong> de receita e despesa são livres e definidas por empresa — são elas que alimentam a pizza e a quebra por categoria.</p>
+      </section>
+
+      <section id="previsao">
+        <h2>Previsão de caixa</h2>
+        <p>Projeta o saldo para frente cruzando o que já está contratado com o que já está comprometido.</p>
+        <ul>
+          <li><strong>Entradas</strong> — parcelas futuras dos contratos ativos, inclusive os sem prazo (projetados até o fim do horizonte).</li>
+          <li><strong>Saídas</strong> — despesas fixas e variáveis recorrentes.</li>
+          <li><strong>Horizonte</strong> — 30, 60, 90 dias ou mais, com data de início escolhida por você.</li>
+          <li>Contratos cancelados param de projetar a partir do cancelamento.</li>
+        </ul>
+        <div class="note"><span class="t">O que a previsão não sabe</span> Ela projeta apenas o que está <strong>lançado</strong>. Venda não registrada e despesa não cadastrada não aparecem — a previsão não adivinha pipeline.</div>
+      </section>
+
+      <section id="calculadora">
+        <h2>Calculadora de meta</h2>
+        <p>Responde “quantas vendas eu preciso para bater X?”. Informe a meta de faturamento e escolha o produto/serviço que pretende vender (ou o ticket médio); a calculadora devolve o número de vendas necessárias e, aplicando sua taxa de conversão, quantos leads isso exige.</p>
       </section>
 
       <section id="relatorios">
@@ -497,12 +749,74 @@
 
       <section id="metaads">
         <h2>Meta Ads <span class="tag">Gestor+</span></h2>
-        <p>Conecta as campanhas do Meta (Facebook/Instagram Ads):</p>
+        <p>Traz os dados das campanhas do Facebook/Instagram Ads para dentro do CRM, ao lado dos leads que elas geraram.</p>
+
+        <h3>Como a conexão funciona</h3>
+        <p>Cada empresa cadastra <strong>seu próprio token</strong>, gerado em seu próprio Gerenciador de Negócios. Não há login OAuth compartilhado nem app publicado — o que significa <strong>sem revisão da Meta (App Review) e sem custo</strong>.</p>
+        <div class="note"><span class="t">Por que token por empresa</span> Num sistema white-label, um token único da operadora faria os dados de todos os clientes passarem por uma só conta. Token por empresa mantém cada anunciante dono das próprias credenciais e dos próprios dados.</div>
+
+        <h3>Pré-requisitos</h3>
         <ul>
-          <li><strong>Credenciais</strong> da conta de anúncios por empresa.</li>
-          <li><strong>Tabela de campanhas</strong> com <strong>CPL</strong> (custo por lead) calculado.</li>
-          <li>Sincronização das campanhas via função de servidor.</li>
+          <li>Acesso de <strong>administrador</strong> ao Gerenciador de Negócios.</li>
+          <li>Uma <strong>conta de anúncios</strong> dentro dele.</li>
+          <li>Um <strong>app</strong> no Business Manager — pode ser um já existente; não é preciso criar um novo.</li>
         </ul>
+
+        <h3>Passo a passo</h3>
+        <ol>
+          <li>Gerenciador de Negócios → <strong>Configurações do negócio</strong>.</li>
+          <li><strong>Usuários → Usuários do sistema</strong> → criar usuário do sistema com perfil <strong>Administrador</strong>.</li>
+          <li><strong>Adicionar ativos</strong> → atribuir ao usuário do sistema a <strong>conta de anúncios</strong> <em>e também</em> o <strong>app</strong>.</li>
+          <li><strong>Gerar novo token</strong> → escolher o app → marcar a permissão <code>ads_read</code>.</li>
+          <li>Copiar o token (ele é exibido uma única vez).</li>
+          <li>No CRM: <strong>Meta Ads</strong> → colar o token → salvar.</li>
+          <li>Adicionar o <strong>ID da conta de anúncios</strong> e sincronizar.</li>
+        </ol>
+        <div class="note"><span class="t">O erro que mais trava</span> Se o <strong>app</strong> não for atribuído como ativo do usuário do sistema (passo 3), a tela de gerar token exibe “Nenhuma permissão disponível”. Atribuir só a conta de anúncios não basta.</div>
+        <p>O mesmo roteiro está disponível dentro da tela de Meta Ads, com os nomes das telas da Meta, para seguir sem sair do CRM.</p>
+
+        <h3>Várias contas de anúncios</h3>
+        <p>Um token enxerga todas as contas atribuídas àquele usuário do sistema. No CRM você cadastra cada uma pelo ID, com apelido. As contas viram botões no topo da tela:</p>
+        <ul>
+          <li>Clicar em uma conta mostra só os dados dela; <strong>Todas</strong> mostra o consolidado.</li>
+          <li>A sincronização dispara <strong>automaticamente</strong> ao trocar de conta ou de período.</li>
+          <li>Uma conta pode ser desativada temporariamente sem apagar o cadastro.</li>
+        </ul>
+        <p>O ID da conta de anúncios começa com <code>act_</code> — o sistema adiciona o prefixo se você informar só os números. Ele não é o ID do usuário do sistema nem o do app; confundir os três é a segunda causa mais comum de erro.</p>
+
+        <h3>Métricas sincronizadas</h3>
+        <div class="table-wrap">
+        <table>
+          <thead><tr><th>Grupo</th><th>Métricas</th></tr></thead>
+          <tbody>
+            <tr><td>Investimento</td><td>Gasto, impressões, alcance, frequência</td></tr>
+            <tr><td>Engajamento</td><td>Cliques, CTR, CPC, CPM</td></tr>
+            <tr><td>Resultado</td><td>Leads de formulário, conversas iniciadas, compras</td></tr>
+            <tr><td>Eficiência</td><td>CPL (custo por resultado)</td></tr>
+            <tr><td>Contexto</td><td>Status e objetivo da campanha</td></tr>
+          </tbody>
+        </table>
+        </div>
+        <div class="note"><span class="t">Por que somamos leads com conversas</span> Campanhas otimizadas para WhatsApp/Direct não geram “lead” no sentido do formulário — geram conversa. Contando só formulário, uma campanha que está funcionando apareceria com 0 resultados. O “Resultado” é a soma dos dois, e o CPL é calculado em cima dele.</div>
+
+        <h3>Períodos</h3>
+        <p>Hoje, ontem, últimos 7/14/30/90 dias, este mês, mês passado e máximo. Trocar o período re-sincroniza automaticamente a conta selecionada.</p>
+
+        <h3>Segurança do token</h3>
+        <p>O token é gravado no servidor e <strong>nunca trafega de volta para o navegador</strong> — a interface sabe apenas se existe um token salvo. Quem conversa com a Graph API é uma função de servidor autenticada. Cada empresa acessa somente o próprio token e as próprias campanhas.</p>
+
+        <h3>Erros comuns</h3>
+        <div class="table-wrap">
+        <table>
+          <thead><tr><th>Sintoma</th><th>Causa provável</th></tr></thead>
+          <tbody>
+            <tr><td>Erro ao sincronizar, mensagem sobre token</td><td>Token expirado ou revogado — gere outro e salve.</td></tr>
+            <tr><td>Conta não encontrada</td><td>ID incorreto (usou o ID do usuário do sistema ou do app).</td></tr>
+            <tr><td>Sem permissão</td><td>Conta de anúncios não atribuída ao usuário do sistema, ou token sem <code>ads_read</code>.</td></tr>
+            <tr><td>Campanha com 0 leads mesmo rodando</td><td>Campanha otimizada para conversa — confira a coluna Resultado, não a de leads.</td></tr>
+          </tbody>
+        </table>
+        </div>
       </section>
 
       <section id="whatsapp">
@@ -653,6 +967,33 @@ Content-Type: application/json</code></pre>
         <div class="note"><span class="t">Dados pessoais (LGPD)</span> O CRM armazena dados de contato de leads (nome, telefone, e-mail). Recomenda-se manter Política de Privacidade e Termos de Uso publicados e um processo de exclusão a pedido do titular.</div>
       </section>
 
+      <section id="glossario">
+        <h2>Glossário</h2>
+        <div class="table-wrap">
+        <table>
+          <thead><tr><th>Termo</th><th>Significado neste sistema</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Lead</strong></td><td>Contato na base. Único por telefone dentro de cada empresa.</td></tr>
+            <tr><td><strong>Pipeline</strong></td><td>Um funil Kanban. Uma empresa pode ter vários.</td></tr>
+            <tr><td><strong>Etapa</strong></td><td>Coluna do Kanban. Tem um <em>tipo</em>: em andamento, ganho ou perdido.</td></tr>
+            <tr><td><strong>Passo do funil</strong></td><td>Estágio analítico do relatório. Diferente da etapa; ligado a ela pelo mapeamento.</td></tr>
+            <tr><td><strong>Disparo</strong></td><td>Registro de um contato feito (ligação, WhatsApp, e-mail, reunião, anotação).</td></tr>
+            <tr><td><strong>Follow-up</strong></td><td>Data do próximo contato planejado, definida ao registrar um disparo.</td></tr>
+            <tr><td><strong>Faturamento</strong></td><td>Total vendido, incluindo parcelas futuras.</td></tr>
+            <tr><td><strong>Receita</strong></td><td>Total já reconhecido — parcelas cuja data chegou.</td></tr>
+            <tr><td><strong>MRR</strong></td><td>Receita recorrente mensal — a soma das mensalidades ativas.</td></tr>
+            <tr><td><strong>Contrato sem prazo</strong></td><td>Recorrente sem número de parcelas; só termina no cancelamento.</td></tr>
+            <tr><td><strong>Natureza da despesa</strong></td><td>Fixa, variável ou pontual — define se ela se repete na previsão.</td></tr>
+            <tr><td><strong>Função (feature)</strong></td><td>Módulo que pode ser ligado ou desligado por empresa.</td></tr>
+            <tr><td><strong>Tenant</strong></td><td>Termo técnico para “empresa” — a unidade de isolamento dos dados.</td></tr>
+            <tr><td><strong>webhook_key</strong></td><td>Chave secreta da empresa que autoriza o envio de leads por formulário.</td></tr>
+            <tr><td><strong>Resultado (Meta Ads)</strong></td><td>Leads de formulário + conversas iniciadas, somados.</td></tr>
+            <tr><td><strong>CPL</strong></td><td>Investimento dividido por Resultado.</td></tr>
+          </tbody>
+        </table>
+        </div>
+      </section>
+
       <section id="tecnico">
         <h2>Apêndice técnico</h2>
         <h3>Arquitetura</h3>
@@ -669,11 +1010,28 @@ Content-Type: application/json</code></pre>
         </div>
         <h3>Funções de servidor (Edge Functions)</h3>
         <ul>
-          <li><code>receive-lead</code> — recebe leads de formulários externos (ver <a href="#webhook">Webhook</a>).</li>
+          <li><code>receive-lead</code> — recebe leads de formulários externos (ver <a href="#webhook">Webhook</a>). Endpoint público, protegido por <code>webhook_key</code>, rate limit e honeypot.</li>
           <li><code>receive-whatsapp</code> — cria/atualiza leads a partir de mensagens recebidas.</li>
+          <li><code>sync-meta-ads</code> — busca campanhas e métricas na Graph API. Exige usuário autenticado; é o único ponto que lê o token da empresa, que nunca chega ao navegador.</li>
         </ul>
         <h3>Fluxos protegidos (SECURITY DEFINER)</h3>
-        <p>Cadastro, criação de empresa e aceite de convite passam por funções transacionais no banco (<code>register_new_tenant_with_admin</code>, <code>create_tenant_for_user</code>, <code>accept_invite</code>) — garantindo atomicidade e checagem de autorização.</p>
+        <p>Cadastro, criação de empresa e aceite de convite passam por funções transacionais no banco (<code>register_new_tenant_with_admin</code>, <code>create_tenant_for_user</code>, <code>accept_invite</code>) — garantindo atomicidade e checagem de autorização. O mesmo padrão vale para os agregados do financeiro e para a alteração de funções por empresa.</p>
+        <h3>Modelo de permissão no banco</h3>
+        <p>As políticas de RLS usam funções auxiliares que respondem sempre a partir do usuário autenticado, nunca de um parâmetro vindo da tela:</p>
+        <div class="table-wrap">
+        <table>
+          <thead><tr><th>Função</th><th>Responde</th></tr></thead>
+          <tbody>
+            <tr><td><code>is_tenant_member</code></td><td>O usuário pertence a esta empresa?</td></tr>
+            <tr><td><code>is_tenant_manager</code></td><td>É gestor (ou acima) nesta empresa?</td></tr>
+            <tr><td><code>is_tenant_admin</code></td><td>É admin desta empresa?</td></tr>
+            <tr><td><code>tenant_has_feature</code></td><td>Esta empresa tem a função liberada no plano?</td></tr>
+          </tbody>
+        </table>
+        </div>
+        <p>Contratos e produtos, por exemplo, exigem <em>gestor</em> <strong>e</strong> a função <code>financeiro</code> — as duas condições avaliadas no banco. Esconder o menu na interface é conveniência; a barreira real está aqui.</p>
+        <h3>Datas e fuso</h3>
+        <p>Tudo que envolve “hoje” — reconhecimento de receita, geração de lembretes, resumo de tarefas — é resolvido no calendário de <strong>America/Sao_Paulo</strong>, tanto no cliente quanto no banco. Somas de mês usam ajuste para meses curtos, para que 31/01 avance para 28/02 e não transborde para março.</p>
         <h3>Deploy</h3>
         <ul>
           <li><strong>Web</strong>: <code>git push</code> na branch <code>main</code> → build e publicação automáticos na Vercel.</li>
@@ -692,6 +1050,20 @@ Content-Type: application/json</code></pre>
         <p>Adicione o campo honeypot oculto <code>_hp</code> ao formulário e, se necessário, regenere a <code>webhook_key</code> em Configurações. O rate limit já limita picos automaticamente.</p>
         <h3>Não consigo criar uma nova empresa.</h3>
         <p>Só Admin e Gestor criam empresas, e há um limite por conta. Se o botão “Criar nova empresa” não aparece, o limite foi atingido — um super admin pode ajustar o limite na Plataforma.</p>
+        <h3>A Receita está menor que o Faturamento. Está errado?</h3>
+        <p>Não — é o comportamento esperado. Faturamento conta a venda inteira no momento do fechamento; Receita conta só as parcelas cuja data já chegou. Veja <a href="#faturamento-receita">Faturamento × Receita</a>.</p>
+        <h3>Lancei um contrato com data do mês passado e não vieram tarefas.</h3>
+        <p>Correto: contratos retroativos <strong>não</strong> geram lembretes de datas passadas, de propósito. As parcelas vencidas já contam como recebidas e os lembretes começam na próxima data futura.</p>
+        <h3>Cancelei um contrato e o faturamento não zerou.</h3>
+        <p>Também esperado. O cancelamento <strong>congela</strong> o faturamento no valor acumulado até ali, preservando o histórico do que o cliente rendeu. O que para é a projeção futura.</p>
+        <h3>Não consigo editar o valor do lead.</h3>
+        <p>O campo vira somente leitura assim que existe um contrato ou uma compra lançada — a partir daí o valor é calculado. Para mudá-lo, altere o contrato ou os produtos.</p>
+        <h3>Não vejo o menu Financeiro / Relatórios / Meta Ads.</h3>
+        <p>Ou o seu cargo é Vendedor (que não acessa esses módulos), ou a função não está incluída no plano da empresa. Veja <a href="#planos">Planos e funções</a>.</p>
+        <h3>Ao gerar o token da Meta aparece “Nenhuma permissão disponível”.</h3>
+        <p>Falta atribuir o <strong>app</strong> como ativo do usuário do sistema. Atribuir apenas a conta de anúncios não é suficiente — veja o <a href="#metaads">passo 3 do roteiro</a>.</p>
+        <h3>Uma campanha ativa aparece com 0 leads.</h3>
+        <p>Provavelmente é uma campanha otimizada para conversas (WhatsApp/Direct), que não gera lead de formulário. Olhe a coluna <strong>Resultado</strong>, que soma leads e conversas iniciadas.</p>
         <div class="foot">Green Hub CRM · Documentação · gerada como material de referência interno. Ajuste livremente conforme o produto evolui.</div>
       </section>
 
@@ -743,6 +1115,54 @@ Content-Type: application/json</code></pre>
     links.forEach(function (a) {
       a.addEventListener('click', function () { if (toggle) toggle.checked = false; });
     });
+
+    // Busca — filtra a navegação pelo título do link e pelo texto da seção,
+    // para achar um assunto mesmo quando a palavra não está no nome do item.
+    var search = document.getElementById('doc-search');
+    var empty = document.getElementById('search-empty');
+    var groups = Array.prototype.slice.call(document.querySelectorAll('.nav-group'));
+
+    function norm(s) {
+      return s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+    }
+
+    // Indexa o texto de cada seção uma vez só.
+    var haystack = {};
+    links.forEach(function (a) {
+      var id = a.getAttribute('href').slice(1);
+      var el = document.getElementById(id);
+      haystack[id] = norm((a.textContent || '') + ' ' + (el ? el.textContent || '' : ''));
+    });
+
+    if (search) {
+      search.addEventListener('input', function () {
+        // Casa palavra a palavra, não a frase inteira: quem digita
+        // "contrato sem prazo" espera achar a seção que fala dos dois.
+        var terms = norm(search.value.trim()).split(/\s+/).filter(Boolean);
+        var found = 0;
+
+        links.forEach(function (a) {
+          var id = a.getAttribute('href').slice(1);
+          var hit = terms.every(function (t) { return haystack[id].indexOf(t) !== -1; });
+          a.hidden = !hit;
+          if (hit) found++;
+        });
+
+        // Some com o grupo inteiro se nenhum item dele sobreviveu ao filtro.
+        groups.forEach(function (g) {
+          var visible = Array.prototype.slice.call(g.querySelectorAll('a'))
+            .some(function (a) { return !a.hidden; });
+          g.hidden = !visible;
+        });
+
+        if (empty) empty.hidden = found > 0;
+      });
+
+      // Esc limpa a busca sem precisar apagar na mão.
+      search.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') { search.value = ''; search.dispatchEvent(new Event('input')); }
+      });
+    }
   })();
 </script>
 </body>

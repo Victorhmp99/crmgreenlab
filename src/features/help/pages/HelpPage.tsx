@@ -1,8 +1,33 @@
+import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { HelpCircle, ChevronRight, Star } from 'lucide-react'
+import { HelpCircle, ChevronRight, Star, Search, X } from 'lucide-react'
 import { HELP_CATEGORIES } from '../data'
 
+/** Normaliza pra busca tolerante: sem acento, sem caixa. */
+function norm(s: string): string {
+  return s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase()
+}
+
 export function HelpPage() {
+  const [query, setQuery] = useState('')
+
+  const totalQuestions = useMemo(
+    () => HELP_CATEGORIES.reduce((acc, c) => acc + c.questions.length, 0),
+    [],
+  )
+
+  // Filtra por pergunta e por nome da categoria — quem procura "financeiro"
+  // espera achar a seção inteira, não só as perguntas com a palavra no título.
+  const results = useMemo(() => {
+    const q = norm(query.trim())
+    if (!q) return null
+    return HELP_CATEGORIES.flatMap((cat) =>
+      cat.questions
+        .filter((item) => norm(item.question).includes(q) || norm(cat.title).includes(q))
+        .map((item) => ({ cat, item })),
+    )
+  }, [query])
+
   const featured = HELP_CATEGORIES.filter((c) => c.featured)
   const others   = HELP_CATEGORIES.filter((c) => !c.featured)
 
@@ -13,33 +38,98 @@ export function HelpPage() {
           Central de Ajuda
         </h1>
         <p className="text-sm mt-1" style={{ color: 'var(--text-dim)' }}>
-          Escolha um tema abaixo para ver a resposta completa.
+          {totalQuestions} respostas sobre o sistema. Busque acima ou escolha um tema.
         </p>
       </div>
 
-      {featured.length > 0 && (
-        <div className="flex flex-col gap-3 relative">
-          <div className="flex items-center gap-1.5">
-            <Star size={12} style={{ color: '#fbbf24' }} fill="#fbbf24" />
-            <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-dim)' }}>
-              Mais buscadas
-            </span>
-          </div>
-          <div className="flex flex-wrap gap-4 items-start">
-            {featured.map((cat) => <CategoryCard key={cat.slug} category={cat} large />)}
-          </div>
-        </div>
-      )}
+      <div className="relative">
+        <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
+          style={{ color: 'var(--text-dim)' }} />
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Buscar (ex: contrato, token, webhook, meta...)"
+          className="h-11 w-full rounded-xl pl-10 pr-10 text-sm transition-colors focus:outline-none"
+          style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-dim)', color: 'var(--text)' }}
+          onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--tenant-primary)')}
+          onBlur={(e) => (e.currentTarget.style.borderColor = 'var(--border-dim)')}
+        />
+        {query && (
+          <button
+            type="button"
+            onClick={() => setQuery('')}
+            className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-1 transition-opacity opacity-50 hover:opacity-100"
+            aria-label="Limpar busca"
+          >
+            <X size={14} style={{ color: 'var(--text-dim)' }} />
+          </button>
+        )}
+      </div>
 
-      {others.length > 0 && (
-        <div className="flex flex-col gap-3 relative">
+      {results !== null ? (
+        <div className="flex flex-col gap-3">
           <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-dim)' }}>
-            Outros temas
+            {results.length === 0
+              ? 'Nenhum resultado'
+              : `${results.length} resultado${results.length > 1 ? 's' : ''}`}
           </span>
-          <div className="flex flex-wrap gap-4 items-start">
-            {others.map((cat) => <CategoryCard key={cat.slug} category={cat} />)}
-          </div>
+
+          {results.length === 0 ? (
+            <p className="text-sm" style={{ color: 'var(--text-dim)' }}>
+              Tente outra palavra, ou abra a documentação completa no fim da página.
+            </p>
+          ) : (
+            <div className="rounded-xl overflow-hidden"
+              style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-dim)' }}>
+              {results.map(({ cat, item }) => (
+                <Link
+                  key={`${cat.slug}-${item.slug}`}
+                  to={`/ajuda/${item.slug}`}
+                  className="group flex items-center gap-3 px-4 py-3 transition-colors"
+                  style={{ borderTop: '1px solid var(--border-dim)' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-surface2)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <cat.icon size={14} className="shrink-0" style={{ color: 'var(--tenant-primary)' }} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm" style={{ color: 'var(--text)' }}>{item.question}</p>
+                    <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-dim)' }}>{cat.title}</p>
+                  </div>
+                  <ChevronRight size={14} className="shrink-0 opacity-0 group-hover:opacity-60 transition-opacity"
+                    style={{ color: 'var(--text-dim)' }} />
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
+      ) : (
+        <>
+          {featured.length > 0 && (
+            <div className="flex flex-col gap-3 relative">
+              <div className="flex items-center gap-1.5">
+                <Star size={12} style={{ color: '#fbbf24' }} fill="#fbbf24" />
+                <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-dim)' }}>
+                  Mais buscadas
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-4 items-start">
+                {featured.map((cat) => <CategoryCard key={cat.slug} category={cat} large />)}
+              </div>
+            </div>
+          )}
+
+          {others.length > 0 && (
+            <div className="flex flex-col gap-3 relative">
+              <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-dim)' }}>
+                Outros temas
+              </span>
+              <div className="flex flex-wrap gap-4 items-start">
+                {others.map((cat) => <CategoryCard key={cat.slug} category={cat} />)}
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* Última opção — só aparece depois de todas as categorias */}
@@ -86,6 +176,9 @@ function CategoryCard({ category, large = false }: { category: typeof HELP_CATEG
         <h2 className="text-sm font-semibold" style={{ color: 'var(--text)' }}>
           {category.title}
         </h2>
+        <span className="ml-auto text-[11px]" style={{ color: 'var(--text-dim)' }}>
+          {category.questions.length}
+        </span>
       </div>
 
       <div className="flex flex-col gap-0.5">
