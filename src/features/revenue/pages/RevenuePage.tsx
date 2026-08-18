@@ -1,24 +1,48 @@
 import { useState } from 'react'
-import { Plus, X } from 'lucide-react'
+import { Plus, X, LayoutGrid, ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Select } from '@/components/ui/Select'
-import { Input } from '@/components/ui/Input'
+import { DatePicker } from '@/components/ui/DatePicker'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { FinancialSummaryCards } from '../components/FinancialSummary'
 import { FinancialChart } from '../components/FinancialChart'
 import { TransactionList } from '../components/TransactionList'
 import { TransactionForm } from '../components/TransactionForm'
+import { CatalogModal } from '../components/CatalogModal'
+import { MRRSummary } from '../components/MRRSummary'
+import { FaturamentoSummary } from '../components/FaturamentoSummary'
+import { CashFlowForecast } from '../components/CashFlowForecast'
+import { CategoryBreakdown } from '../components/CategoryBreakdown'
+import { RevenuePieChart } from '../components/RevenuePieChart'
+import { GoalCalculator } from '../components/GoalCalculator'
 import { useFinancialSummary, useMonthlyTrend, useTransactions } from '../hooks/useFinancial'
 import { useFinancialMutations } from '../hooks/useFinancialMutations'
+import { LeadDrawer } from '@/features/activities/components/LeadDrawer'
+import { LeadForm } from '@/features/leads/components/LeadForm'
+import { useLead } from '@/features/leads/hooks/useLead'
 import type { FinancialRecord, FinancialFilters } from '@/services/financial'
+import type { Lead } from '@/types'
 
-// Período atual: primeiro e último dia do mês corrente
-function currentMonth() {
-  const now   = new Date()
-  const from  = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
-  const to    = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10)
-  const label = now.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+const MONTH_NAMES = [
+  'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+  'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro',
+]
+
+// Primeiro/último dia do mês em foco + rótulo
+function monthBounds(viewMonth: Date) {
+  const from  = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), 1).toISOString().slice(0, 10)
+  const to    = new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 0).toISOString().slice(0, 10)
+  const monthName = MONTH_NAMES[viewMonth.getMonth()]
+  const label = `${monthName[0].toUpperCase()}${monthName.slice(1)} de ${viewMonth.getFullYear()}`
   return { from, to, label }
+}
+
+// Mesmo período, mês anterior — usado pra comparação
+function prevMonthBounds(viewMonth: Date) {
+  const prev = new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, 1)
+  const from = new Date(prev.getFullYear(), prev.getMonth(), 1).toISOString().slice(0, 10)
+  const to   = new Date(prev.getFullYear(), prev.getMonth() + 1, 0).toISOString().slice(0, 10)
+  return { from, to }
 }
 
 const TYPE_OPTIONS = [
@@ -27,13 +51,25 @@ const TYPE_OPTIONS = [
 ]
 
 export function RevenuePage() {
-  const { from, to, label } = currentMonth()
+  const [viewMonth, setViewMonth] = useState(() => new Date())
+  const { from, to, label } = monthBounds(viewMonth)
+  const { from: prevFrom, to: prevTo } = prevMonthBounds(viewMonth)
+
+  const isCurrentMonth = (() => {
+    const now = new Date()
+    return viewMonth.getFullYear() === now.getFullYear() && viewMonth.getMonth() === now.getMonth()
+  })()
 
   const [filters, setFilters]               = useState<FinancialFilters>({ page: 1, pageSize: 25 })
   const [editingRecord, setEditingRecord]   = useState<FinancialRecord | null | undefined>(undefined)
   const [deletingRecord, setDeletingRecord] = useState<FinancialRecord | null>(null)
+  const [showCatalog, setShowCatalog]       = useState(false)
+  const [openLeadId, setOpenLeadId]         = useState<string | null>(null)
+  const [editingLead, setEditingLead]       = useState<Lead | null | undefined>(undefined)
+  const { data: openedLead } = useLead(openLeadId)
 
   const { data: summary,     isLoading: summaryLoading } = useFinancialSummary(from, to)
+  const { data: prevSummary } = useFinancialSummary(prevFrom, prevTo)
   const { data: trend = [],  isLoading: trendLoading   } = useMonthlyTrend(12)
   const { data: transactions, isLoading: listLoading   } = useTransactions(filters)
   const { remove } = useFinancialMutations()
@@ -54,24 +90,83 @@ export function RevenuePage() {
   return (
     <div className="flex flex-col gap-6">
       {/* Cabeçalho */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h2 className="text-xl font-semibold" style={{ color: '#e8e8e8' }}>Revenue Center</h2>
           <p className="text-sm mt-0.5" style={{ color: '#555' }}>Financeiro e projeções</p>
         </div>
-        <Button onClick={() => setEditingRecord(null)}>
-          <Plus size={15} />
-          Novo Lançamento
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button variant="secondary" onClick={() => setShowCatalog(true)}>
+            <LayoutGrid size={15} />
+            Catálogo
+          </Button>
+          <Button onClick={() => setEditingRecord(null)}>
+            <Plus size={15} />
+            Novo Lançamento
+          </Button>
+        </div>
       </div>
 
-      {/* Cards do mês atual */}
-      <FinancialSummaryCards data={summary} isLoading={summaryLoading} periodLabel={label} />
+      {/* Período em foco — controla todos os cards abaixo (exceto Previsão de Caixa, que tem período próprio) */}
+      <div className="flex items-center justify-between flex-wrap gap-3 rounded-xl px-4 py-3"
+        style={{ background: '#141414', border: '1px solid #1e1e1e' }}>
+        <div className="flex items-center gap-2">
+          <CalendarIcon size={15} style={{ color: 'var(--tenant-primary)' }} />
+          <span className="text-sm" style={{ color: '#666' }}>Mostrando:</span>
+          <span className="text-sm font-semibold" style={{ color: '#e8e8e8' }}>{label}</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <button onClick={() => setViewMonth((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
+            className="h-8 w-8 rounded-lg flex items-center justify-center transition-colors"
+            style={{ color: '#888' }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = '#1e1e1e')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+            title="Mês anterior">
+            <ChevronLeft size={15} />
+          </button>
+          {!isCurrentMonth && (
+            <button onClick={() => setViewMonth(new Date())}
+              className="text-xs font-medium rounded-lg px-2.5 py-1.5 transition-colors"
+              style={{ color: 'var(--tenant-primary)' }}>
+              Mês atual
+            </button>
+          )}
+          <button onClick={() => setViewMonth((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1))}
+            className="h-8 w-8 rounded-lg flex items-center justify-center transition-colors"
+            style={{ color: '#888' }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = '#1e1e1e')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+            title="Próximo mês">
+            <ChevronRight size={15} />
+          </button>
+        </div>
+      </div>
+
+      {/* Faturamento (vendido) x Receita (recebido) — são coisas diferentes */}
+      <FaturamentoSummary dateFrom={from} dateTo={to} periodLabel={label} />
+
+      {/* Cards do mês em foco (com comparação vs mês anterior) */}
+      <FinancialSummaryCards data={summary} previousData={prevSummary} isLoading={summaryLoading} periodLabel={label} />
+
+      {/* MRR ativo */}
+      <MRRSummary />
 
       {/* Gráfico de tendência 12 meses */}
       <FinancialChart data={trend} isLoading={trendLoading} />
 
-      {/* Filtros da lista */}
+      {/* Previsão de caixa + breakdown por categoria */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <CashFlowForecast />
+        <CategoryBreakdown dateFrom={from} dateTo={to} />
+      </div>
+
+      {/* Pizza de receita por categoria */}
+      <RevenuePieChart dateFrom={from} dateTo={to} />
+
+      {/* Calculadora de meta */}
+      <GoalCalculator />
+
+      {/* Filtros da lista (independentes do período em foco acima) */}
       <div className="flex items-end gap-3 flex-wrap">
         <div className="w-40">
           <Select
@@ -82,16 +177,16 @@ export function RevenuePage() {
             placeholder="Todos"
           />
         </div>
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-medium uppercase tracking-wide" style={{ color: '#888' }}>De</label>
-          <Input type="date" value={filters.dateFrom ?? ''} className="w-36"
-            onChange={(e) => setFilters((f) => ({ ...f, dateFrom: e.target.value, page: 1 }))} />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-medium uppercase tracking-wide" style={{ color: '#888' }}>Até</label>
-          <Input type="date" value={filters.dateTo ?? ''} className="w-36"
-            onChange={(e) => setFilters((f) => ({ ...f, dateTo: e.target.value, page: 1 }))} />
-        </div>
+        <DatePicker
+          label="De" placeholder="Data início" className="w-36"
+          value={filters.dateFrom ?? ''}
+          onChange={(v) => setFilters((f) => ({ ...f, dateFrom: v || undefined, page: 1 }))}
+        />
+        <DatePicker
+          label="Até" placeholder="Data fim" className="w-36"
+          value={filters.dateTo ?? ''}
+          onChange={(v) => setFilters((f) => ({ ...f, dateTo: v || undefined, page: 1 }))}
+        />
         {hasFilters && (
           <button
             onClick={() => setFilters({ page: 1, pageSize: 25 })}
@@ -112,6 +207,7 @@ export function RevenuePage() {
         onEdit={setEditingRecord}
         onDelete={handleDelete}
         onPageChange={(page) => setFilters((f) => ({ ...f, page }))}
+        onOpenLead={setOpenLeadId}
       />
 
       {/* Modal criar / editar */}
@@ -119,6 +215,22 @@ export function RevenuePage() {
         open={editingRecord !== undefined}
         onClose={() => setEditingRecord(undefined)}
         transaction={editingRecord ?? null}
+      />
+
+      {/* Catálogo de categorias e produtos/serviços */}
+      <CatalogModal open={showCatalog} onClose={() => setShowCatalog(false)} />
+
+      {/* Card do lead — aberto ao clicar "Ver no lead" numa conversão automática */}
+      <LeadDrawer
+        lead={openedLead ?? null}
+        onClose={() => setOpenLeadId(null)}
+        onEdit={(l) => { setOpenLeadId(null); setEditingLead(l) }}
+        initialTab="contract"
+      />
+      <LeadForm
+        open={editingLead !== undefined}
+        onClose={() => setEditingLead(undefined)}
+        lead={editingLead ?? null}
       />
 
       {/* Confirm delete */}

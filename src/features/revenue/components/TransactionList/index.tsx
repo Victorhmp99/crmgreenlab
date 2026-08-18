@@ -9,10 +9,15 @@ interface TransactionListProps {
   onEdit:       (record: FinancialRecord) => void
   onDelete:     (record: FinancialRecord) => void
   onPageChange: (page: number) => void
+  onOpenLead:   (leadId: string) => void
 }
 
 function formatBRL(value: number): string {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
+}
+
+function isAutoRow(record: FinancialRecord): boolean {
+  return record.id.startsWith('lead-') || record.id.startsWith('contract-')
 }
 
 function SkeletonRow() {
@@ -30,7 +35,7 @@ function SkeletonRow() {
   )
 }
 
-export function TransactionList({ result, isLoading, onEdit, onDelete, onPageChange }: TransactionListProps) {
+export function TransactionList({ result, isLoading, onEdit, onDelete, onPageChange, onOpenLead }: TransactionListProps) {
   const records = result?.data ?? []
 
   return (
@@ -59,7 +64,9 @@ export function TransactionList({ result, isLoading, onEdit, onDelete, onPageCha
                   </td>
                 </tr>
               )
-              : records.map((record) => (
+              : records.map((record) => {
+                const auto = isAutoRow(record)
+                return (
                 <tr key={record.id}
                   style={{ borderBottom: '1px solid #191919' }}
                   onMouseEnter={(e) => (e.currentTarget.style.background = '#191919')}
@@ -99,40 +106,61 @@ export function TransactionList({ result, isLoading, onEdit, onDelete, onPageCha
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1">
-                      <button
-                        onClick={() => onEdit(record)}
-                        className="h-7 w-7 rounded-lg flex items-center justify-center transition-colors"
-                        style={{ color: '#555' }}
-                        onMouseEnter={(e) => {
-                          (e.currentTarget as HTMLButtonElement).style.color = '#00e676'
-                          ;(e.currentTarget as HTMLButtonElement).style.background = 'rgba(0,230,118,0.08)'
-                        }}
-                        onMouseLeave={(e) => {
-                          (e.currentTarget as HTMLButtonElement).style.color = '#555'
-                          ;(e.currentTarget as HTMLButtonElement).style.background = 'transparent'
-                        }}
-                      >
-                        <Pencil size={13} />
-                      </button>
-                      <button
-                        onClick={() => onDelete(record)}
-                        className="h-7 w-7 rounded-lg flex items-center justify-center transition-colors"
-                        style={{ color: '#555' }}
-                        onMouseEnter={(e) => {
-                          (e.currentTarget as HTMLButtonElement).style.color = '#ff4444'
-                          ;(e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,68,68,0.08)'
-                        }}
-                        onMouseLeave={(e) => {
-                          (e.currentTarget as HTMLButtonElement).style.color = '#555'
-                          ;(e.currentTarget as HTMLButtonElement).style.background = 'transparent'
-                        }}
-                      >
-                        <Trash2 size={13} />
-                      </button>
+                      {auto ? (
+                        <button
+                          onClick={() => onOpenLead(record.lead_id!)}
+                          className="h-7 w-7 rounded-lg flex items-center justify-center transition-colors"
+                          style={{ color: '#555' }}
+                          onMouseEnter={(e) => {
+                            (e.currentTarget as HTMLButtonElement).style.color = '#00e676'
+                            ;(e.currentTarget as HTMLButtonElement).style.background = 'rgba(0,230,118,0.08)'
+                          }}
+                          onMouseLeave={(e) => {
+                            (e.currentTarget as HTMLButtonElement).style.color = '#555'
+                            ;(e.currentTarget as HTMLButtonElement).style.background = 'transparent'
+                          }}
+                          title="Editar pelo card do lead (aba Financeiro)"
+                        >
+                          <Pencil size={13} />
+                        </button>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => onEdit(record)}
+                            className="h-7 w-7 rounded-lg flex items-center justify-center transition-colors"
+                            style={{ color: '#555' }}
+                            onMouseEnter={(e) => {
+                              (e.currentTarget as HTMLButtonElement).style.color = '#00e676'
+                              ;(e.currentTarget as HTMLButtonElement).style.background = 'rgba(0,230,118,0.08)'
+                            }}
+                            onMouseLeave={(e) => {
+                              (e.currentTarget as HTMLButtonElement).style.color = '#555'
+                              ;(e.currentTarget as HTMLButtonElement).style.background = 'transparent'
+                            }}
+                          >
+                            <Pencil size={13} />
+                          </button>
+                          <button
+                            onClick={() => onDelete(record)}
+                            className="h-7 w-7 rounded-lg flex items-center justify-center transition-colors"
+                            style={{ color: '#555' }}
+                            onMouseEnter={(e) => {
+                              (e.currentTarget as HTMLButtonElement).style.color = '#ff4444'
+                              ;(e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,68,68,0.08)'
+                            }}
+                            onMouseLeave={(e) => {
+                              (e.currentTarget as HTMLButtonElement).style.color = '#555'
+                              ;(e.currentTarget as HTMLButtonElement).style.background = 'transparent'
+                            }}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
-              ))
+              )})
             }
           </tbody>
         </table>

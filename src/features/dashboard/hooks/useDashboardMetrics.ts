@@ -28,6 +28,8 @@ function buildDemoMetrics(): DashboardMetrics {
     conversionRate:       79,
     financial: {
       revenue:           28500,
+      faturamento:       28500,
+      receita:           21300,
       forecast:          42000,
       loss:              7800,
       won_count:         8,
@@ -64,13 +66,13 @@ function buildDemoMetrics(): DashboardMetrics {
   }
 }
 
-export function useDashboardMetrics() {
+export function useDashboardMetrics(from?: string, to?: string) {
   const tenantId = useAuthStore((s) => s.tenant?.id)
   const isDemo   = import.meta.env.VITE_DEMO_MODE === 'true'
 
   return useQuery({
-    queryKey:  ['dashboard-metrics', tenantId],
-    queryFn:   isDemo ? buildDemoMetrics : () => fetchDashboardMetrics(tenantId!),
+    queryKey:  ['dashboard-metrics', tenantId, from, to],
+    queryFn:   isDemo ? buildDemoMetrics : () => fetchDashboardMetrics(tenantId!, from, to),
     enabled:   !!tenantId,
     staleTime: 0,  // sempre rebusca quando algo muda
     refetchOnWindowFocus: !isDemo,

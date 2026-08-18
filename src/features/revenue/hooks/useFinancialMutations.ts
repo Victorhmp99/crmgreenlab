@@ -13,9 +13,11 @@ export function useFinancialMutations() {
   const user   = useAuthStore((s) => s.user)
 
   function invalidate() {
-    queryClient.invalidateQueries({ queryKey: ['transactions',      tenant?.id] })
-    queryClient.invalidateQueries({ queryKey: ['financial-summary', tenant?.id] })
-    queryClient.invalidateQueries({ queryKey: ['financial-trend',   tenant?.id] })
+    queryClient.invalidateQueries({ queryKey: ['transactions',        tenant?.id] })
+    queryClient.invalidateQueries({ queryKey: ['financial-summary',   tenant?.id] })
+    queryClient.invalidateQueries({ queryKey: ['financial-trend',     tenant?.id] })
+    queryClient.invalidateQueries({ queryKey: ['category-breakdown',  tenant?.id] })
+    queryClient.invalidateQueries({ queryKey: ['cash-flow-forecast',  tenant?.id] })
   }
 
   const create = useMutation({

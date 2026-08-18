@@ -1,10 +1,13 @@
-import { Users, TrendingUp, DollarSign, XCircle, MessageCircle, Calendar, RefreshCw, Briefcase, Handshake, Target, Eye, EyeOff } from 'lucide-react'
+import { useState } from 'react'
+import { Users, TrendingUp, DollarSign, Wallet, XCircle, MessageCircle, Calendar, RefreshCw, Briefcase, Handshake, Target, Eye, EyeOff, X } from 'lucide-react'
 import { useDashboardMetrics } from '../hooks/useDashboardMetrics'
 import { useDashboardGoals } from '@/features/goals/hooks/useGoals'
 import { useAuth } from '@/hooks/useAuth'
 import { usePermissions } from '@/hooks/usePermissions'
 import { usePrivacyMode } from '@/hooks/usePrivacyMode'
 import { Spinner } from '@/components/ui/Spinner'
+import { DatePicker } from '@/components/ui/DatePicker'
+import { formatDate } from '@/lib/utils'
 import type { GoalWithProgress } from '@/services/goals'
 
 // ── Card de meta reutilizável ─────────────────────────────────────────────────
@@ -100,7 +103,9 @@ function KpiCard({ label, value, sublabel, icon: Icon, color }: {
 // ── Página ────────────────────────────────────────────────────────────────────
 export function DashboardPage() {
   const { user, tenant } = useAuth()
-  const { data, isLoading, refetch, dataUpdatedAt } = useDashboardMetrics()
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo]     = useState('')
+  const { data, isLoading, refetch, dataUpdatedAt } = useDashboardMetrics(dateFrom || undefined, dateTo || undefined)
   const { data: dashGoals } = useDashboardGoals()
   const { hidden, toggle, mask, maskCurrency } = usePrivacyMode()
   const { isManager, isSuperAdmin } = usePermissions()
@@ -222,11 +227,30 @@ export function DashboardPage() {
       {/* ── Carteira (financeiro) — só gestor/admin/super admin ──────────── */}
       {canSeeFinancial && (
         <div>
-          <h3 className="text-xs font-semibold uppercase tracking-wider mb-2"
-            style={{ color: '#666' }}>
-            Carteira
-          </h3>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="flex items-center justify-between flex-wrap gap-3 mb-3">
+            <div>
+              <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#666' }}>
+                Carteira
+              </h3>
+              <p className="text-[11px] mt-0.5" style={{ color: '#444' }}>
+                Período: {dateFrom || dateTo
+                  ? `${dateFrom ? formatDate(dateFrom) : 'início'} até ${dateTo ? formatDate(dateTo) : 'hoje'}`
+                  : 'todo o histórico'}
+              </p>
+            </div>
+            <div className="flex items-end gap-2">
+              <DatePicker value={dateFrom} onChange={setDateFrom} placeholder="Data início" className="w-36" />
+              <DatePicker value={dateTo} onChange={setDateTo} placeholder="Data fim" className="w-36" />
+              {(dateFrom || dateTo) && (
+                <button onClick={() => { setDateFrom(''); setDateTo('') }}
+                  className="h-10 w-10 rounded-lg flex items-center justify-center transition-colors shrink-0"
+                  style={{ color: '#555' }} title="Limpar período (mostra tudo)">
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
             <KpiCard
               label="Previsão (Pipeline)"
               value={isLoading ? '—' : maskCurrency(formatCurrency(Number(data?.financial.forecast ?? 0)))}
@@ -235,11 +259,18 @@ export function DashboardPage() {
               color="#40a0ff"
             />
             <KpiCard
-              label="Receita"
-              value={isLoading ? '—' : maskCurrency(formatCurrency(Number(data?.financial.revenue ?? 0)))}
-              sublabel={`${hidden ? '●' : (data?.financial.won_count ?? 0)} fechamentos`}
+              label="Faturamento"
+              value={isLoading ? '—' : maskCurrency(formatCurrency(Number(data?.financial.faturamento ?? 0)))}
+              sublabel={`${hidden ? '●' : (data?.financial.won_count ?? 0)} fechamentos vendidos`}
               icon={DollarSign}
               color="#00e676"
+            />
+            <KpiCard
+              label="Receita"
+              value={isLoading ? '—' : maskCurrency(formatCurrency(Number(data?.financial.receita ?? 0)))}
+              sublabel="Dinheiro de fato recebido"
+              icon={Wallet}
+              color="#40a0ff"
             />
             <KpiCard
               label="Perdidos"

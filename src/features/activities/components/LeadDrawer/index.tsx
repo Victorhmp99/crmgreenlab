@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import {
   X, Phone, Mail, Pencil, DollarSign, Megaphone, Tag as TagIcon,
   User, Calendar, ClipboardList, MessageSquare, FileText,
-  ListChecks, FolderTree, Flag, GitBranch, Building2,
+  ListChecks, FolderTree, Flag, GitBranch, Building2, FileSignature,
 } from 'lucide-react'
 import { Spinner } from '@/components/ui/Spinner'
 import { LeadStatusBadge } from '@/features/leads/components/LeadStatusBadge'
@@ -13,10 +13,12 @@ import { useLeadTags } from '@/features/leads/hooks/useLeadTags'
 import { LeadTimeline } from '../LeadTimeline'
 import { LeadComments } from '../LeadComments'
 import { ActivityForm } from '../ActivityForm'
+import { LeadContractTab } from '../LeadContractTab'
 import { TaskList } from '@/features/tasks/components/TaskList'
 import { formatPhone, formatCurrency, formatDateTime } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
+import { usePermissions } from '@/hooks/usePermissions'
 import { fetchLeadFields } from '@/services/leadFieldDefinitions'
 import { fetchLeadComments } from '@/services/leadComments'
 import { useQuery } from '@tanstack/react-query'
@@ -27,14 +29,17 @@ interface LeadDrawerProps {
   onClose:       () => void
   onEdit:        (lead: Lead) => void
   pipelineName?: string
+  initialTab?:   'data' | 'activities' | 'organization' | 'contract'
 }
 
-type Tab = 'data' | 'activities' | 'organization'
+type Tab = 'data' | 'activities' | 'organization' | 'contract'
 
-export function LeadDrawer({ lead, onClose, onEdit }: LeadDrawerProps) {
+export function LeadDrawer({ lead, onClose, onEdit, initialTab }: LeadDrawerProps) {
   const tenantId = useAuthStore((s) => s.tenant?.id)
+  const { isManager, isSuperAdmin } = usePermissions()
+  const canSeeContract = isManager || isSuperAdmin
   const [visible,  setVisible]  = useState(false)
-  const [tab,      setTab]      = useState<Tab>('data')
+  const [tab,      setTab]      = useState<Tab>(initialTab ?? 'data')
   const [showActivityForm, setShowActivityForm] = useState(false)
 
   // Metadados que precisamos pra mostrar tudo
@@ -66,7 +71,7 @@ export function LeadDrawer({ lead, onClose, onEdit }: LeadDrawerProps) {
   }, [lead, onClose])
 
   // Reseta para "Dados" sempre que abre lead diferente
-  useEffect(() => { if (lead) setTab('data') }, [lead?.id])
+  useEffect(() => { if (lead) setTab(initialTab ?? 'data') }, [lead?.id])
 
   useEffect(() => {
     if (!lead || !tenantId) return
@@ -187,6 +192,10 @@ export function LeadDrawer({ lead, onClose, onEdit }: LeadDrawerProps) {
               icon={<ListChecks size={13} />}    label="Movimentações" />
             <TabBtn active={tab === 'organization'} onClick={() => setTab('organization')}
               icon={<FolderTree size={13} />}    label="Organização" />
+            {canSeeContract && (
+              <TabBtn active={tab === 'contract'} onClick={() => setTab('contract')}
+                icon={<FileSignature size={13} />} label="Financeiro" />
+            )}
           </div>
         </div>
 
@@ -391,6 +400,10 @@ export function LeadDrawer({ lead, onClose, onEdit }: LeadDrawerProps) {
                 </div>
               </div>
             </div>
+          )}
+
+          {tab === 'contract' && canSeeContract && (
+            <LeadContractTab lead={lead} />
           )}
         </div>
       </div>

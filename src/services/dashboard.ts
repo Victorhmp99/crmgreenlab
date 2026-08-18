@@ -8,7 +8,9 @@ export interface StageCount  { stageId: string; stageName: string; color: string
 export interface DayCount    { date: string; count: number }
 
 export interface PipelineFinancial {
-  revenue:           number
+  revenue:           number  // alias de faturamento (compat)
+  faturamento:       number  // valor total vendido (leads.value dos ganhos, no período)
+  receita:           number  // dinheiro de fato lançado/recebido, no período
   forecast:          number
   loss:              number
   won_count:         number
@@ -67,9 +69,38 @@ function fillDayGaps(data: Array<{ date: string; count: number }>, days: number)
   return result
 }
 
+// ── Faturamento x Receita (leve, sem o resto das métricas do dashboard) ───────
+
+export interface FaturamentoReceita {
+  faturamento: number  // valor total vendido (leads.value dos ganhos)
+  receita:     number  // dinheiro de fato lançado/recebido
+  wonCount:    number
+}
+
+export async function fetchFaturamentoReceita(
+  tenantId: string, from?: string, to?: string,
+): Promise<FaturamentoReceita> {
+  const { data, error } = await supabase.rpc('get_pipeline_financial_metrics', {
+    p_tenant_id: tenantId,
+    p_from:      from ?? null,
+    p_to:        to ?? null,
+  })
+  if (error) throw error
+  const raw = (data as Record<string, unknown> | null) ?? {}
+  return {
+    faturamento: Number(raw.faturamento ?? raw.revenue ?? 0),
+    receita:     Number(raw.receita ?? 0),
+    wonCount:    Number(raw.won_count ?? 0),
+  }
+}
+
 // ── Query principal ───────────────────────────────────────────────────────────
 
-export async function fetchDashboardMetrics(tenantId: string): Promise<DashboardMetrics> {
+export async function fetchDashboardMetrics(
+  tenantId: string,
+  from?: string,
+  to?: string,
+): Promise<DashboardMetrics> {
   const now        = new Date()
   const todayStart = startOfDay(now)
   const monthStart = startOfMonth(now)
@@ -123,12 +154,11 @@ export async function fetchDashboardMetrics(tenantId: string): Promise<Dashboard
       .eq('tenant_id', tenantId).eq('type', 'revenue')
       .gte('date', monthStart.slice(0, 10)),
 
-    // Métricas financeiras automáticas via RPC (sem filtro — mostra lifetime
-    // até implementarmos um seletor de período no dashboard)
+    // Métricas financeiras automáticas via RPC — filtra por período se informado
     supabase.rpc('get_pipeline_financial_metrics', {
       p_tenant_id: tenantId,
-      p_from:      null,
-      p_to:        null,
+      p_from:      from ?? null,
+      p_to:        to ?? null,
     }),
 
     supabase.from('leads').select('source')
@@ -194,6 +224,8 @@ export async function fetchDashboardMetrics(tenantId: string): Promise<Dashboard
   const rawFin = (financialRes.data as Record<string, unknown> | null) ?? {}
   const financial: PipelineFinancial = {
     revenue:           Number(rawFin.revenue ?? 0),
+    faturamento:       Number(rawFin.faturamento ?? rawFin.revenue ?? 0),
+    receita:           Number(rawFin.receita ?? 0),
     forecast:          Number(rawFin.forecast ?? 0),
     loss:              Number(rawFin.loss ?? 0),
     won_count:         Number(rawFin.won_count ?? 0),

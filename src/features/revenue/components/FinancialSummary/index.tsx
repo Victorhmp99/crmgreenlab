@@ -5,17 +5,28 @@ function formatBRL(value: number): string {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
 }
 
-interface SummaryCardProps {
-  label:     string
-  value:     string
-  icon:      React.ElementType
-  iconBg:    string
-  iconColor: string
-  subLabel?: string
-  isLoading: boolean
+function deltaPercent(current: number, previous: number): number | null {
+  if (previous === 0) return current === 0 ? null : 100
+  return Math.round(((current - previous) / Math.abs(previous)) * 100)
 }
 
-function SummaryCard({ label, value, icon: Icon, iconBg, iconColor, subLabel, isLoading }: SummaryCardProps) {
+interface SummaryCardProps {
+  label:        string
+  value:        string
+  icon:         React.ElementType
+  iconBg:       string
+  iconColor:    string
+  subLabel?:    string
+  isLoading:    boolean
+  delta?:       number | null
+  deltaGoodDirection?: 'up' | 'down'
+}
+
+export function SummaryCard({
+  label, value, icon: Icon, iconBg, iconColor, subLabel, isLoading, delta, deltaGoodDirection = 'up',
+}: SummaryCardProps) {
+  const deltaIsGood = delta == null ? null : deltaGoodDirection === 'up' ? delta >= 0 : delta <= 0
+
   return (
     <div className="rounded-xl p-5 flex items-start gap-4"
       style={{ background: '#141414', border: '1px solid #1e1e1e' }}>
@@ -30,7 +41,15 @@ function SummaryCard({ label, value, icon: Icon, iconBg, iconColor, subLabel, is
         </div>
       ) : (
         <div>
-          <p className="text-2xl font-bold tabular-nums" style={{ color: '#e8e8e8' }}>{value}</p>
+          <div className="flex items-center gap-2">
+            <p className="text-2xl font-bold tabular-nums" style={{ color: '#e8e8e8' }}>{value}</p>
+            {delta != null && (
+              <span className="text-xs font-semibold tabular-nums"
+                style={{ color: deltaIsGood ? '#00e676' : '#ff4444' }}>
+                {delta > 0 ? '+' : ''}{delta}%
+              </span>
+            )}
+          </div>
           <p className="text-sm font-medium mt-0.5" style={{ color: '#555' }}>{label}</p>
           {subLabel && <p className="text-xs mt-0.5" style={{ color: '#444' }}>{subLabel}</p>}
         </div>
@@ -40,12 +59,17 @@ function SummaryCard({ label, value, icon: Icon, iconBg, iconColor, subLabel, is
 }
 
 interface FinancialSummaryProps {
-  data?:       FinancialSummary
-  isLoading:   boolean
-  periodLabel: string
+  data?:         FinancialSummary
+  previousData?: FinancialSummary
+  isLoading:     boolean
+  periodLabel:   string
 }
 
-export function FinancialSummaryCards({ data, isLoading, periodLabel }: FinancialSummaryProps) {
+export function FinancialSummaryCards({ data, previousData, isLoading, periodLabel }: FinancialSummaryProps) {
+  const revenueDelta  = data && previousData ? deltaPercent(data.totalRevenue, previousData.totalRevenue) : null
+  const expensesDelta = data && previousData ? deltaPercent(data.totalExpenses, previousData.totalExpenses) : null
+  const profitDelta   = data && previousData ? deltaPercent(data.netProfit, previousData.netProfit) : null
+
   return (
     <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
       <SummaryCard
@@ -58,6 +82,8 @@ export function FinancialSummaryCards({ data, isLoading, periodLabel }: Financia
           ? `${formatBRL(data.autoRevenue)} de ${data.autoRevenueCount} leads · ${formatBRL(data.manualRevenue)} manual`
           : periodLabel}
         isLoading={isLoading}
+        delta={revenueDelta}
+        deltaGoodDirection="up"
       />
       <SummaryCard
         label="Despesas Total"
@@ -67,6 +93,8 @@ export function FinancialSummaryCards({ data, isLoading, periodLabel }: Financia
         iconColor="#ff4444"
         subLabel={periodLabel}
         isLoading={isLoading}
+        delta={expensesDelta}
+        deltaGoodDirection="down"
       />
       <SummaryCard
         label="Lucro Líquido"
@@ -76,6 +104,8 @@ export function FinancialSummaryCards({ data, isLoading, periodLabel }: Financia
         iconColor={data && data.netProfit >= 0 ? '#40a0ff' : '#fbbf24'}
         subLabel={periodLabel}
         isLoading={isLoading}
+        delta={profitDelta}
+        deltaGoodDirection="up"
       />
       <SummaryCard
         label="Margem de Lucro"

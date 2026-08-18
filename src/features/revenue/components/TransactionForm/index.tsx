@@ -1,29 +1,35 @@
 import { useEffect } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
+import { DatePicker } from '@/components/ui/DatePicker'
 import { useFinancialMutations } from '../../hooks/useFinancialMutations'
-import { REVENUE_CATEGORIES, EXPENSE_CATEGORIES } from '@/services/financial'
+import { useFinancialCategories } from '../../hooks/useFinancialCategories'
+import { useFinancialProducts } from '../../hooks/useFinancialProducts'
 import type { FinancialRecord } from '@/services/financial'
 
 const schema = z.object({
-  type:        z.enum(['revenue', 'expense']),
-  category:    z.string().optional(),
-  description: z.string().optional(),
-  amount:      z.preprocess((v) => (v === '' ? undefined : Number(v)), z.number().positive('Valor deve ser positivo')),
-  date:        z.string().min(1, 'Data obrigatória'),
+  type:           z.enum(['revenue', 'expense']),
+  category:       z.string().optional(),
+  description:    z.string().optional(),
+  amount:         z.preprocess((v) => (v === '' ? undefined : Number(v)), z.number().positive('Valor deve ser positivo')),
+  date:           z.string().min(1, 'Data obrigatória'),
+  expense_nature: z.enum(['fixed', 'variable', 'one_time']).optional(),
+  product_id:     z.string().optional(),
 })
 
 interface FormData {
-  type:         'revenue' | 'expense'
-  category?:    string
-  description?: string
-  amount:       number
-  date:         string
+  type:            'revenue' | 'expense'
+  category?:       string
+  description?:    string
+  amount:          number
+  date:            string
+  expense_nature?: 'fixed' | 'variable' | 'one_time'
+  product_id?:     string
 }
 
 interface TransactionFormProps {
@@ -37,37 +43,67 @@ const TYPE_OPTIONS = [
   { value: 'expense', label: '💸 Despesa' },
 ]
 
+const EXPENSE_NATURE_OPTIONS = [
+  { value: 'fixed',    label: 'Fixo (repete todo mês)' },
+  { value: 'variable', label: 'Variável' },
+  { value: 'one_time', label: 'Pontual/único' },
+]
+
 export function TransactionForm({ open, onClose, transaction }: TransactionFormProps) {
   const isEditing = !!transaction
   const { create, update } = useFinancialMutations()
+  const { data: categories = [] } = useFinancialCategories()
+  const { data: products = []   } = useFinancialProducts()
 
   const {
-    register, handleSubmit, reset, watch,
+    register, handleSubmit, reset, watch, control, setValue,
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(schema) as import('react-hook-form').Resolver<FormData>,
     defaultValues: { type: 'revenue', date: new Date().toISOString().slice(0, 10) },
   })
 
-  const type       = watch('type')
-  const categories = type === 'revenue' ? REVENUE_CATEGORIES : EXPENSE_CATEGORIES
+  const type   = watch('type')
+  const amount = watch('amount')
+
+  const categoryOptions = categories
+    .filter((c) => c.type === type || c.type === 'both')
+    .map((c) => ({ value: c.name, label: c.name }))
+
+  const productOptions = products.map((p) => ({ value: p.id, label: p.name }))
 
   useEffect(() => {
     if (open && transaction) {
       reset({
         type: transaction.type, category: transaction.category ?? '',
         description: transaction.description ?? '', amount: transaction.amount, date: transaction.date,
+        expense_nature: transaction.expense_nature ?? undefined,
+        product_id: transaction.product_id ?? undefined,
       })
     } else if (open) {
       reset({ type: 'revenue', date: new Date().toISOString().slice(0, 10) })
     }
   }, [open, transaction, reset])
 
+  function handleProductChange(productId: string) {
+    setValue('product_id', productId)
+    const product = products.find((p) => p.id === productId)
+    if (product?.default_price != null && !amount) {
+      setValue('amount', product.default_price)
+    }
+  }
+
   async function onSubmit(data: FormData) {
+    const payload = {
+      ...data,
+      category: data.category || undefined,
+      expense_nature: data.type === 'expense' ? data.expense_nature : undefined,
+      product_id: data.type === 'revenue' ? data.product_id || undefined : undefined,
+    }
     if (isEditing) {
-      await update.mutateAsync({ id: transaction.id, data: { ...data, category: data.category || undefined } })
+      await update.mutateAsync({ id: transaction.id, data: payload })
     } else {
-      await create.mutateAsync({ ...data, category: data.category || undefined })
+      await create.mutateAsync(payload)
     }
     onClose()
   }
@@ -90,14 +126,22 @@ export function TransactionForm({ open, onClose, transaction }: TransactionFormP
       <form id="transaction-form" onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
         <div className="grid grid-cols-2 gap-4">
           <Select label="Tipo *" options={TYPE_OPTIONS} error={errors.type?.message} {...register('type')} />
-          <Input label="Data *" type="date" error={errors.date?.message} {...register('date')} />
+          <Controller
+            control={control}
+            name="date"
+            render={({ field }) => (
+              <DatePicker label="Data *" placeholder="Selecionar" clearable={false}
+                value={field.value} onChange={field.onChange} />
+            )}
+          />
         </div>
+        {errors.date && <p className="text-xs -mt-2" style={{ color: '#ff4444' }}>{errors.date.message}</p>}
 
         <div className="grid grid-cols-2 gap-4">
           <Select
             label="Categoria"
-            options={categories.map((c) => ({ value: c, label: c }))}
-            placeholder="Selecionar..."
+            options={categoryOptions}
+            placeholder={categoryOptions.length === 0 ? 'Nenhuma cadastrada — use Catálogo' : 'Selecionar...'}
             {...register('category')}
           />
           <Input
@@ -110,6 +154,31 @@ export function TransactionForm({ open, onClose, transaction }: TransactionFormP
             {...register('amount')}
           />
         </div>
+
+        {type === 'expense' && (
+          <Select
+            label="Natureza do gasto"
+            options={EXPENSE_NATURE_OPTIONS}
+            placeholder="Selecionar..."
+            {...register('expense_nature')}
+          />
+        )}
+
+        {type === 'revenue' && (
+          <Controller
+            control={control}
+            name="product_id"
+            render={({ field }) => (
+              <Select
+                label="Produto/Serviço"
+                options={productOptions}
+                placeholder={productOptions.length === 0 ? 'Nenhum cadastrado — use Catálogo' : 'Selecionar...'}
+                value={field.value ?? ''}
+                onChange={(e) => handleProductChange(e.target.value)}
+              />
+            )}
+          />
+        )}
 
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-medium uppercase tracking-wide" style={{ color: '#888' }}>
