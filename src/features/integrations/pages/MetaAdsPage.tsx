@@ -196,10 +196,16 @@ export function MetaAdsPage() {
                 </li>
                 <li>Agora sim: <strong>Gerar novo token</strong> → escolha o app → marque <code>ads_read</code> → copie o token.</li>
                 <li>
-                  Pegue o <strong>ID da conta de anúncio</strong> no{' '}
+                  Pegue o <strong>ID da conta de anúncio</strong> em{' '}
+                  <strong>Contas → Contas de anúncios</strong> (ou no{' '}
                   <a href="https://adsmanager.facebook.com" target="_blank" rel="noopener noreferrer"
-                    className="underline" style={{ color: '#40a0ff' }}>Gerenciador de Anúncios</a>{' '}
-                  (aparece como <code>act_1234567890</code>) e cole os dois campos abaixo.
+                    className="underline" style={{ color: '#40a0ff' }}>Gerenciador de Anúncios</a>) e cole
+                  os dois campos abaixo, com o prefixo <code>act_</code>.
+                  <br />
+                  <span style={{ color: '#5a93c4' }}>
+                    Cuidado pra não confundir com o ID do <em>usuário do sistema</em> — são dois números
+                    parecidos no mesmo painel. O que vale aqui é o da <strong>conta de anúncio</strong>.
+                  </span>
                 </li>
               </ol>
               <p className="mt-2" style={{ color: '#5a93c4' }}>
