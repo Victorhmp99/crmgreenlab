@@ -170,7 +170,19 @@ export function MetaAdsPage() {
                   </span>
                 </li>
                 <li>Clique em <strong>Adicionar ativos</strong> → aba <strong>Contas de anúncios</strong> → marque a sua conta → ligue a permissão <strong>Ver desempenho</strong>.</li>
-                <li>Clique em <strong>Gerar novo token</strong> → escolha um app → marque a permissão <code>ads_read</code> → copie o token gerado.</li>
+                <li>
+                  Crie um app (só pra "assinar" o token — <strong>não passa por análise do Meta</strong>, leva ~2 min):
+                  em <a href="https://developers.facebook.com/apps" target="_blank" rel="noopener noreferrer"
+                    className="underline" style={{ color: '#40a0ff' }}>developers.facebook.com/apps</a> →{' '}
+                  <strong>Criar app</strong> → caso de uso <strong>Outro</strong> → tipo <strong>Empresa</strong>.
+                  Não precisa configurar nada dentro dele.
+                  <br />
+                  <span style={{ color: '#5a93c4' }}>
+                    Se o app não aparecer no passo seguinte, conecte-o ao seu negócio em
+                    Configurações do Negócio → <strong>Contas → Apps → Adicionar</strong>.
+                  </span>
+                </li>
+                <li>Volte em <strong>Usuários do sistema</strong> → <strong>Gerar novo token</strong> → escolha o app que você criou → marque a permissão <code>ads_read</code> → copie o token.</li>
                 <li>
                   Pegue o <strong>ID da conta de anúncio</strong> no{' '}
                   <a href="https://adsmanager.facebook.com" target="_blank" rel="noopener noreferrer"
