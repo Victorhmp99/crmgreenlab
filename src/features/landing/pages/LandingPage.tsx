@@ -4,10 +4,12 @@ import {
   ArrowRight, Check, ChevronDown, Menu, X,
   Zap, Kanban, Wallet, Compass, Megaphone, MessageCircle,
   Workflow, Plug, ShieldCheck, BarChart3, Building2, Handshake,
+  TrendingUp, LifeBuoy, Sparkles, Users,
 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { PILLARS, INTEGRATIONS, FAQ, FATURAMENTO_OPTIONS } from '../content'
 import { submitLandingLead, leadCaptureEnabled } from '../leadCapture'
+import { CountUp, Reveal } from '../components/Motion'
 
 const PILLAR_ICONS = [Zap, Kanban, Wallet, Compass]
 
@@ -86,6 +88,7 @@ export function LandingPage() {
 
       <main className="relative z-10">
         <Hero />
+        <Stats />
         <TrustStrip />
         <Platform />
         <Integrations />
@@ -255,19 +258,57 @@ function Hero() {
   )
 }
 
+/* ── Números ───────────────────────────────────────────────────────────────── */
+
+/* Números do PRODUTO, verificáveis — não contagem de cliente. Métrica de prova
+   social entra aqui quando houver dado real pra sustentar. */
+const STATS = [
+  { valor: 90, sufixo: ' dias', label: 'de previsão de caixa projetada', icone: TrendingUp },
+  { valor: 12, sufixo: '',      label: 'métricas por campanha do Meta Ads', icone: Megaphone },
+  { valor: 4,  sufixo: '',      label: 'tipos de contrato: recorrente, sem prazo, único e %', icone: Wallet },
+  { valor: 60, sufixo: '+',     label: 'respostas na central de ajuda dentro do sistema', icone: LifeBuoy },
+]
+
+function Stats() {
+  return (
+    <section className="mx-auto max-w-6xl px-5 pb-16">
+      <div className="grid gap-px rounded-2xl overflow-hidden sm:grid-cols-2 lg:grid-cols-4"
+        style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.07)' }}>
+        {STATS.map((s, i) => (
+          <Reveal key={s.label} delay={i * 70}>
+            <div className="h-full px-5 py-6" style={{ background: '#0c0c0c' }}>
+              <s.icone size={16} style={{ color: NEON, opacity: 0.9 }} />
+              <p className="mt-3 text-3xl font-bold tracking-tight" style={{ color: '#f2f2f2' }}>
+                <CountUp to={s.valor} suffix={s.sufixo} />
+              </p>
+              <p className="mt-1.5 text-xs leading-relaxed" style={{ color: '#858585' }}>{s.label}</p>
+            </div>
+          </Reveal>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 /* ── Faixa de confiança ────────────────────────────────────────────────────── */
 
 function TrustStrip() {
   return (
     <section className="mx-auto max-w-6xl px-5 pb-16">
-      <div className="rounded-2xl px-6 py-5 md:px-8 md:py-6"
-        style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)' }}>
-        <p className="text-sm md:text-base leading-relaxed" style={{ color: '#8f8f8f' }}>
-          <span style={{ color: '#e0e0e0' }}>Construído dentro de uma operação</span> que vive de
-          gerar e converter lead — não num laboratório. Cada tela existe porque fez falta, não
-          porque ficava bonita no roadmap.
-        </p>
-      </div>
+      <Reveal>
+        <div className="rounded-2xl px-6 py-5 md:px-8 md:py-6 flex gap-4 items-start"
+          style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)' }}>
+          <span className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0"
+            style={{ background: 'rgba(0,230,118,0.1)', border: '1px solid rgba(0,230,118,0.2)' }}>
+            <Sparkles size={15} style={{ color: NEON }} />
+          </span>
+          <p className="text-sm md:text-base leading-relaxed" style={{ color: '#8f8f8f' }}>
+            <span style={{ color: '#e0e0e0' }}>Construído dentro de uma operação</span> que vive de
+            gerar e converter lead — não num laboratório. Cada tela existe porque fez falta, não
+            porque ficava bonita no roadmap.
+          </p>
+        </div>
+      </Reveal>
     </section>
   )
 }
@@ -305,15 +346,25 @@ function Platform() {
               </h3>
 
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {pillar.features.map((f) => (
-                  <article key={f.title}
-                    className="rounded-2xl p-5 transition-colors"
-                    style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)' }}
-                    onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'rgba(0,230,118,0.28)')}
-                    onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)')}>
-                    <h4 className="text-sm font-semibold mb-2" style={{ color: '#eaeaea' }}>{f.title}</h4>
-                    <p className="text-[13px] leading-relaxed" style={{ color: '#909090' }}>{f.text}</p>
-                  </article>
+                {pillar.features.map((f, fi) => (
+                  <Reveal key={f.title} delay={fi * 60}>
+                    <article
+                      className="h-full rounded-2xl p-5 transition-all duration-200"
+                      style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)' }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.borderColor = 'rgba(0,230,118,0.32)'
+                        e.currentTarget.style.transform = 'translateY(-3px)'
+                        e.currentTarget.style.background = 'rgba(0,230,118,0.035)'
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)'
+                        e.currentTarget.style.transform = 'none'
+                        e.currentTarget.style.background = 'rgba(255,255,255,0.025)'
+                      }}>
+                      <h4 className="text-sm font-semibold mb-2" style={{ color: '#eaeaea' }}>{f.title}</h4>
+                      <p className="text-[13px] leading-relaxed" style={{ color: '#909090' }}>{f.text}</p>
+                    </article>
+                  </Reveal>
                 ))}
               </div>
             </div>
@@ -370,41 +421,93 @@ function Integrations() {
 
 /* ── Do lead ao caixa ──────────────────────────────────────────────────────── */
 
-const CASH_POINTS = [
-  'Custo por lead real, por campanha',
-  'Quanto cada origem virou contrato fechado',
-  'Receita reconhecida sozinha, na data',
-  'Previsão de caixa antes do mês virar',
+/* Exemplo aritmeticamente consistente, rotulado como exemplo na tela:
+   4.200 / 84 = CPL 50 · 6 contratos de 3.000 = 18.000 de faturamento ·
+   3.000 em 12x = 250/mês · 6 × 250 = 1.500 de receita no mês. É o mesmo
+   exemplo que explica por que faturamento e receita não batem. */
+const CASH_FLOW = [
+  { icone: Megaphone, rotulo: 'Investido no Meta Ads', valor: 4200,  prefixo: 'R$ ', nota: 'campanha do mês' },
+  { icone: Users,     rotulo: 'Leads gerados',         valor: 84,    prefixo: '',     nota: 'CPL de R$ 50' },
+  { icone: Handshake, rotulo: 'Contratos fechados',    valor: 6,     prefixo: '',     nota: 'R$ 3.000 cada, em 12x' },
+  { icone: Wallet,    rotulo: 'Faturamento',           valor: 18000, prefixo: 'R$ ',  nota: 'a venda inteira' },
 ]
 
 function LeadToCash() {
   return (
     <section className="mx-auto max-w-6xl px-5 py-16 md:py-24">
-      <div className="rounded-3xl p-8 md:p-14"
-        style={{
-          background: 'linear-gradient(140deg, rgba(0,230,118,0.07), rgba(255,255,255,0.02))',
-          border: '1px solid rgba(0,230,118,0.18)',
-        }}>
-        <h2 className="text-2xl md:text-4xl font-bold tracking-tight leading-tight max-w-2xl"
-          style={{ color: '#f2f2f2' }}>
-          O anúncio custou R$ 4.200. E devolveu quanto?
-        </h2>
+      <Reveal>
+        <div className="rounded-3xl p-8 md:p-12"
+          style={{
+            background: 'linear-gradient(140deg, rgba(0,230,118,0.07), rgba(255,255,255,0.02))',
+            border: '1px solid rgba(0,230,118,0.18)',
+          }}>
+          <h2 className="text-2xl md:text-4xl font-bold tracking-tight leading-tight max-w-2xl"
+            style={{ color: '#f2f2f2' }}>
+            O anúncio custou R$ 4.200. E devolveu quanto?
+          </h2>
 
-        <p className="mt-5 text-base leading-relaxed max-w-2xl" style={{ color: '#a0a0a0' }}>
-          É a pergunta que trava reunião. A resposta costuma ser um chute apoiado em três abas
-          abertas. Aqui é uma tela: o investimento veio do Meta Ads, o lead veio da campanha,
-          o contrato está no card e a receita já está reconhecida.
-        </p>
+          <p className="mt-5 text-base leading-relaxed max-w-2xl" style={{ color: '#a0a0a0' }}>
+            É a pergunta que trava reunião. A resposta costuma ser um chute apoiado em três abas
+            abertas. Aqui é uma tela — e ela mostra os dois números que ninguém separa:
+          </p>
 
-        <ul className="mt-8 grid gap-3 sm:grid-cols-2">
-          {CASH_POINTS.map((p) => (
-            <li key={p} className="flex gap-2.5 text-sm leading-relaxed" style={{ color: '#c4c4c4' }}>
-              <Check size={16} className="shrink-0 mt-0.5" style={{ color: NEON }} />
-              <span>{p}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
+          {/* Cadeia do investimento até a venda */}
+          <div className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {CASH_FLOW.map((etapa, i) => (
+              <Reveal key={etapa.rotulo} delay={i * 90}>
+                <div className="relative h-full rounded-2xl px-5 py-5"
+                  style={{ background: 'rgba(0,0,0,0.32)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <etapa.icone size={15} style={{ color: NEON, opacity: 0.9 }} />
+                  <p className="mt-3 text-2xl font-bold tracking-tight" style={{ color: '#f2f2f2' }}>
+                    <CountUp to={etapa.valor} prefix={etapa.prefixo} />
+                  </p>
+                  <p className="mt-1 text-xs font-medium" style={{ color: '#c0c0c0' }}>{etapa.rotulo}</p>
+                  <p className="text-[11px] mt-0.5" style={{ color: '#7d7d7d' }}>{etapa.nota}</p>
+
+                  {/* Seta de ligação — só entre os cartões, no desktop */}
+                  {i < CASH_FLOW.length - 1 && (
+                    <ArrowRight size={14} aria-hidden="true"
+                      className="hidden lg:block absolute top-1/2 -right-[11px] -translate-y-1/2"
+                      style={{ color: 'rgba(0,230,118,0.55)' }} />
+                  )}
+                </div>
+              </Reveal>
+            ))}
+          </div>
+
+          {/* O ponto da seção: faturamento não é receita */}
+          <Reveal delay={380}>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-2xl px-5 py-5"
+                style={{ background: 'rgba(0,0,0,0.32)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <p className="text-[11px] font-semibold tracking-[0.14em] uppercase" style={{ color: '#7d7d7d' }}>
+                  Faturamento
+                </p>
+                <p className="mt-2 text-2xl font-bold" style={{ color: '#f2f2f2' }}>
+                  <CountUp to={18000} prefix="R$ " />
+                </p>
+                <p className="text-xs mt-1" style={{ color: '#8a8a8a' }}>o que foi vendido, hoje</p>
+              </div>
+              <div className="rounded-2xl px-5 py-5"
+                style={{ background: 'rgba(0,230,118,0.08)', border: '1px solid rgba(0,230,118,0.32)' }}>
+                <p className="text-[11px] font-semibold tracking-[0.14em] uppercase" style={{ color: NEON }}>
+                  Receita no mês
+                </p>
+                <p className="mt-2 text-2xl font-bold" style={{ color: '#f2f2f2' }}>
+                  <CountUp to={1500} prefix="R$ " />
+                </p>
+                <p className="text-xs mt-1" style={{ color: '#8a8a8a' }}>o que efetivamente entrou</p>
+              </div>
+            </div>
+          </Reveal>
+
+          <p className="mt-6 text-sm leading-relaxed max-w-2xl" style={{ color: '#909090' }}>
+            <span style={{ color: '#d8d8d8' }}>A diferença entre os dois é o que quebra caixa.</span>{' '}
+            Seu CRM provavelmente mostra só um número — e chama de receita. Números do exemplo,
+            para ilustrar o cálculo.
+          </p>
+        </div>
+      </Reveal>
     </section>
   )
 }
