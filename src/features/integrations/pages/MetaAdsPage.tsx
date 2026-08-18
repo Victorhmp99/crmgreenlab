@@ -14,7 +14,11 @@ import {
   deleteMetaCredentials,
   fetchCampaigns,
   syncMetaAds,
+  presetLabel,
+  DATE_PRESETS,
+  type DatePreset,
 } from '@/services/metaAds'
+import { Select } from '@/components/ui/Select'
 import { useAuthStore } from '@/store/authStore'
 import { formatDate } from '@/lib/utils'
 
@@ -29,6 +33,51 @@ function formatBRL(v: number) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v)
 }
 
+/** Célula numérica da tabela — trata null como travessão em vez de 0. */
+function Num({ v, fmt, color = '#888', bold }: {
+  v: number | null | undefined
+  fmt?: (n: number) => string
+  color?: string
+  bold?: boolean
+}) {
+  return (
+    <td className="px-3 py-3 text-right tabular-nums whitespace-nowrap"
+      style={{ color: v != null ? color : '#333', fontWeight: bold ? 600 : undefined }}>
+      {v != null ? (fmt ? fmt(v) : v.toLocaleString('pt-BR')) : '—'}
+    </td>
+  )
+}
+
+const OBJECTIVE_LABELS: Record<string, string> = {
+  OUTCOME_LEADS:        'Cadastros',
+  OUTCOME_SALES:        'Vendas',
+  OUTCOME_ENGAGEMENT:   'Engajamento',
+  OUTCOME_TRAFFIC:      'Tráfego',
+  OUTCOME_AWARENESS:    'Reconhecimento',
+  OUTCOME_APP_PROMOTION:'Promoção de app',
+  LEAD_GENERATION:      'Cadastros',
+  MESSAGES:             'Mensagens',
+  CONVERSIONS:          'Conversões',
+  LINK_CLICKS:          'Tráfego',
+  POST_ENGAGEMENT:      'Engajamento',
+}
+
+function translateObjective(o: string): string {
+  return OBJECTIVE_LABELS[o] ?? o.replace(/^OUTCOME_/, '').toLowerCase()
+}
+
+function TotalCard({ label, value, sub, color }: {
+  label: string; value: string; sub?: string; color: string
+}) {
+  return (
+    <div className="rounded-xl px-4 py-3" style={{ background: '#141414', border: '1px solid #1e1e1e' }}>
+      <p className="text-[10px] uppercase tracking-wide" style={{ color: '#555' }}>{label}</p>
+      <p className="text-xl font-bold tabular-nums mt-0.5" style={{ color }}>{value}</p>
+      {sub && <p className="text-[10px] mt-0.5" style={{ color: '#444' }}>{sub}</p>}
+    </div>
+  )
+}
+
 export function MetaAdsPage() {
   const confirm = useConfirm()
   const tenantId = useAuthStore((s) => s.tenant?.id)!
@@ -36,6 +85,7 @@ export function MetaAdsPage() {
   const [syncError, setSyncError] = useState<string | null>(null)
   const [syncOk,    setSyncOk]    = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const [preset,    setPreset]    = useState<DatePreset>('last_30d')
 
   const { data: credentials, isLoading: credLoading } = useQuery({
     queryKey: ['meta-credentials', tenantId],
@@ -71,7 +121,7 @@ export function MetaAdsPage() {
   })
 
   const syncMutation = useMutation({
-    mutationFn: () => syncMetaAds(tenantId),
+    mutationFn: () => syncMetaAds(tenantId, preset),
     onSuccess:  () => {
       queryClient.invalidateQueries({ queryKey: ['campaigns', tenantId] })
       queryClient.invalidateQueries({ queryKey: ['meta-credentials', tenantId] })
@@ -98,6 +148,19 @@ export function MetaAdsPage() {
 
   const isConnected = !!credentials?.hasToken
 
+  const totals = campaigns.reduce(
+    (acc, c) => ({
+      spend:       acc.spend       + (c.spend ?? 0),
+      clicks:      acc.clicks      + (c.clicks ?? 0),
+      impressions: acc.impressions + (c.impressions ?? 0),
+      results:     acc.results     + (c.results ?? 0),
+    }),
+    { spend: 0, clicks: 0, impressions: 0, results: 0 },
+  )
+
+  // Todas as linhas vêm do mesmo período sincronizado
+  const syncedPreset = campaigns[0]?.date_preset
+
   return (
     <div className="flex flex-col gap-6">
       {/* Cabeçalho */}
@@ -107,16 +170,41 @@ export function MetaAdsPage() {
           <p className="text-sm mt-0.5" style={{ color: '#555' }}>Métricas de campanhas do Facebook e Instagram</p>
         </div>
         {isConnected && (
-          <Button
-            onClick={() => syncMutation.mutate()}
-            loading={syncMutation.isPending}
-            variant="secondary"
-          >
-            <RefreshCw size={15} />
-            Sincronizar
-          </Button>
+          <div className="flex items-end gap-2 shrink-0">
+            <div className="w-44">
+              <Select
+                label="Período"
+                value={preset}
+                onChange={(e) => setPreset(e.target.value as DatePreset)}
+                options={DATE_PRESETS.map((p) => ({ value: p.value, label: p.label }))}
+              />
+            </div>
+            <Button
+              onClick={() => syncMutation.mutate()}
+              loading={syncMutation.isPending}
+              variant="secondary"
+            >
+              <RefreshCw size={15} />
+              Sincronizar
+            </Button>
+          </div>
         )}
       </div>
+
+      {/* Totais do período sincronizado */}
+      {campaigns.length > 0 && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <TotalCard label="Investido"      value={formatBRL(totals.spend)} color="#ff4444" />
+          <TotalCard label="Resultados"     value={String(totals.results)}
+            sub="leads + conversas" color="#00e676" />
+          <TotalCard label="Custo por resultado"
+            value={totals.results > 0 ? formatBRL(totals.spend / totals.results) : '—'}
+            color="#fbbf24" />
+          <TotalCard label="Cliques"        value={totals.clicks.toLocaleString('pt-BR')}
+            sub={totals.impressions > 0 ? `CTR ${((totals.clicks / totals.impressions) * 100).toFixed(2)}%` : undefined}
+            color="#40a0ff" />
+        </div>
+      )}
 
       {/* Status de sincronização */}
       {syncOk && (
@@ -260,9 +348,11 @@ export function MetaAdsPage() {
       {/* Tabela de campanhas */}
       <div className="rounded-xl overflow-hidden" style={{ background: '#141414', border: '1px solid #1e1e1e' }}>
         <div className="px-5 py-4" style={{ borderBottom: '1px solid #1a1a1a' }}>
-          <p className="text-sm font-semibold" style={{ color: '#e8e8e8' }}>Campanhas Sincronizadas</p>
+          <p className="text-sm font-semibold" style={{ color: '#e8e8e8' }}>Campanhas</p>
           <p className="text-xs mt-0.5" style={{ color: '#555' }}>
-            {campaigns.length > 0 ? `${campaigns.length} campanhas` : 'Nenhuma campanha ainda'}
+            {campaigns.length > 0
+              ? `${campaigns.length} campanhas · ${presetLabel(syncedPreset)}`
+              : 'Nenhuma campanha ainda'}
           </p>
         </div>
 
@@ -285,9 +375,18 @@ export function MetaAdsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ background: '#111', borderBottom: '1px solid #1a1a1a' }}>
-                  {['Campanha','Status','Gasto','Impressões','Cliques','Leads','CPL'].map((h, i) => (
-                    <th key={h} className={`px-4 py-3 text-xs font-medium uppercase tracking-wide ${i > 1 ? 'text-right' : 'text-left'}`}
-                      style={{ color: '#444' }}>{h}</th>
+                  {['Campanha','Status','Gasto','Alcance','Impressões','Freq.','Cliques','CTR','CPC','CPM','Resultados','Custo/result.'].map((h, i) => (
+                    <th key={h} className={`px-3 py-3 text-xs font-medium uppercase tracking-wide whitespace-nowrap ${i > 1 ? 'text-right' : 'text-left'}`}
+                      style={{ color: '#444' }}
+                      title={
+                        h === 'Freq.'          ? 'Quantas vezes a mesma pessoa viu o anúncio'
+                        : h === 'CTR'          ? 'Cliques ÷ impressões'
+                        : h === 'CPC'          ? 'Custo por clique'
+                        : h === 'CPM'          ? 'Custo por mil impressões'
+                        : h === 'Resultados'   ? 'Leads de formulário + conversas iniciadas'
+                        : h === 'Custo/result.'? 'Gasto ÷ resultados'
+                        : undefined
+                      }>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -296,31 +395,36 @@ export function MetaAdsPage() {
                   <tr key={c.id} style={{ borderBottom: '1px solid #191919' }}
                     onMouseEnter={(e) => (e.currentTarget.style.background = '#191919')}
                     onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
-                    <td className="px-4 py-3">
-                      <p className="font-medium truncate max-w-[200px]" style={{ color: '#e8e8e8' }}>{c.name}</p>
-                      <p className="text-[10px] mt-0.5" style={{ color: '#444' }}>{formatDate(c.synced_at)}</p>
+                    <td className="px-3 py-3">
+                      <p className="font-medium truncate max-w-[220px]" style={{ color: '#e8e8e8' }}>{c.name}</p>
+                      {c.objective && (
+                        <p className="text-[10px] mt-0.5" style={{ color: '#444' }}>
+                          {translateObjective(c.objective)}
+                        </p>
+                      )}
                     </td>
-                    <td className="px-4 py-3">
-                      <span className="text-xs font-medium rounded-full px-2.5 py-1"
+                    <td className="px-3 py-3">
+                      <span className="text-xs font-medium rounded-full px-2.5 py-1 whitespace-nowrap"
                         style={c.status === 'ACTIVE'
                           ? { background: 'rgba(0,230,118,0.1)', color: '#00e676' }
                           : { background: '#1e1e1e', color: '#555' }}>
-                        {c.status ?? '—'}
+                        {c.status === 'ACTIVE' ? 'Ativa' : c.status === 'PAUSED' ? 'Pausada' : c.status ?? '—'}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right tabular-nums" style={{ color: '#e8e8e8' }}>
-                      {c.spend != null ? formatBRL(c.spend) : <span style={{ color: '#333' }}>—</span>}
+                    <Num v={c.spend} fmt={formatBRL} bold color="#e8e8e8" />
+                    <Num v={c.reach} />
+                    <Num v={c.impressions} />
+                    <Num v={c.frequency} fmt={(n) => n.toFixed(2)} />
+                    <Num v={c.clicks} />
+                    <Num v={c.ctr} fmt={(n) => `${n.toFixed(2)}%`} />
+                    <Num v={c.cpc} fmt={formatBRL} />
+                    <Num v={c.cpm} fmt={formatBRL} />
+                    <td className="px-3 py-3 text-right font-semibold tabular-nums whitespace-nowrap"
+                      style={{ color: c.results ? 'var(--tenant-primary)' : '#333' }}
+                      title={`${c.leads_generated ?? 0} leads · ${c.conversations ?? 0} conversas`}>
+                      {c.results || '—'}
                     </td>
-                    <td className="px-4 py-3 text-right tabular-nums" style={{ color: '#888' }}>
-                      {c.impressions?.toLocaleString('pt-BR') ?? <span style={{ color: '#333' }}>—</span>}
-                    </td>
-                    <td className="px-4 py-3 text-right tabular-nums" style={{ color: '#888' }}>
-                      {c.clicks?.toLocaleString('pt-BR') ?? <span style={{ color: '#333' }}>—</span>}
-                    </td>
-                    <td className="px-4 py-3 text-right font-semibold tabular-nums" style={{ color: 'var(--tenant-primary)' }}>
-                      {c.leads_generated ?? '—'}
-                    </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-3 py-3 text-right whitespace-nowrap">
                       <span className="tabular-nums"
                         style={{ color: c.cpl ? '#fbbf24' : '#333', fontWeight: c.cpl ? 600 : undefined }}>
                         {c.cpl ? formatBRL(c.cpl) : '—'}
