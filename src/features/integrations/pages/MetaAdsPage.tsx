@@ -169,7 +169,10 @@ export function MetaAdsPage() {
                     tipo "CRM" e nomes com "Meta", "Facebook" ou "Insta" dentro.
                   </span>
                 </li>
-                <li>Clique em <strong>Adicionar ativos</strong> → aba <strong>Contas de anúncios</strong> → marque a sua conta → ligue a permissão <strong>Ver desempenho</strong>.</li>
+                <li>
+                  Com o usuário selecionado, clique em <strong>Adicionar ativos</strong> → aba{' '}
+                  <strong>Contas de anúncios</strong> → marque a sua conta → ligue <strong>Ver desempenho</strong>.
+                </li>
                 <li>
                   Ainda nas Configurações do Negócio: <strong>Contas → Apps → Adicionar</strong> →{' '}
                   <strong>Criar um novo ID do aplicativo</strong>. O app serve só para "assinar" o token.
@@ -182,7 +185,16 @@ export function MetaAdsPage() {
                     ele já nasce ligado ao seu negócio. Vale a mesma regra de nome do passo 2.
                   </span>
                 </li>
-                <li>Volte em <strong>Usuários do sistema</strong> → <strong>Gerar novo token</strong> → escolha o app que você criou → marque a permissão <code>ads_read</code> → copie o token.</li>
+                <li>
+                  Volte no usuário do sistema → <strong>Adicionar ativos</strong> → aba <strong>Apps</strong> →
+                  marque esse app → ligue <strong>Gerenciar app</strong>.
+                  <br />
+                  <span style={{ color: '#5a93c4' }}>
+                    Sem isso, o próximo passo mostra <em>"Nenhuma permissão disponível"</em> — o usuário precisa
+                    ter função no app, não só na conta de anúncio.
+                  </span>
+                </li>
+                <li>Agora sim: <strong>Gerar novo token</strong> → escolha o app → marque <code>ads_read</code> → copie o token.</li>
                 <li>
                   Pegue o <strong>ID da conta de anúncio</strong> no{' '}
                   <a href="https://adsmanager.facebook.com" target="_blank" rel="noopener noreferrer"
