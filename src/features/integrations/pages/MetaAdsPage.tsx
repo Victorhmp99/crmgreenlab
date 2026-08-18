@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useState, useEffect, useRef, type FormEvent } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { RefreshCw, Link2, AlertTriangle, CheckCircle, Trash2, ExternalLink, Plus, Power } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -60,6 +60,30 @@ function translateObjective(o: string): string {
   return OBJECTIVE_LABELS[o] ?? o.replace(/^OUTCOME_/, '').toLowerCase()
 }
 
+/** Botão de seleção de conta de anúncio. */
+function AccountChip({ label, active, disabled, onClick }: {
+  label: string; active: boolean; disabled?: boolean; onClick: () => void
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      title={disabled ? 'Conta pausada — reative abaixo para ver os dados' : undefined}
+      className="text-xs font-medium rounded-lg px-3 py-1.5 transition-colors disabled:cursor-not-allowed"
+      style={{
+        background: active ? 'var(--tenant-primary)' : '#141414',
+        color:      active ? '#000' : disabled ? '#444' : '#aaa',
+        border:     `1px solid ${active ? 'var(--tenant-primary)' : '#2a2a2a'}`,
+        opacity:    disabled ? 0.5 : 1,
+      }}
+      onMouseEnter={(e) => { if (!active && !disabled) e.currentTarget.style.borderColor = '#3a3a3a' }}
+      onMouseLeave={(e) => { if (!active) e.currentTarget.style.borderColor = '#2a2a2a' }}
+    >
+      {label}
+    </button>
+  )
+}
+
 function TotalCard({ label, value, sub, color }: {
   label: string; value: string; sub?: string; color: string
 }) {
@@ -83,6 +107,8 @@ export function MetaAdsPage() {
   const [tokenInput,   setTokenInput]   = useState('')
   const [accountInput, setAccountInput] = useState('')
   const [labelInput,   setLabelInput]   = useState('')
+  // 'all' = todas as contas; senão o ad_account_id selecionado
+  const [selectedAccount, setSelectedAccount] = useState<string>('all')
 
   const { data: credentials, isLoading: credLoading } = useQuery({
     queryKey: ['meta-credentials', tenantId],
@@ -152,7 +178,9 @@ export function MetaAdsPage() {
   })
 
   const syncMutation = useMutation({
-    mutationFn: () => syncMetaAds(tenantId, preset),
+    mutationFn: () => syncMetaAds(
+      tenantId, preset, effectiveAccount === 'all' ? undefined : effectiveAccount,
+    ),
     onSuccess:  () => {
       queryClient.invalidateQueries({ queryKey: ['campaigns', tenantId] })
       queryClient.invalidateQueries({ queryKey: ['meta-credentials', tenantId] })
@@ -168,7 +196,33 @@ export function MetaAdsPage() {
   const isConnected = !!credentials?.hasToken
   const canSync     = isConnected && adAccounts.some((a) => a.active)
 
-  const totals = campaigns.reduce(
+  // Conta que vale de fato: se a selecionada foi removida ou pausada, cai pra
+  // "Todas". Derivado em vez de sincronizado por efeito — evita render extra e
+  // estado inconsistente por um instante.
+  const effectiveAccount =
+    selectedAccount !== 'all'
+    && adAccounts.some((a) => a.ad_account_id === selectedAccount && a.active)
+      ? selectedAccount
+      : 'all'
+
+  // Trocar de conta ou de período busca os dados novos sozinho. Não dispara no
+  // primeiro render: ao abrir a tela mostramos o que já está salvo, senão toda
+  // visita gastaria chamada da API do Meta (que tem limite por app).
+  const autoSyncRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!canSync) return
+    const key = `${effectiveAccount}|${preset}`
+    if (autoSyncRef.current === null) { autoSyncRef.current = key; return }
+    if (autoSyncRef.current === key) return
+    autoSyncRef.current = key
+    syncMutation.mutate()
+  }, [effectiveAccount, preset, canSync]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const visibleCampaigns = effectiveAccount === 'all'
+    ? campaigns
+    : campaigns.filter((c) => c.ad_account_id === effectiveAccount)
+
+  const totals = visibleCampaigns.reduce(
     (acc, c) => ({
       spend:       acc.spend       + (c.spend ?? 0),
       clicks:      acc.clicks      + (c.clicks ?? 0),
@@ -179,7 +233,7 @@ export function MetaAdsPage() {
   )
 
   // Todas as linhas vêm do mesmo período sincronizado
-  const syncedPreset = campaigns[0]?.date_preset
+  const syncedPreset = visibleCampaigns[0]?.date_preset
 
   return (
     <div className="flex flex-col gap-6">
@@ -213,8 +267,33 @@ export function MetaAdsPage() {
         )}
       </div>
 
+      {/* Seleção de conta — clicar já busca os dados daquela conta */}
+      {isConnected && adAccounts.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <AccountChip
+            label="Todas as contas"
+            active={effectiveAccount === 'all'}
+            onClick={() => setSelectedAccount('all')}
+          />
+          {adAccounts.map((acc) => (
+            <AccountChip
+              key={acc.id}
+              label={acc.label || acc.ad_account_id}
+              active={effectiveAccount === acc.ad_account_id}
+              disabled={!acc.active}
+              onClick={() => acc.active && setSelectedAccount(acc.ad_account_id)}
+            />
+          ))}
+          {syncMutation.isPending && (
+            <span className="flex items-center gap-1.5 text-xs ml-1" style={{ color: '#666' }}>
+              <RefreshCw size={11} className="animate-spin" /> atualizando...
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Totais do período sincronizado */}
-      {campaigns.length > 0 && (
+      {visibleCampaigns.length > 0 && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <TotalCard label="Investido"      value={formatBRL(totals.spend)} color="#ff4444" />
           <TotalCard label="Resultados"     value={String(totals.results)}
@@ -439,15 +518,15 @@ export function MetaAdsPage() {
         <div className="px-5 py-4" style={{ borderBottom: '1px solid #1a1a1a' }}>
           <p className="text-sm font-semibold" style={{ color: '#e8e8e8' }}>Campanhas</p>
           <p className="text-xs mt-0.5" style={{ color: '#555' }}>
-            {campaigns.length > 0
-              ? `${campaigns.length} campanhas · ${presetLabel(syncedPreset)}`
+            {visibleCampaigns.length > 0
+              ? `${visibleCampaigns.length} campanhas · ${presetLabel(syncedPreset)}`
               : 'Nenhuma campanha ainda'}
           </p>
         </div>
 
         {campLoading ? (
           <div className="flex justify-center py-12"><Spinner size="lg" /></div>
-        ) : campaigns.length === 0 ? (
+        ) : visibleCampaigns.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-14 text-center">
             <div className="h-12 w-12 rounded-2xl flex items-center justify-center" style={{ background: '#1a1a1a' }}>
               <span className="text-2xl">📘</span>
@@ -480,7 +559,7 @@ export function MetaAdsPage() {
                 </tr>
               </thead>
               <tbody>
-                {campaigns.map((c) => (
+                {visibleCampaigns.map((c) => (
                   <tr key={c.id} style={{ borderBottom: '1px solid #191919' }}
                     onMouseEnter={(e) => (e.currentTarget.style.background = '#191919')}
                     onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>

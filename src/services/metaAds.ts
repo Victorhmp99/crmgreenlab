@@ -81,6 +81,9 @@ export interface Campaign {
   id:             string
   tenant_id:      string
   external_id:    string
+  /** De qual conta de anúncio veio (act_...). Null em dados sincronizados
+   *  antes do suporte a várias contas. */
+  ad_account_id:  string | null
   name:           string
   platform:       string
   status:         string | null
@@ -184,9 +187,15 @@ export async function fetchCampaigns(tenantId: string): Promise<Campaign[]> {
 export async function syncMetaAds(
   tenantId: string,
   datePreset: DatePreset = 'last_30d',
+  /** Omitido = sincroniza todas as contas ativas da empresa. */
+  adAccountId?: string,
 ): Promise<{ synced: number }> {
   const { data, error } = await supabase.functions.invoke('sync-meta-ads', {
-    body: { tenant_id: tenantId, date_preset: datePreset },
+    body: {
+      tenant_id: tenantId,
+      date_preset: datePreset,
+      ...(adAccountId ? { ad_account_id: adAccountId } : {}),
+    },
   })
 
   if (error) {
