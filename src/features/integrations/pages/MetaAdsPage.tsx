@@ -175,8 +175,11 @@ export function MetaAdsPage() {
                   <strong>Criar um novo ID do aplicativo</strong>. O app serve só para "assinar" o token.
                   <br />
                   <span style={{ color: '#5a93c4' }}>
-                    <strong>Não passa por análise do Meta</strong> e leva ~2 min. Criando por aqui ele já nasce
-                    ligado ao seu negócio. Vale a mesma regra de nome do passo 2.
+                    <strong>Já tem um app no seu negócio?</strong> Pode usar o mesmo — não precisa criar outro,
+                    e isso não altera o que ele já faz.
+                    <br />
+                    Se for criar: <strong>não passa por análise do Meta</strong> e leva ~2 min. Criando por aqui
+                    ele já nasce ligado ao seu negócio. Vale a mesma regra de nome do passo 2.
                   </span>
                 </li>
                 <li>Volte em <strong>Usuários do sistema</strong> → <strong>Gerar novo token</strong> → escolha o app que você criou → marque a permissão <code>ads_read</code> → copie o token.</li>
