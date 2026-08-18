@@ -31,6 +31,13 @@ export const ESTILOS: { key: EstiloTema; label: string; desc: string }[] = [
 
 export interface EstilosRelatorio {
   pagina:      CSSProperties
+  /** Faixa de números grandes logo abaixo do cabeçalho. */
+  destaques:   CSSProperties
+  destaque:    CSSProperties
+  destaqueRotulo: CSSProperties
+  destaqueValor:  CSSProperties
+  /** Régua que separa as seções do miolo. */
+  divisor:     CSSProperties
   cabecalho:   CSSProperties
   marca:       CSSProperties
   titulo:      CSSProperties
@@ -87,6 +94,11 @@ export function montarEstilos(cor: CorTema, estilo: EstiloTema): EstilosRelatori
         secaoTitulo: { fontSize: 9.5, textTransform: 'uppercase', letterSpacing: '0.1em', color: accent, margin: '0 0 8px', fontWeight: 700 },
         comentario:  { fontSize: 11.5, lineHeight: 1.6, margin: 0, whiteSpace: 'pre-wrap', color: '#333',
                        background: rgba(accent, 0.05), padding: '12px 14px', borderLeft: `3px solid ${accent}` },
+        destaques:   { display: 'flex', gap: 0, background: rgba(accent, 0.07), borderBottom: `1px solid ${rgba(accent, 0.2)}` },
+        destaque:    { flex: 1, padding: '14px 16px', borderRight: `1px solid ${rgba(accent, 0.15)}` },
+        destaqueRotulo: { fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#7a7a7a', margin: '0 0 4px', fontWeight: 700 },
+        destaqueValor:  { fontSize: 17, fontWeight: 700, color: escuro, margin: 0, lineHeight: 1.1 },
+        divisor:     { height: 1, background: rgba(accent, 0.18), margin: '18px 0' },
         tabela:      TABELA_BASE,
         th:          { ...CELULA_BASE, background: rgba(accent, 0.12), color: escuro, fontWeight: 700, border: `1px solid ${rgba(accent, 0.3)}`, fontSize: 8.5, textTransform: 'uppercase', letterSpacing: '0.03em' },
         td:          { ...CELULA_BASE, border: '1px solid #e4e4e4' },
@@ -108,6 +120,11 @@ export function montarEstilos(cor: CorTema, estilo: EstiloTema): EstilosRelatori
         secaoTitulo: { fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.2em', color: '#999', margin: '0 0 9px', fontWeight: 400, fontFamily: SANS },
         comentario:  { fontSize: 12, lineHeight: 1.75, margin: 0, whiteSpace: 'pre-wrap', color: '#2a2a2a', fontStyle: 'italic',
                        borderLeft: `2px solid ${rgba(accent, 0.4)}`, paddingLeft: 14 },
+        destaques:   { display: 'flex', gap: 0, padding: '18px 26px 0' },
+        destaque:    { flex: 1, padding: '0 14px', borderLeft: `1px solid ${rgba(accent, 0.25)}`, textAlign: 'center' },
+        destaqueRotulo: { fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.24em', color: '#a0a0a0', margin: '0 0 6px', fontFamily: SANS },
+        destaqueValor:  { fontSize: 20, fontWeight: 400, color: escuro, margin: 0, fontFamily: SERIF, lineHeight: 1.1 },
+        divisor:     { height: 1, background: rgba(accent, 0.2), margin: '20px 0' },
         tabela:      { ...TABELA_BASE, fontSize: 9 },
         th:          { ...CELULA_BASE, color: accent, fontWeight: 400, fontStyle: 'italic', borderBottom: `1px solid ${accent}`, fontSize: 9, fontFamily: SANS },
         td:          { ...CELULA_BASE, borderBottom: '1px solid #efefef' },
@@ -129,6 +146,11 @@ export function montarEstilos(cor: CorTema, estilo: EstiloTema): EstilosRelatori
         secaoTitulo: { fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.12em', color: accent, margin: '0 0 8px', fontWeight: 700 },
         comentario:  { fontSize: 10.5, lineHeight: 1.65, margin: 0, whiteSpace: 'pre-wrap', color: '#1e293b',
                        background: '#f1f5f9', padding: '12px 14px', borderLeft: `3px solid ${accent}` },
+        destaques:   { display: 'flex', gap: 1, background: accent },
+        destaque:    { flex: 1, padding: '13px 15px', background: '#fff' },
+        destaqueRotulo: { fontSize: 7.5, textTransform: 'uppercase', letterSpacing: '0.14em', color: '#94a3b8', margin: '0 0 5px', fontWeight: 700 },
+        destaqueValor:  { fontSize: 16, fontWeight: 700, color: escuro, margin: 0, lineHeight: 1.1 },
+        divisor:     { height: 2, background: rgba(accent, 0.25), margin: '18px 0' },
         tabela:      { ...TABELA_BASE, fontSize: 8.5 },
         th:          { ...CELULA_BASE, background: escuro, color: '#fff', fontWeight: 700, fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.04em' },
         td:          { ...CELULA_BASE, borderBottom: '1px solid #e8edf3' },
@@ -149,6 +171,11 @@ export function montarEstilos(cor: CorTema, estilo: EstiloTema): EstilosRelatori
         corpo:       { padding: '22px 24px' },
         secaoTitulo: { fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.14em', color: '#bbb', margin: '0 0 9px', fontWeight: 600 },
         comentario:  { fontSize: 11.5, lineHeight: 1.7, margin: 0, whiteSpace: 'pre-wrap', color: '#333' },
+        destaques:   { display: 'flex', gap: 0, padding: '20px 24px 4px' },
+        destaque:    { flex: 1, paddingRight: 18 },
+        destaqueRotulo: { fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#c0c0c0', margin: '0 0 5px', fontWeight: 500 },
+        destaqueValor:  { fontSize: 19, fontWeight: 600, color: '#111', margin: 0, lineHeight: 1.1 },
+        divisor:     { height: 1, background: '#f0f0f0', margin: '20px 0' },
         tabela:      { ...TABELA_BASE, fontSize: 9 },
         th:          { ...CELULA_BASE, color: '#aaa', fontWeight: 500, borderBottom: '1px solid #e8e8e8', fontSize: 8.5, textTransform: 'uppercase', letterSpacing: '0.05em' },
         td:          { ...CELULA_BASE, borderBottom: '1px solid #f6f6f6' },

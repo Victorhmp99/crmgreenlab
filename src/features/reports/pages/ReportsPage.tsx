@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react'
-import { Users, Megaphone, ArrowUpRight, Tag, Filter } from 'lucide-react'
+import { Users, Megaphone, ArrowUpRight, Tag, Filter, FileText } from 'lucide-react'
 import { DatePicker } from '@/components/ui/DatePicker'
 import { Select } from '@/components/ui/Select'
 import { Spinner } from '@/components/ui/Spinner'
-import { formatCurrency, formatCurrencyCompact } from '@/lib/utils'
+import { formatCurrency, formatCurrencyCompact, formatDate } from '@/lib/utils'
+import { Button } from '@/components/ui/Button'
+import { useAuthStore } from '@/store/authStore'
+import { CommercialReportModal } from '../components/CommercialReportModal'
 import { PipelineFunnel } from '../components/PipelineFunnel'
 import { usePipelines } from '@/features/pipeline/hooks/usePipelines'
 import {
@@ -48,6 +51,11 @@ export function ReportsPage() {
   const { from, to } = currentMonthRange()
   const [dateFrom, setDateFrom] = useState(from)
   const [dateTo,   setDateTo]   = useState(to)
+  const [reportOpen, setReportOpen] = useState(false)
+  const tenantName = useAuthStore((s) => s.tenant?.name)
+
+  // Datas vêm como yyyy-mm-dd; no relatório precisam sair legíveis.
+  const periodoLabel = `${formatDate(dateFrom)} a ${formatDate(dateTo)}`
 
   const { data: sellers   = [], isLoading: sellersLoading }   = useSellerPerformance(dateFrom, dateTo)
   const { data: campaigns = [], isLoading: campaignsLoading } = useCampaignPerformance()
@@ -71,13 +79,26 @@ export function ReportsPage() {
           <p className="text-sm mt-0.5" style={{ color: '#555' }}>Performance por vendedor e canal</p>
         </div>
 
-        <div className="flex items-end gap-2">
+        <div className="flex items-end gap-2 flex-wrap justify-end">
           <DatePicker label="De" placeholder="Data início" className="w-36"
             value={dateFrom} onChange={setDateFrom} />
           <DatePicker label="Até" placeholder="Data fim" className="w-36"
             value={dateTo} onChange={setDateTo} />
+          <Button variant="secondary" onClick={() => setReportOpen(true)}>
+            <FileText size={15} /> Relatório
+          </Button>
         </div>
       </div>
+
+      <CommercialReportModal
+        open={reportOpen}
+        onClose={() => setReportOpen(false)}
+        empresa={tenantName ?? 'Relatório comercial'}
+        periodo={periodoLabel}
+        sellers={sellers}
+        sources={sources}
+        funnel={funnelData}
+      />
 
       {(<>
 
