@@ -1,0 +1,698 @@
+import { useState, useRef, useEffect, type FormEvent } from 'react'
+import { Link, Navigate } from 'react-router-dom'
+import {
+  ArrowRight, Check, ChevronDown, Menu, X,
+  Zap, Kanban, Wallet, Compass, Megaphone, MessageCircle,
+} from 'lucide-react'
+import { useAuth } from '@/hooks/useAuth'
+import { PILLARS, INTEGRATIONS, FAQ, FATURAMENTO_OPTIONS } from '../content'
+import { submitLandingLead, leadCaptureEnabled } from '../leadCapture'
+
+const PILLAR_ICONS = [Zap, Kanban, Wallet, Compass]
+
+const NEON = '#00e676'
+
+/** Altura do cabeçalho fixo (h-16), descontada ao rolar até uma seção. */
+const HEADER_HEIGHT = 64
+
+/**
+ * Rola até uma seção, descontando o cabeçalho fixo — sem ele o título da
+ * seção para embaixo da barra.
+ *
+ * A rolagem é sempre um salto direto, e a suavização fica por conta do
+ * `scroll-behavior: smooth` que a landing liga enquanto está montada. Assim
+ * a navegação funciona mesmo onde a animação não roda (aba em segundo plano,
+ * `prefers-reduced-motion`, motor sem suporte): o visitante chega na seção de
+ * qualquer forma, animado ou não.
+ */
+function scrollToSection(id: string) {
+  const el = document.getElementById(id)
+  if (!el) return
+  const top = el.getBoundingClientRect().top + window.scrollY - HEADER_HEIGHT
+  window.scrollTo(0, Math.max(top, 0))
+}
+
+/**
+ * Âncora interna da landing.
+ *
+ * O app roda em HashRouter, então um `href="#plataforma"` comum seria lido
+ * como a ROTA /plataforma — que não existe e joga o visitante no login.
+ * Por isso a rolagem é feita na mão, sem deixar o href mexer na URL.
+ */
+function AnchorLink({ to, children, className, style, onNavigate, onMouseEnter, onMouseLeave }: {
+  to:            string
+  children:      React.ReactNode
+  className?:    string
+  style?:        React.CSSProperties
+  onNavigate?:   () => void
+  onMouseEnter?: (e: React.MouseEvent<HTMLAnchorElement>) => void
+  onMouseLeave?: (e: React.MouseEvent<HTMLAnchorElement>) => void
+}) {
+  function handleClick(e: React.MouseEvent<HTMLAnchorElement>) {
+    e.preventDefault()
+    scrollToSection(to)
+    onNavigate?.()
+  }
+  return (
+    <a href={`#${to}`} onClick={handleClick} className={className} style={style}
+      onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
+      {children}
+    </a>
+  )
+}
+
+export function LandingPage() {
+  const { isAuthenticated, isLoading } = useAuth()
+  const [menuOpen, setMenuOpen] = useState(false)
+
+  // Suavização da rolagem só enquanto a landing está na tela — o resto do CRM
+  // tem listas longas onde o salto instantâneo é o comportamento desejado.
+  useEffect(() => {
+    const root = document.documentElement
+    const anterior = root.style.scrollBehavior
+    root.style.scrollBehavior = 'smooth'
+    return () => { root.style.scrollBehavior = anterior }
+  }, [])
+
+  // Quem já está logado não tem o que fazer na página de vendas.
+  if (!isLoading && isAuthenticated) return <Navigate to="/dashboard" replace />
+
+  return (
+    <div className="min-h-screen relative overflow-x-hidden" style={{ background: '#0a0a0a' }}>
+      <Backdrop />
+
+      <Nav menuOpen={menuOpen} setMenuOpen={setMenuOpen} />
+
+      <main className="relative z-10">
+        <Hero />
+        <TrustStrip />
+        <Platform />
+        <Integrations />
+        <LeadToCash />
+        <Partner />
+        <Faq />
+        <FinalCta />
+      </main>
+
+      <Footer />
+    </div>
+  )
+}
+
+/* ── Fundo ─────────────────────────────────────────────────────────────────── */
+
+function Backdrop() {
+  return (
+    <div className="fixed inset-0 pointer-events-none" aria-hidden="true">
+      <div className="absolute inset-0 login-grid opacity-60" />
+      <div className="absolute -top-40 -left-32 h-[28rem] w-[28rem] rounded-full blur-3xl opacity-[0.13]"
+        style={{ background: '#00ff66' }} />
+      <div className="absolute top-[45%] -right-40 h-[32rem] w-[32rem] rounded-full blur-3xl opacity-[0.10]"
+        style={{ background: '#00e6a8' }} />
+      <div className="absolute bottom-0 left-[30%] h-[24rem] w-[24rem] rounded-full blur-3xl opacity-[0.08]"
+        style={{ background: '#00c853' }} />
+    </div>
+  )
+}
+
+/* ── Navegação ─────────────────────────────────────────────────────────────── */
+
+const NAV_LINKS = [
+  { id: 'plataforma',  label: 'Plataforma' },
+  { id: 'integracoes', label: 'Integrações' },
+  { id: 'parceiro',    label: 'Seja parceiro' },
+  { id: 'faq',         label: 'Dúvidas' },
+]
+
+function Nav({ menuOpen, setMenuOpen }: { menuOpen: boolean; setMenuOpen: (v: boolean) => void }) {
+  return (
+    <header className="sticky top-0 z-50 backdrop-blur-md"
+      style={{ background: 'rgba(10,10,10,0.72)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+      <div className="mx-auto max-w-6xl px-5 h-16 flex items-center gap-3">
+        <AnchorLink to="topo" className="flex items-center gap-2.5 shrink-0">
+          <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Green Hub" className="h-8 w-8 object-contain" />
+          <span className="font-semibold tracking-tight" style={{ color: '#e8e8e8' }}>Green Hub</span>
+        </AnchorLink>
+
+        <nav className="hidden md:flex items-center gap-1 ml-4">
+          {NAV_LINKS.map((l) => (
+            <AnchorLink key={l.id} to={l.id}
+              className="px-3 py-2 text-sm rounded-lg transition-colors"
+              style={{ color: '#9a9a9a' }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = '#e8e8e8')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = '#9a9a9a')}>
+              {l.label}
+            </AnchorLink>
+          ))}
+        </nav>
+
+        <div className="ml-auto flex items-center gap-2">
+          <Link to="/login"
+            className="hidden sm:inline-flex px-4 py-2 text-sm rounded-lg transition-colors"
+            style={{ color: '#c8c8c8', border: '1px solid rgba(255,255,255,0.12)' }}
+            onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'rgba(0,230,118,0.5)')}
+            onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)')}>
+            Entrar
+          </Link>
+          <AnchorLink to="diagnostico"
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg transition-transform"
+            style={{ background: NEON, color: '#04120a' }}
+            onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-1px)')}
+            onMouseLeave={(e) => (e.currentTarget.style.transform = 'none')}>
+            Diagnóstico grátis
+          </AnchorLink>
+          <button type="button" onClick={() => setMenuOpen(!menuOpen)}
+            className="md:hidden p-2 rounded-lg" aria-label="Menu" aria-expanded={menuOpen}
+            style={{ color: '#c8c8c8' }}>
+            {menuOpen ? <X size={18} /> : <Menu size={18} />}
+          </button>
+        </div>
+      </div>
+
+      {menuOpen && (
+        <nav className="md:hidden px-5 pb-4 flex flex-col gap-1"
+          style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          {NAV_LINKS.map((l) => (
+            <AnchorLink key={l.id} to={l.id} onNavigate={() => setMenuOpen(false)}
+              className="px-3 py-2.5 text-sm rounded-lg" style={{ color: '#c8c8c8' }}>
+              {l.label}
+            </AnchorLink>
+          ))}
+          <Link to="/login" className="px-3 py-2.5 text-sm rounded-lg" style={{ color: '#c8c8c8' }}>
+            Entrar
+          </Link>
+        </nav>
+      )}
+    </header>
+  )
+}
+
+/* ── Hero ──────────────────────────────────────────────────────────────────── */
+
+function Hero() {
+  return (
+    <section id="topo" className="mx-auto max-w-6xl px-5 pt-20 pb-16 md:pt-28 md:pb-24">
+      <p className="text-[11px] font-semibold tracking-[0.28em] uppercase mb-5"
+        style={{ color: NEON, opacity: 0.85 }}>
+        Captar · Converter · Cobrar · Decidir
+      </p>
+
+      <h1 className="text-4xl md:text-6xl font-bold leading-[1.08] tracking-tight max-w-4xl"
+        style={{ color: '#f2f2f2' }}>
+        Seu CRM conta leads.
+        <br />
+        <span style={{ color: NEON }}>Este conta o caixa.</span>
+      </h1>
+
+      <p className="mt-6 text-base md:text-lg leading-relaxed max-w-2xl" style={{ color: '#a0a0a0' }}>
+        Captação automática, funil visual, atendimento no WhatsApp, contratos, previsão de caixa
+        e o custo real das suas campanhas. Um sistema, uma fonte de verdade — sem cinco
+        ferramentas conversando por planilha.
+      </p>
+
+      <div className="mt-9 flex flex-wrap items-center gap-3">
+        <AnchorLink to="diagnostico"
+          className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl font-semibold transition-transform"
+          style={{ background: NEON, color: '#04120a', boxShadow: '0 8px 30px rgba(0,230,118,0.18)' }}
+          onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
+          onMouseLeave={(e) => (e.currentTarget.style.transform = 'none')}>
+          Diagnóstico gratuito <ArrowRight size={17} />
+        </AnchorLink>
+        <AnchorLink to="plataforma"
+          className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl font-medium transition-colors"
+          style={{ color: '#d8d8d8', border: '1px solid rgba(255,255,255,0.14)' }}
+          onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'rgba(0,230,118,0.5)')}
+          onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.14)')}>
+          Ver a plataforma
+        </AnchorLink>
+      </div>
+    </section>
+  )
+}
+
+/* ── Faixa de confiança ────────────────────────────────────────────────────── */
+
+function TrustStrip() {
+  return (
+    <section className="mx-auto max-w-6xl px-5 pb-16">
+      <div className="rounded-2xl px-6 py-5 md:px-8 md:py-6"
+        style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)' }}>
+        <p className="text-sm md:text-base leading-relaxed" style={{ color: '#8f8f8f' }}>
+          <span style={{ color: '#e0e0e0' }}>Construído dentro de uma operação</span> que vive de
+          gerar e converter lead — não num laboratório. Cada tela existe porque fez falta, não
+          porque ficava bonita no roadmap.
+        </p>
+      </div>
+    </section>
+  )
+}
+
+/* ── Plataforma ────────────────────────────────────────────────────────────── */
+
+function Platform() {
+  return (
+    <section id="plataforma" className="mx-auto max-w-6xl px-5 py-16 md:py-24">
+      <SectionHead
+        eyebrow="A plataforma"
+        title="Quatro coisas, sem trocar de aba"
+        text="A maioria das operações usa um CRM pro funil, uma planilha pro dinheiro, o gerenciador de anúncios pro custo e o WhatsApp pessoal pro atendimento. Depois passa a segunda-feira tentando fazer os quatro baterem."
+      />
+
+      <div className="mt-14 flex flex-col gap-16">
+        {PILLARS.map((pillar, i) => {
+          const Icon = PILLAR_ICONS[i] ?? Zap
+          return (
+            <div key={pillar.id}>
+              <div className="flex items-center gap-3 mb-2">
+                <span className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0"
+                  style={{ background: 'rgba(0,230,118,0.1)', border: '1px solid rgba(0,230,118,0.22)' }}>
+                  <Icon size={16} style={{ color: NEON }} />
+                </span>
+                <span className="text-[11px] font-semibold tracking-[0.2em] uppercase"
+                  style={{ color: NEON, opacity: 0.85 }}>
+                  {pillar.eyebrow}
+                </span>
+              </div>
+
+              <h3 className="text-2xl md:text-3xl font-bold tracking-tight mb-7"
+                style={{ color: '#f0f0f0' }}>
+                {pillar.title}
+              </h3>
+
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {pillar.features.map((f) => (
+                  <article key={f.title}
+                    className="rounded-2xl p-5 transition-colors"
+                    style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'rgba(0,230,118,0.28)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)')}>
+                    <h4 className="text-sm font-semibold mb-2" style={{ color: '#eaeaea' }}>{f.title}</h4>
+                    <p className="text-[13px] leading-relaxed" style={{ color: '#909090' }}>{f.text}</p>
+                  </article>
+                ))}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
+/* ── Integrações ───────────────────────────────────────────────────────────── */
+
+function Integrations() {
+  const icons = [Megaphone, MessageCircle]
+  return (
+    <section id="integracoes" className="mx-auto max-w-6xl px-5 py-16 md:py-24">
+      <SectionHead
+        eyebrow="Integrações"
+        title="O que já existe na sua operação, conectado"
+        text="Sem exportar CSV, sem colar link em planilha, sem depender de alguém lembrar de atualizar."
+      />
+
+      <div className="mt-12 grid gap-5 lg:grid-cols-2">
+        {INTEGRATIONS.map((it, i) => {
+          const Icon = icons[i] ?? Megaphone
+          return (
+            <article key={it.name} className="rounded-2xl p-7"
+              style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)' }}>
+              <div className="flex items-center gap-2.5 mb-4">
+                <Icon size={17} style={{ color: NEON }} />
+                <span className="text-sm font-semibold" style={{ color: '#eaeaea' }}>{it.name}</span>
+              </div>
+
+              <h3 className="text-xl font-bold leading-snug mb-3" style={{ color: '#f0f0f0' }}>
+                {it.lead}
+              </h3>
+              <p className="text-sm leading-relaxed mb-5" style={{ color: '#909090' }}>{it.text}</p>
+
+              <ul className="flex flex-col gap-2.5">
+                {it.bullets.map((b) => (
+                  <li key={b} className="flex gap-2.5 text-[13px] leading-relaxed" style={{ color: '#a8a8a8' }}>
+                    <Check size={15} className="shrink-0 mt-0.5" style={{ color: NEON }} />
+                    <span>{b}</span>
+                  </li>
+                ))}
+              </ul>
+            </article>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
+/* ── Do lead ao caixa ──────────────────────────────────────────────────────── */
+
+const CASH_POINTS = [
+  'Custo por lead real, por campanha',
+  'Quanto cada origem virou contrato fechado',
+  'Receita reconhecida sozinha, na data',
+  'Previsão de caixa antes do mês virar',
+]
+
+function LeadToCash() {
+  return (
+    <section className="mx-auto max-w-6xl px-5 py-16 md:py-24">
+      <div className="rounded-3xl p-8 md:p-14"
+        style={{
+          background: 'linear-gradient(140deg, rgba(0,230,118,0.07), rgba(255,255,255,0.02))',
+          border: '1px solid rgba(0,230,118,0.18)',
+        }}>
+        <h2 className="text-2xl md:text-4xl font-bold tracking-tight leading-tight max-w-2xl"
+          style={{ color: '#f2f2f2' }}>
+          O anúncio custou R$ 4.200. E devolveu quanto?
+        </h2>
+
+        <p className="mt-5 text-base leading-relaxed max-w-2xl" style={{ color: '#a0a0a0' }}>
+          É a pergunta que trava reunião. A resposta costuma ser um chute apoiado em três abas
+          abertas. Aqui é uma tela: o investimento veio do Meta Ads, o lead veio da campanha,
+          o contrato está no card e a receita já está reconhecida.
+        </p>
+
+        <ul className="mt-8 grid gap-3 sm:grid-cols-2">
+          {CASH_POINTS.map((p) => (
+            <li key={p} className="flex gap-2.5 text-sm leading-relaxed" style={{ color: '#c4c4c4' }}>
+              <Check size={16} className="shrink-0 mt-0.5" style={{ color: NEON }} />
+              <span>{p}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  )
+}
+
+/* ── Parceiro ──────────────────────────────────────────────────────────────── */
+
+function Partner() {
+  return (
+    <section id="parceiro" className="mx-auto max-w-6xl px-5 py-16 md:py-24">
+      <div className="grid gap-10 lg:grid-cols-2 lg:items-center">
+        <div>
+          <p className="text-[11px] font-semibold tracking-[0.2em] uppercase mb-3"
+            style={{ color: NEON, opacity: 0.85 }}>
+            Para agências e parceiros
+          </p>
+          <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-5" style={{ color: '#f0f0f0' }}>
+            Revenda com a sua marca
+          </h2>
+          <p className="text-sm md:text-base leading-relaxed mb-4" style={{ color: '#9a9a9a' }}>
+            Cada cliente entra como empresa isolada, com a identidade visual dela. Os dados são
+            separados no banco de dados — não escondendo botão na tela.
+          </p>
+          <p className="text-sm md:text-base leading-relaxed" style={{ color: '#9a9a9a' }}>
+            Os módulos são liberados por plano: entregue funil e leads no plano de entrada e ative
+            financeiro, relatórios, Meta Ads ou WhatsApp quando o cliente crescer — sem migração e
+            sem perder nada do que já foi cadastrado.
+          </p>
+          <AnchorLink to="diagnostico"
+            className="mt-7 inline-flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold transition-colors"
+            style={{ color: NEON, border: `1px solid rgba(0,230,118,0.4)` }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(0,230,118,0.08)')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
+            Quero ser parceiro <ArrowRight size={16} />
+          </AnchorLink>
+        </div>
+
+        <div className="rounded-2xl p-7"
+          style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)' }}>
+          <p className="text-[11px] font-semibold tracking-[0.16em] uppercase mb-4" style={{ color: '#777' }}>
+            Liberado por plano
+          </p>
+          {[
+            ['Automações da pipeline', 'Webhook, formulários e etapa de entrada'],
+            ['Financeiro', 'Contratos, produtos, previsão e receita'],
+            ['Relatórios', 'Performance e funil analítico'],
+            ['Meta Ads', 'Campanhas e custo por lead'],
+            ['SDR WhatsApp', 'Atendimento multi-sessão'],
+          ].map(([name, desc]) => (
+            <div key={name} className="flex gap-3 py-3"
+              style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+              <Check size={15} className="shrink-0 mt-0.5" style={{ color: NEON }} />
+              <div>
+                <p className="text-sm font-medium" style={{ color: '#e0e0e0' }}>{name}</p>
+                <p className="text-xs mt-0.5" style={{ color: '#7d7d7d' }}>{desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+/* ── FAQ ───────────────────────────────────────────────────────────────────── */
+
+function Faq() {
+  const [open, setOpen] = useState<number | null>(0)
+
+  return (
+    <section id="faq" className="mx-auto max-w-3xl px-5 py-16 md:py-24">
+      <SectionHead
+        eyebrow="Dúvidas"
+        title="O que perguntam antes de trocar de CRM"
+        text="Se a sua não estiver aqui, é só perguntar no diagnóstico."
+      />
+
+      <div className="mt-10 flex flex-col gap-2.5">
+        {FAQ.map((item, i) => {
+          const isOpen = open === i
+          return (
+            <div key={item.q} className="rounded-xl overflow-hidden"
+              style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)' }}>
+              <button type="button" onClick={() => setOpen(isOpen ? null : i)}
+                className="w-full flex items-center gap-3 px-5 py-4 text-left"
+                aria-expanded={isOpen}>
+                <span className="flex-1 text-sm font-medium" style={{ color: '#e6e6e6' }}>{item.q}</span>
+                <ChevronDown size={16} className="shrink-0 transition-transform"
+                  style={{ color: '#777', transform: isOpen ? 'rotate(180deg)' : 'none' }} />
+              </button>
+              {isOpen && (
+                <p className="px-5 pb-4 text-[13px] leading-relaxed" style={{ color: '#9a9a9a' }}>
+                  {item.a}
+                </p>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
+/* ── CTA final + formulário ────────────────────────────────────────────────── */
+
+const CTA_POINTS = [
+  'Importação da base sem perder histórico',
+  'Configuração acompanhada por quem opera',
+  'Primeiros dados no mesmo dia',
+]
+
+function FinalCta() {
+  return (
+    <section id="diagnostico" className="mx-auto max-w-6xl px-5 py-16 md:py-24">
+      <div className="grid gap-10 lg:grid-cols-2 lg:items-start">
+        <div>
+          <h2 className="text-2xl md:text-4xl font-bold tracking-tight leading-tight"
+            style={{ color: '#f2f2f2' }}>
+            Sua operação não deveria descobrir o resultado no fim do mês.
+          </h2>
+          <p className="mt-5 text-base leading-relaxed" style={{ color: '#a0a0a0' }}>
+            Em 20 minutos a gente olha seu funil junto e mostra onde ele está vazando — com os
+            seus números, não com exemplo genérico.
+          </p>
+          <ul className="mt-8 flex flex-col gap-3">
+            {CTA_POINTS.map((p, i) => (
+              <li key={p} className="flex gap-3 text-sm" style={{ color: '#c0c0c0' }}>
+                <span className="h-5 w-5 rounded-md flex items-center justify-center text-[11px] font-bold shrink-0"
+                  style={{ background: 'rgba(0,230,118,0.12)', color: NEON }}>
+                  {i + 1}
+                </span>
+                {p}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <LeadForm />
+      </div>
+    </section>
+  )
+}
+
+function LeadForm() {
+  const [nome, setNome]               = useState('')
+  const [whatsapp, setWhatsapp]       = useState('')
+  const [instagram, setInstagram]     = useState('')
+  const [faturamento, setFaturamento] = useState('')
+  const [status, setStatus]           = useState<'idle' | 'sending' | 'done' | 'error'>('idle')
+  const [erro, setErro]               = useState('')
+  const honeypot = useRef<HTMLInputElement>(null)
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault()
+    if (status === 'sending') return
+    setStatus('sending')
+    setErro('')
+    try {
+      await submitLandingLead({
+        nome, whatsapp, instagram, faturamento,
+        _hp: honeypot.current?.value || undefined,
+      })
+      setStatus('done')
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : 'Não foi possível enviar.')
+      setStatus('error')
+    }
+  }
+
+  if (status === 'done') {
+    return (
+      <div className="rounded-2xl p-8 text-center"
+        style={{ background: 'rgba(0,230,118,0.06)', border: '1px solid rgba(0,230,118,0.28)' }}>
+        <div className="h-12 w-12 rounded-full mx-auto flex items-center justify-center mb-4"
+          style={{ background: 'rgba(0,230,118,0.14)' }}>
+          <Check size={22} style={{ color: NEON }} />
+        </div>
+        <p className="text-lg font-semibold mb-2" style={{ color: '#f0f0f0' }}>Recebemos seus dados</p>
+        <p className="text-sm leading-relaxed" style={{ color: '#9a9a9a' }}>
+          Vamos te chamar no WhatsApp para agendar o diagnóstico. Se preferir adiantar, já pode
+          responder por lá quando a mensagem chegar.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="rounded-2xl p-7"
+      style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.09)' }}>
+      <p className="text-[11px] font-semibold tracking-[0.16em] uppercase mb-1.5" style={{ color: NEON }}>
+        Diagnóstico gratuito
+      </p>
+      <p className="text-sm mb-6" style={{ color: '#8f8f8f' }}>
+        Preencha para receber um diagnóstico inicial da sua operação.
+      </p>
+
+      <div className="flex flex-col gap-4">
+        <Field label="Nome e sobrenome" value={nome} onChange={setNome}
+          placeholder="Como podemos te chamar" required autoComplete="name" />
+        <Field label="WhatsApp" value={whatsapp} onChange={setWhatsapp}
+          placeholder="(11) 99999-9999" required type="tel" autoComplete="tel" />
+        <Field label="Instagram" value={instagram} onChange={setInstagram}
+          placeholder="@seuperfil" />
+
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="faturamento" className="text-xs font-medium uppercase tracking-wide"
+            style={{ color: '#8a8a8a' }}>
+            Faturamento médio mensal
+          </label>
+          <select id="faturamento" value={faturamento} required
+            onChange={(e) => setFaturamento(e.target.value)}
+            className="h-11 rounded-lg px-3 text-sm focus:outline-none"
+            style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.12)', color: faturamento ? '#e8e8e8' : '#666' }}>
+            <option value="">Selecione</option>
+            {FATURAMENTO_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+          </select>
+        </div>
+
+        {/* Honeypot: fora da tela e fora da navegação por teclado. Robô preenche, gente não. */}
+        <input ref={honeypot} type="text" name="_hp" tabIndex={-1} autoComplete="off"
+          aria-hidden="true" className="absolute -left-[9999px] h-0 w-0 opacity-0" />
+
+        {status === 'error' && (
+          <p className="text-xs rounded-lg px-3 py-2.5"
+            style={{ color: '#ff8080', background: 'rgba(255,68,68,0.08)', border: '1px solid rgba(255,68,68,0.2)' }}>
+            {erro}
+          </p>
+        )}
+
+        {!leadCaptureEnabled && (
+          <p className="text-xs rounded-lg px-3 py-2.5"
+            style={{ color: '#fbbf24', background: 'rgba(251,191,36,0.07)', border: '1px solid rgba(251,191,36,0.22)' }}>
+            Captação não configurada neste ambiente.
+          </p>
+        )}
+
+        <button type="submit" disabled={status === 'sending' || !leadCaptureEnabled}
+          className="h-12 rounded-xl font-semibold text-sm transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{ background: NEON, color: '#04120a' }}>
+          {status === 'sending' ? 'Enviando...' : 'Quero o diagnóstico'}
+        </button>
+
+        <p className="text-[11px] leading-relaxed text-center" style={{ color: '#6a6a6a' }}>
+          Seus dados são usados só para esse contato. Nada de lista de disparo.
+        </p>
+      </div>
+    </form>
+  )
+}
+
+function Field({ label, value, onChange, placeholder, required, type = 'text', autoComplete }: {
+  label: string; value: string; onChange: (v: string) => void
+  placeholder?: string; required?: boolean; type?: string; autoComplete?: string
+}) {
+  const id = label.toLowerCase().replace(/\s+/g, '-')
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={id} className="text-xs font-medium uppercase tracking-wide" style={{ color: '#8a8a8a' }}>
+        {label}{!required && <span style={{ color: '#5a5a5a' }}> (opcional)</span>}
+      </label>
+      <input id={id} type={type} value={value} required={required} placeholder={placeholder}
+        autoComplete={autoComplete}
+        onChange={(e) => onChange(e.target.value)}
+        className="h-11 rounded-lg px-3 text-sm focus:outline-none transition-colors"
+        style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.12)', color: '#e8e8e8' }}
+        onFocus={(e) => (e.currentTarget.style.borderColor = NEON)}
+        onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)')} />
+    </div>
+  )
+}
+
+/* ── Comuns ────────────────────────────────────────────────────────────────── */
+
+function SectionHead({ eyebrow, title, text }: { eyebrow: string; title: string; text: string }) {
+  return (
+    <div className="max-w-2xl">
+      <p className="text-[11px] font-semibold tracking-[0.2em] uppercase mb-3"
+        style={{ color: NEON, opacity: 0.85 }}>
+        {eyebrow}
+      </p>
+      <h2 className="text-2xl md:text-4xl font-bold tracking-tight leading-tight" style={{ color: '#f2f2f2' }}>
+        {title}
+      </h2>
+      <p className="mt-4 text-sm md:text-base leading-relaxed" style={{ color: '#949494' }}>{text}</p>
+    </div>
+  )
+}
+
+function Footer() {
+  return (
+    <footer className="relative z-10 mt-8" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+      <div className="mx-auto max-w-6xl px-5 py-10 flex flex-col md:flex-row gap-6 md:items-center">
+        <div className="flex-1">
+          <div className="flex items-center gap-2.5 mb-2">
+            <img src={`${import.meta.env.BASE_URL}logo.png`} alt="" className="h-7 w-7 object-contain" />
+            <span className="font-semibold" style={{ color: '#d8d8d8' }}>Green Hub</span>
+          </div>
+          <p className="text-xs" style={{ color: '#6f6f6f' }}>
+            Captação, funil, atendimento e caixa no mesmo lugar.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap gap-5 text-xs" style={{ color: '#7a7a7a' }}>
+          <a href="/docs.html" target="_blank" rel="noopener noreferrer">Documentação</a>
+          <Link to="/login">Entrar</Link>
+          <AnchorLink to="diagnostico">Falar com a gente</AnchorLink>
+        </div>
+      </div>
+
+      <div className="mx-auto max-w-6xl px-5 pb-8">
+        <p className="text-[11px]" style={{ color: '#5a5a5a' }}>
+          © {new Date().getFullYear()} Green Hub. Todos os direitos reservados.
+        </p>
+      </div>
+    </footer>
+  )
+}

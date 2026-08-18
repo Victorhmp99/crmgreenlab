@@ -7,6 +7,9 @@ import { AppLayout }       from '@/components/layout/AppLayout'
 import { useAuth }         from '@/hooks/useAuth'
 import { Spinner }         from '@/components/ui/Spinner'
 
+// Landing pública (antes do login)
+import { LandingPage }        from '@/features/landing/pages/LandingPage'
+
 // Auth pages
 import { LoginPage }          from '@/features/auth/pages/LoginPage'
 import { RegisterPage }       from '@/features/auth/pages/RegisterPage'
@@ -50,7 +53,12 @@ export function AppRouter() {
   return (
     <HashRouter>
       <Routes>
+        {/* Raiz: apresentação pra quem não entrou; a própria página manda
+            quem já está logado direto pro dashboard. */}
+        <Route path="/"                element={<LandingPage />} />
+
         {/* Rotas públicas */}
+        <Route path="/apresentacao"    element={<LandingPage />} />
         <Route path="/login"           element={<LoginPage />} />
         <Route path="/registrar"       element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
@@ -65,7 +73,6 @@ export function AppRouter() {
 
         {/* Rotas privadas — exige login + conta ativa */}
         <Route element={<PrivateRoute />}>
-          <Route path="/" element={<AppLayout><Navigate to="/dashboard" /></AppLayout>} />
 
           {/* Todos os usuários ativos */}
           <Route path="/dashboard"  element={<AppLayout><DashboardPage /></AppLayout>} />
