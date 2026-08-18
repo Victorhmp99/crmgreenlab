@@ -1,18 +1,19 @@
-import { useEffect, useState } from 'react'
+import { useState, type FormEvent } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import { RefreshCw, Link2, AlertTriangle, CheckCircle, Trash2, ExternalLink } from 'lucide-react'
+import { RefreshCw, Link2, AlertTriangle, CheckCircle, Trash2, ExternalLink, Plus, Power } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { Spinner } from '@/components/ui/Spinner'
 import {
   fetchMetaCredentials,
-  saveMetaCredentials,
+  saveMetaToken,
   deleteMetaCredentials,
   fetchCampaigns,
+  fetchAdAccounts,
+  addAdAccount,
+  removeAdAccount,
+  toggleAdAccount,
   syncMetaAds,
   presetLabel,
   DATE_PRESETS,
@@ -21,13 +22,6 @@ import {
 import { Select } from '@/components/ui/Select'
 import { useAuthStore } from '@/store/authStore'
 import { formatDate } from '@/lib/utils'
-
-const schema = z.object({
-  adAccountId: z.string().min(1, 'ID da conta de anúncio obrigatório'),
-  // Opcional na edição: em branco mantém o token que já está salvo.
-  accessToken: z.string().optional(),
-})
-type FormData = z.infer<typeof schema>
 
 function formatBRL(v: number) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v)
@@ -86,6 +80,9 @@ export function MetaAdsPage() {
   const [syncOk,    setSyncOk]    = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [preset,    setPreset]    = useState<DatePreset>('last_30d')
+  const [tokenInput,   setTokenInput]   = useState('')
+  const [accountInput, setAccountInput] = useState('')
+  const [labelInput,   setLabelInput]   = useState('')
 
   const { data: credentials, isLoading: credLoading } = useQuery({
     queryKey: ['meta-credentials', tenantId],
@@ -99,25 +96,59 @@ export function MetaAdsPage() {
     enabled:  !!tenantId,
   })
 
-  const saveMutation = useMutation({
-    mutationFn: (data: FormData) => saveMetaCredentials(tenantId, data),
-    onSuccess:  () => queryClient.invalidateQueries({ queryKey: ['meta-credentials', tenantId] }),
+  const { data: adAccounts = [] } = useQuery({
+    queryKey: ['meta-ad-accounts', tenantId],
+    queryFn:  () => fetchAdAccounts(tenantId),
+    enabled:  !!tenantId,
   })
 
-  // Na primeira conexão o token é obrigatório; depois pode ficar em branco
-  // (mantém o que já está salvo).
-  async function handleSave(data: FormData) {
-    if (!isConnected && !data.accessToken?.trim()) {
-      setFormError('Informe o token de acesso para conectar.')
-      return
-    }
+  function invalidateAccounts() {
+    queryClient.invalidateQueries({ queryKey: ['meta-ad-accounts', tenantId] })
+  }
+
+  const saveTokenMutation = useMutation({
+    mutationFn: (token: string) => saveMetaToken(tenantId, token),
+    onSuccess:  () => {
+      queryClient.invalidateQueries({ queryKey: ['meta-credentials', tenantId] })
+      setTokenInput('')
+    },
+  })
+
+  const addAccountMutation = useMutation({
+    mutationFn: () => addAdAccount(tenantId, accountInput, labelInput),
+    onSuccess:  () => { invalidateAccounts(); setAccountInput(''); setLabelInput('') },
+    onError:    (e) => setFormError(e instanceof Error ? e.message : 'Erro ao adicionar conta'),
+  })
+
+  const removeAccountMutation = useMutation({
+    mutationFn: removeAdAccount, onSuccess: invalidateAccounts,
+  })
+
+  const toggleAccountMutation = useMutation({
+    mutationFn: ({ id, active }: { id: string; active: boolean }) => toggleAdAccount(id, active),
+    onSuccess:  invalidateAccounts,
+  })
+
+  async function handleSaveToken(e: FormEvent) {
+    e.preventDefault()
+    if (!tokenInput.trim()) { setFormError('Cole o token de acesso.'); return }
     setFormError(null)
-    await saveMutation.mutateAsync(data)
+    await saveTokenMutation.mutateAsync(tokenInput)
+  }
+
+  function handleAddAccount(e: FormEvent) {
+    e.preventDefault()
+    if (!accountInput.trim()) { setFormError('Informe o ID da conta.'); return }
+    setFormError(null)
+    addAccountMutation.mutate()
   }
 
   const deleteMutation = useMutation({
     mutationFn: () => deleteMetaCredentials(tenantId),
-    onSuccess:  () => queryClient.invalidateQueries({ queryKey: ['meta-credentials', tenantId] }),
+    onSuccess:  () => {
+      queryClient.invalidateQueries({ queryKey: ['meta-credentials', tenantId] })
+      invalidateAccounts()
+    },
   })
 
   const syncMutation = useMutation({
@@ -134,19 +165,8 @@ export function MetaAdsPage() {
     },
   })
 
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<FormData>({
-    resolver: zodResolver(schema),
-  })
-
-  useEffect(() => {
-    if (credentials) {
-      // Token não vem do servidor de propósito — campo fica vazio e, em branco,
-      // o save mantém o que já estava salvo.
-      reset({ adAccountId: credentials.adAccountId, accessToken: '' })
-    }
-  }, [credentials, reset])
-
   const isConnected = !!credentials?.hasToken
+  const canSync     = isConnected && adAccounts.some((a) => a.active)
 
   const totals = campaigns.reduce(
     (acc, c) => ({
@@ -182,6 +202,8 @@ export function MetaAdsPage() {
             <Button
               onClick={() => syncMutation.mutate()}
               loading={syncMutation.isPending}
+              disabled={!canSync}
+              title={canSync ? undefined : 'Cadastre ao menos uma conta de anúncio ativa'}
               variant="secondary"
             >
               <RefreshCw size={15} />
@@ -288,7 +310,7 @@ export function MetaAdsPage() {
                   <strong>Contas → Contas de anúncios</strong> (ou no{' '}
                   <a href="https://adsmanager.facebook.com" target="_blank" rel="noopener noreferrer"
                     className="underline" style={{ color: '#40a0ff' }}>Gerenciador de Anúncios</a>) e cole
-                  os dois campos abaixo, com o prefixo <code>act_</code>.
+                  abaixo, com o prefixo <code>act_</code>.
                   <br />
                   <span style={{ color: '#5a93c4' }}>
                     Cuidado pra não confundir com o ID do <em>usuário do sistema</em> — são dois números
@@ -297,50 +319,117 @@ export function MetaAdsPage() {
                 </li>
               </ol>
               <p className="mt-2" style={{ color: '#5a93c4' }}>
-                O token fica guardado no servidor e é usado só para leitura das campanhas — ele nunca aparece de volta nesta tela.
+                <strong>Tem mais de uma conta de anúncio?</strong> Um token só dá conta: adicione cada conta
+                como ativo do mesmo usuário do sistema (passo 3) e cadastre todas aqui embaixo.
+                <br />
+                O token fica guardado no servidor e é usado só para leitura — ele nunca aparece de volta nesta tela.
               </p>
             </div>
 
-            <form onSubmit={handleSubmit(handleSave)} className="flex flex-col gap-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Input label="ID da conta de anúncio *" placeholder="act_1234567890"
-                  error={errors.adAccountId?.message} {...register('adAccountId')} />
+            {/* Token da empresa (um só, atende todas as contas) */}
+            <form onSubmit={handleSaveToken} className="flex items-end gap-3 flex-wrap mb-5">
+              <div className="flex-1 min-w-56">
                 <Input
-                  label={isConnected ? 'Token (deixe em branco para manter)' : 'Token de acesso *'}
+                  label={isConnected ? 'Token de acesso (salvo — cole outro para trocar)' : 'Token de acesso *'}
                   type="password"
                   placeholder={isConnected ? '•••••••• já salvo' : 'EAAxxxxx...'}
-                  error={errors.accessToken?.message}
-                  {...register('accessToken')}
+                  value={tokenInput}
+                  onChange={(e) => setTokenInput(e.target.value)}
                 />
               </div>
+              <Button type="submit" loading={saveTokenMutation.isPending} disabled={!tokenInput.trim()}>
+                {isConnected ? 'Trocar token' : 'Salvar token'}
+              </Button>
+              {isConnected && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (await confirm({
+                      title: 'Desconectar Meta Ads',
+                      message: 'Isso apaga o token salvo. As contas cadastradas continuam, mas a sincronização para até você salvar um token novo.',
+                      confirmLabel: 'Desconectar', danger: true,
+                    })) deleteMutation.mutate()
+                  }}
+                  className="flex items-center gap-1.5 text-sm transition-colors h-10"
+                  style={{ color: '#ff4444' }}
+                >
+                  <Trash2 size={14} /> Desconectar
+                </button>
+              )}
+            </form>
 
-              {formError && (
-                <p className="text-sm rounded-lg px-3 py-2"
-                  style={{ color: '#ff4444', background: 'rgba(255,68,68,0.1)' }}>
-                  {formError}
-                </p>
+            {/* Contas de anúncio — várias por empresa, todas no mesmo token */}
+            <div style={{ borderTop: '1px solid #1e1e1e' }} className="pt-4">
+              <p className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: '#666' }}>
+                Contas de anúncio ({adAccounts.length})
+              </p>
+
+              {adAccounts.length > 0 && (
+                <div className="flex flex-col gap-1.5 mb-3">
+                  {adAccounts.map((acc) => (
+                    <div key={acc.id} className="flex items-center gap-3 px-3 py-2 rounded-lg"
+                      style={{ border: '1px solid #1e1e1e', opacity: acc.active ? 1 : 0.5 }}>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm truncate" style={{ color: '#e8e8e8' }}>
+                          {acc.label || acc.ad_account_id}
+                        </p>
+                        {acc.label && (
+                          <p className="text-[11px]" style={{ color: '#555' }}>{acc.ad_account_id}</p>
+                        )}
+                      </div>
+                      {!acc.active && (
+                        <span className="text-[10px] rounded-full px-2 py-0.5"
+                          style={{ background: '#1e1e1e', color: '#888' }}>pausada</span>
+                      )}
+                      <button
+                        onClick={() => toggleAccountMutation.mutate({ id: acc.id, active: !acc.active })}
+                        title={acc.active ? 'Não sincronizar esta conta' : 'Voltar a sincronizar'}
+                        className="h-7 w-7 rounded-lg flex items-center justify-center transition-colors shrink-0"
+                        style={{ color: acc.active ? '#00e676' : '#555' }}>
+                        <Power size={13} />
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (await confirm({
+                            title: 'Remover conta',
+                            message: `Remover ${acc.label || acc.ad_account_id} da sincronização?`,
+                            confirmLabel: 'Remover', danger: true,
+                          })) removeAccountMutation.mutate(acc.id)
+                        }}
+                        title="Remover conta"
+                        className="h-7 w-7 rounded-lg flex items-center justify-center transition-colors shrink-0"
+                        style={{ color: '#555' }}
+                        onMouseEnter={(e) => (e.currentTarget.style.color = '#ff4444')}
+                        onMouseLeave={(e) => (e.currentTarget.style.color = '#555')}>
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
               )}
 
-              <div className="flex items-center gap-3">
-                <Button type="submit" loading={isSubmitting}>
-                  {isConnected ? 'Atualizar credenciais' : 'Salvar e conectar'}
+              <form onSubmit={handleAddAccount} className="flex items-end gap-2 flex-wrap">
+                <div className="w-48">
+                  <Input label="ID da conta" placeholder="act_1234567890"
+                    value={accountInput} onChange={(e) => setAccountInput(e.target.value)} />
+                </div>
+                <div className="w-44">
+                  <Input label="Apelido (opcional)" placeholder="Ex: Loja SP"
+                    value={labelInput} onChange={(e) => setLabelInput(e.target.value)} />
+                </div>
+                <Button type="submit" variant="secondary" loading={addAccountMutation.isPending}
+                  disabled={!accountInput.trim()}>
+                  <Plus size={14} /> Adicionar conta
                 </Button>
-                {isConnected && (
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (await confirm({ title: 'Desconectar Meta Ads', message: 'Desconectar a conta Meta Ads?', confirmLabel: 'Desconectar', danger: true })) deleteMutation.mutate()
-                    }}
-                    className="flex items-center gap-1.5 text-sm transition-colors"
-                    style={{ color: '#ff4444' }}
-                    onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.8')}
-                    onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
-                  >
-                    <Trash2 size={14} /> Desconectar
-                  </button>
-                )}
-              </div>
-            </form>
+              </form>
+            </div>
+
+            {formError && (
+              <p className="text-sm rounded-lg px-3 py-2 mt-3"
+                style={{ color: '#ff4444', background: 'rgba(255,68,68,0.1)' }}>
+                {formError}
+              </p>
+            )}
           </>
         )}
       </div>

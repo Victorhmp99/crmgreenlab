@@ -3,10 +3,59 @@ import { supabase } from '@/lib/supabase'
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
 export interface MetaCredentials {
-  adAccountId:  string
   /** Se já existe token salvo. O token em si NUNCA vem pro navegador. */
   hasToken:     boolean
   syncedAt:     string | null
+}
+
+/**
+ * Conta de anúncio. Uma empresa pode ter várias — o mesmo token do usuário do
+ * sistema enxerga todas as contas atribuídas a ele como ativo.
+ */
+export interface MetaAdAccount {
+  id:            string
+  tenant_id:     string
+  ad_account_id: string
+  label:         string | null
+  active:        boolean
+  created_at:    string
+}
+
+export async function fetchAdAccounts(tenantId: string): Promise<MetaAdAccount[]> {
+  const { data, error } = await supabase
+    .from('meta_ad_accounts')
+    .select('*')
+    .eq('tenant_id', tenantId)
+    .order('created_at')
+
+  if (error) throw error
+  return data ?? []
+}
+
+export async function addAdAccount(
+  tenantId: string, adAccountId: string, label?: string,
+): Promise<void> {
+  const id = adAccountId.trim()
+  const { error } = await supabase.from('meta_ad_accounts').insert({
+    tenant_id:     tenantId,
+    ad_account_id: id.startsWith('act_') ? id : `act_${id}`,
+    label:         label?.trim() || null,
+  })
+  if (error) {
+    // 23505 = unique violation (tenant_id, ad_account_id)
+    if (error.code === '23505') throw new Error('Essa conta já está cadastrada.')
+    throw error
+  }
+}
+
+export async function removeAdAccount(id: string): Promise<void> {
+  const { error } = await supabase.from('meta_ad_accounts').delete().eq('id', id)
+  if (error) throw error
+}
+
+export async function toggleAdAccount(id: string, active: boolean): Promise<void> {
+  const { error } = await supabase.from('meta_ad_accounts').update({ active }).eq('id', id)
+  if (error) throw error
 }
 
 /** Períodos aceitos pela sincronização (espelha o allowlist da Edge Function). */
@@ -65,39 +114,26 @@ export interface Campaign {
 export async function fetchMetaCredentials(tenantId: string): Promise<MetaCredentials | null> {
   const { data, error } = await supabase
     .from('meta_ads_credentials')
-    .select('ad_account_id, synced_at, access_token')
+    .select('synced_at, access_token')
     .eq('tenant_id', tenantId)
     .maybeSingle()
 
   if (error || !data) return null
 
   return {
-    adAccountId: data.ad_account_id,
-    hasToken:    !!data.access_token,
-    syncedAt:    data.synced_at,
+    hasToken: !!data.access_token,
+    syncedAt: data.synced_at,
   }
 }
 
-export interface SaveMetaCredentialsData {
-  adAccountId:  string
-  /** Vazio = mantém o token que já está salvo (não sobrescreve com nada). */
-  accessToken?: string
-}
-
-export async function saveMetaCredentials(
-  tenantId: string,
-  data:     SaveMetaCredentialsData,
-): Promise<void> {
-  const payload: Record<string, unknown> = {
-    tenant_id:     tenantId,
-    ad_account_id: data.adAccountId.trim(),
-    updated_at:    new Date().toISOString(),
-  }
-  if (data.accessToken?.trim()) payload.access_token = data.accessToken.trim()
-
+/** Salva/atualiza só o token da empresa. As contas ficam em meta_ad_accounts. */
+export async function saveMetaToken(tenantId: string, accessToken: string): Promise<void> {
   const { error } = await supabase
     .from('meta_ads_credentials')
-    .upsert(payload, { onConflict: 'tenant_id' })
+    .upsert(
+      { tenant_id: tenantId, access_token: accessToken.trim(), updated_at: new Date().toISOString() },
+      { onConflict: 'tenant_id' },
+    )
 
   if (error) throw error
 }
