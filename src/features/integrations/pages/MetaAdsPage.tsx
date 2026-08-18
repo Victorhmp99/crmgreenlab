@@ -161,7 +161,14 @@ export function MetaAdsPage() {
                   <a href="https://business.facebook.com/settings" target="_blank" rel="noopener noreferrer"
                     className="underline" style={{ color: '#40a0ff' }}>business.facebook.com/settings</a>
                 </li>
-                <li>No menu lateral: <strong>Usuários → Usuários do sistema</strong> → <strong>Adicionar</strong>. Dê um nome (ex: "CRM") e escolha a função <strong>Funcionário</strong>.</li>
+                <li>
+                  No menu lateral: <strong>Usuários → Usuários do sistema</strong> → <strong>Adicionar</strong> e escolha a função <strong>Funcionário</strong>.
+                  <br />
+                  <span style={{ color: '#5a93c4' }}>
+                    O nome precisa ser descritivo (ex: <strong>Integracao GreenHub</strong>). O Meta recusa sigla curta
+                    tipo "CRM" e nomes com "Meta", "Facebook" ou "Insta" dentro.
+                  </span>
+                </li>
                 <li>Clique em <strong>Adicionar ativos</strong> → aba <strong>Contas de anúncios</strong> → marque a sua conta → ligue a permissão <strong>Ver desempenho</strong>.</li>
                 <li>Clique em <strong>Gerar novo token</strong> → escolha um app → marque a permissão <code>ads_read</code> → copie o token gerado.</li>
                 <li>
