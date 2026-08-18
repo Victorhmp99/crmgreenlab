@@ -3,9 +3,9 @@ import { supabase } from '@/lib/supabase'
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
 export interface MetaCredentials {
-  appId:        string
-  accessToken:  string
   adAccountId:  string
+  /** Se já existe token salvo. O token em si NUNCA vem pro navegador. */
+  hasToken:     boolean
   syncedAt:     string | null
 }
 
@@ -26,36 +26,47 @@ export interface Campaign {
 
 // ── Credenciais ───────────────────────────────────────────────────────────────
 
+/**
+ * Lê a configuração do Meta Ads da empresa. De propósito NÃO seleciona
+ * access_token: segredo não precisa trafegar até o navegador — só quem usa
+ * é a Edge Function, no servidor. Aqui devolvemos apenas se já existe.
+ */
 export async function fetchMetaCredentials(tenantId: string): Promise<MetaCredentials | null> {
   const { data, error } = await supabase
     .from('meta_ads_credentials')
-    .select('app_id, access_token, ad_account_id, synced_at')
+    .select('ad_account_id, synced_at, access_token')
     .eq('tenant_id', tenantId)
-    .single()
+    .maybeSingle()
 
   if (error || !data) return null
 
   return {
-    appId:       data.app_id,
-    accessToken: data.access_token,
     adAccountId: data.ad_account_id,
+    hasToken:    !!data.access_token,
     syncedAt:    data.synced_at,
   }
 }
 
+export interface SaveMetaCredentialsData {
+  adAccountId:  string
+  /** Vazio = mantém o token que já está salvo (não sobrescreve com nada). */
+  accessToken?: string
+}
+
 export async function saveMetaCredentials(
-  tenantId:     string,
-  credentials:  Omit<MetaCredentials, 'syncedAt'>,
+  tenantId: string,
+  data:     SaveMetaCredentialsData,
 ): Promise<void> {
+  const payload: Record<string, unknown> = {
+    tenant_id:     tenantId,
+    ad_account_id: data.adAccountId.trim(),
+    updated_at:    new Date().toISOString(),
+  }
+  if (data.accessToken?.trim()) payload.access_token = data.accessToken.trim()
+
   const { error } = await supabase
     .from('meta_ads_credentials')
-    .upsert({
-      tenant_id:     tenantId,
-      app_id:        credentials.appId,
-      access_token:  credentials.accessToken,
-      ad_account_id: credentials.adAccountId,
-      updated_at:    new Date().toISOString(),
-    })
+    .upsert(payload, { onConflict: 'tenant_id' })
 
   if (error) throw error
 }
@@ -92,77 +103,27 @@ export async function fetchCampaigns(tenantId: string): Promise<Campaign[]> {
 }
 
 // ── Sincronizar via Edge Function ─────────────────────────────────────────────
-// A Edge Function "sync-meta-ads" faz a chamada real à Meta Graph API
-// e popula a tabela campaigns. Precisa ser deployada separadamente.
+// A Edge Function "sync-meta-ads" (publicada no Supabase) é quem fala com a
+// Meta Graph API. O token fica só nela — nunca passa pelo navegador.
 
 export async function syncMetaAds(tenantId: string): Promise<{ synced: number }> {
   const { data, error } = await supabase.functions.invoke('sync-meta-ads', {
     body: { tenant_id: tenantId },
   })
 
-  if (error) throw new Error(error.message ?? 'Erro na sincronização')
-  return { synced: data?.synced ?? 0 }
-}
-
-// ── Edge Function stub (supabase/functions/sync-meta-ads/index.ts) ────────────
-// Criada automaticamente como arquivo de referência
-
-export const EDGE_FUNCTION_STUB = `
-// supabase/functions/sync-meta-ads/index.ts
-// Deploy: supabase functions deploy sync-meta-ads
-
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
-
-serve(async (req) => {
-  const { tenant_id } = await req.json()
-
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-  )
-
-  // 1. Busca credenciais do tenant
-  const { data: creds } = await supabase
-    .from("meta_ads_credentials")
-    .select("*")
-    .eq("tenant_id", tenant_id)
-    .single()
-
-  if (!creds) return new Response(JSON.stringify({ error: "No credentials" }), { status: 400 })
-
-  // 2. Chama Meta Graph API
-  const url = \`https://graph.facebook.com/v18.0/\${creds.ad_account_id}/campaigns\`
-    + \`?fields=id,name,status,insights{spend,impressions,clicks,leads}&access_token=\${creds.access_token}\`
-
-  const res  = await fetch(url)
-  const json = await res.json()
-  const campaigns = json.data ?? []
-
-  // 3. Upsert na tabela campaigns
-  let synced = 0
-  for (const c of campaigns) {
-    const insights = c.insights?.data?.[0] ?? {}
-    await supabase.from("campaigns").upsert({
-      tenant_id,
-      external_id:     c.id,
-      name:            c.name,
-      platform:        "meta",
-      status:          c.status,
-      spend:           insights.spend ? parseFloat(insights.spend) : null,
-      impressions:     insights.impressions ? parseInt(insights.impressions) : null,
-      clicks:          insights.clicks ? parseInt(insights.clicks) : null,
-      leads_generated: insights.leads ?? null,
-      synced_at:       new Date().toISOString(),
-    })
-    synced++
+  if (error) {
+    // Em resposta não-2xx o supabase-js entrega só "non-2xx status code" e
+    // guarda a resposta real em error.context. O motivo acionável (token
+    // expirado, conta errada, sem permissão) está no corpo — sem isso a
+    // pessoa não sabe o que corrigir.
+    let detail = ''
+    const ctx = (error as unknown as { context?: Response }).context
+    if (ctx && typeof ctx.json === 'function') {
+      try { detail = (await ctx.json())?.error ?? '' } catch { /* corpo não-JSON */ }
+    }
+    throw new Error(detail || error.message || 'Erro na sincronização')
   }
 
-  // 4. Atualiza synced_at nas credenciais
-  await supabase.from("meta_ads_credentials")
-    .update({ synced_at: new Date().toISOString() })
-    .eq("tenant_id", tenant_id)
-
-  return new Response(JSON.stringify({ synced }), { status: 200 })
-})
-`
+  if (data?.error) throw new Error(data.error)
+  return { synced: data?.synced ?? 0 }
+}

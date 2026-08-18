@@ -19,9 +19,9 @@ import { useAuthStore } from '@/store/authStore'
 import { formatDate } from '@/lib/utils'
 
 const schema = z.object({
-  appId:       z.string().min(1, 'App ID obrigatório'),
-  accessToken: z.string().min(10, 'Token inválido'),
-  adAccountId: z.string().min(1, 'Ad Account ID obrigatório'),
+  adAccountId: z.string().min(1, 'ID da conta de anúncio obrigatório'),
+  // Opcional na edição: em branco mantém o token que já está salvo.
+  accessToken: z.string().optional(),
 })
 type FormData = z.infer<typeof schema>
 
@@ -35,6 +35,7 @@ export function MetaAdsPage() {
   const queryClient = useQueryClient()
   const [syncError, setSyncError] = useState<string | null>(null)
   const [syncOk,    setSyncOk]    = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
 
   const { data: credentials, isLoading: credLoading } = useQuery({
     queryKey: ['meta-credentials', tenantId],
@@ -52,6 +53,17 @@ export function MetaAdsPage() {
     mutationFn: (data: FormData) => saveMetaCredentials(tenantId, data),
     onSuccess:  () => queryClient.invalidateQueries({ queryKey: ['meta-credentials', tenantId] }),
   })
+
+  // Na primeira conexão o token é obrigatório; depois pode ficar em branco
+  // (mantém o que já está salvo).
+  async function handleSave(data: FormData) {
+    if (!isConnected && !data.accessToken?.trim()) {
+      setFormError('Informe o token de acesso para conectar.')
+      return
+    }
+    setFormError(null)
+    await saveMutation.mutateAsync(data)
+  }
 
   const deleteMutation = useMutation({
     mutationFn: () => deleteMetaCredentials(tenantId),
@@ -78,15 +90,13 @@ export function MetaAdsPage() {
 
   useEffect(() => {
     if (credentials) {
-      reset({
-        appId:       credentials.appId,
-        accessToken: credentials.accessToken,
-        adAccountId: credentials.adAccountId,
-      })
+      // Token não vem do servidor de propósito — campo fica vazio e, em branco,
+      // o save mantém o que já estava salvo.
+      reset({ adAccountId: credentials.adAccountId, accessToken: '' })
     }
   }, [credentials, reset])
 
-  const isConnected = !!credentials
+  const isConnected = !!credentials?.hasToken
 
   return (
     <div className="flex flex-col gap-6">
@@ -142,23 +152,49 @@ export function MetaAdsPage() {
           <>
             <div className="rounded-xl px-4 py-3 text-xs mb-5"
               style={{ background: 'rgba(64,160,255,0.08)', border: '1px solid rgba(64,160,255,0.15)', color: '#40a0ff' }}>
-              <p className="font-semibold mb-1 flex items-center gap-1.5">
-                <ExternalLink size={12} /> Como obter as credenciais
+              <p className="font-semibold mb-1.5 flex items-center gap-1.5">
+                <ExternalLink size={12} /> Como conectar (leva ~5 minutos, é grátis)
               </p>
-              <ol className="list-decimal ml-4 space-y-0.5">
-                <li>Acesse <strong>developers.facebook.com</strong> e crie um App</li>
-                <li>Gere um <strong>Long-Lived User Token</strong> com permissão <code>ads_read</code></li>
-                <li>Copie o <strong>Ad Account ID</strong> do Gerenciador de Anúncios (ex: act_123456)</li>
-                <li>A sincronização é feita via Supabase Edge Function — deploy necessário</li>
+              <ol className="list-decimal ml-4 space-y-1" style={{ color: '#7bb8f0' }}>
+                <li>
+                  Abra o <strong>Gerenciador de Negócios</strong> do Facebook em{' '}
+                  <a href="https://business.facebook.com/settings" target="_blank" rel="noopener noreferrer"
+                    className="underline" style={{ color: '#40a0ff' }}>business.facebook.com/settings</a>
+                </li>
+                <li>No menu lateral: <strong>Usuários → Usuários do sistema</strong> → <strong>Adicionar</strong>. Dê um nome (ex: "CRM") e escolha a função <strong>Funcionário</strong>.</li>
+                <li>Clique em <strong>Adicionar ativos</strong> → aba <strong>Contas de anúncios</strong> → marque a sua conta → ligue a permissão <strong>Ver desempenho</strong>.</li>
+                <li>Clique em <strong>Gerar novo token</strong> → escolha um app → marque a permissão <code>ads_read</code> → copie o token gerado.</li>
+                <li>
+                  Pegue o <strong>ID da conta de anúncio</strong> no{' '}
+                  <a href="https://adsmanager.facebook.com" target="_blank" rel="noopener noreferrer"
+                    className="underline" style={{ color: '#40a0ff' }}>Gerenciador de Anúncios</a>{' '}
+                  (aparece como <code>act_1234567890</code>) e cole os dois campos abaixo.
+                </li>
               </ol>
+              <p className="mt-2" style={{ color: '#5a93c4' }}>
+                O token fica guardado no servidor e é usado só para leitura das campanhas — ele nunca aparece de volta nesta tela.
+              </p>
             </div>
 
-            <form onSubmit={handleSubmit((d) => saveMutation.mutateAsync(d))} className="flex flex-col gap-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Input label="App ID" placeholder="1234567890" error={errors.appId?.message}      {...register('appId')} />
-                <Input label="Ad Account ID" placeholder="act_1234567890" error={errors.adAccountId?.message} {...register('adAccountId')} />
-                <Input label="Access Token" placeholder="EAAxxxxx..." error={errors.accessToken?.message} {...register('accessToken')} />
+            <form onSubmit={handleSubmit(handleSave)} className="flex flex-col gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Input label="ID da conta de anúncio *" placeholder="act_1234567890"
+                  error={errors.adAccountId?.message} {...register('adAccountId')} />
+                <Input
+                  label={isConnected ? 'Token (deixe em branco para manter)' : 'Token de acesso *'}
+                  type="password"
+                  placeholder={isConnected ? '•••••••• já salvo' : 'EAAxxxxx...'}
+                  error={errors.accessToken?.message}
+                  {...register('accessToken')}
+                />
               </div>
+
+              {formError && (
+                <p className="text-sm rounded-lg px-3 py-2"
+                  style={{ color: '#ff4444', background: 'rgba(255,68,68,0.1)' }}>
+                  {formError}
+                </p>
+              )}
 
               <div className="flex items-center gap-3">
                 <Button type="submit" loading={isSubmitting}>
@@ -261,13 +297,6 @@ export function MetaAdsPage() {
         )}
       </div>
 
-      {/* Nota sobre Edge Function */}
-      <div className="rounded-xl px-4 py-3 text-xs"
-        style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)', color: '#fbbf24' }}>
-        <strong>⚠️ Edge Function necessária:</strong> A sincronização real requer o deploy de{' '}
-        <code>supabase/functions/sync-meta-ads</code>. O código da função está em{' '}
-        <code>src/services/metaAds.ts</code> → <code>EDGE_FUNCTION_STUB</code>.
-      </div>
     </div>
   )
 }
