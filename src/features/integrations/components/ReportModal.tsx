@@ -187,13 +187,17 @@ export function ReportModal({ open, onClose, campaigns, colunas, periodo, conta,
         </p>
 
         {/* ── Documento ─────────────────────────────────────────────────── */}
-        <div id="relatorio-impressao" style={{ ...st.pagina, padding: 28, borderRadius: 8 }}>
+        {/* Sem padding no container: cabeçalho e rodapé são faixas que
+            sangram de ponta a ponta. O respiro fica no miolo (st.corpo). */}
+        <div id="relatorio-impressao"
+          style={{ ...st.pagina, padding: 0, borderRadius: 8, overflow: 'hidden' }}>
           <header style={st.cabecalho}>
             {marca.trim() && <p style={st.marca}>{marca.trim()}</p>}
             <h1 style={st.titulo}>{titulo || 'Relatório de campanhas'}</h1>
             <p style={st.subtitulo}>{conta} · {periodo} · emitido em {emitidoEm}</p>
           </header>
 
+          <div style={st.corpo}>
           {comentario.trim() && (
             <section style={{ marginBottom: 20 }}>
               <h2 style={st.secaoTitulo}>Análise do período</h2>
@@ -208,6 +212,19 @@ export function ReportModal({ open, onClose, campaigns, colunas, periodo, conta,
               <p style={{ fontSize: 12, color: '#888' }}>Nenhuma campanha selecionada.</p>
             ) : (
               <table style={st.tabela}>
+                {/* Nome e status precisam de mais espaço; o resto divide o
+                    que sobra. Sem isto, `table-layout: fixed` daria a mesma
+                    largura pra todo mundo e o nome da campanha ficaria
+                    ilegível. */}
+                <colgroup>
+                  {visiveis.map((col) => (
+                    <col key={col.key} style={{
+                      width: col.key === 'name'   ? '19%'
+                           : col.key === 'status' ? '8%'
+                           : `${73 / Math.max(visiveis.length - 2, 1)}%`,
+                    }} />
+                  ))}
+                </colgroup>
                 <thead>
                   <tr>
                     {visiveis.map((col) => (
@@ -255,6 +272,7 @@ export function ReportModal({ open, onClose, campaigns, colunas, periodo, conta,
               </table>
             )}
           </section>
+          </div>
 
           <footer style={st.rodape}>
             Médias (CTR, CPC, CPM, frequência e custo por resultado) são recalculadas sobre os

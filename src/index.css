@@ -554,25 +554,14 @@ html { -webkit-text-size-adjust: 100%; }
   /* Fundo escuro do app viraria uma folha preta inteira */
   html, body { background: #fff !important; }
 
-  /* A tabela precisa caber na largura da folha: sem isto a última coluna
-     (custo por resultado) sai cortada na direita. Deixar o texto quebrar é
-     melhor que perder a coluna. */
-  #relatorio-impressao table {
-    width: 100% !important;
-    table-layout: auto !important;
-    font-size: 8.5pt !important;
-  }
+  /* A tabela já cabe por construção (table-layout: fixed + colgroup no
+     componente). Aqui só garantimos a quebra: nome de campanha longo
+     precisa quebrar em vez de empurrar a coluna pra fora da folha.
+     Sem !important de fonte ou padding — isso achataria as diferenças
+     entre os temas justamente no papel, que é onde elas importam. */
+  #relatorio-impressao table { width: 100% !important; }
   #relatorio-impressao th,
-  #relatorio-impressao td {
-    white-space: normal !important;
-    overflow-wrap: anywhere;
-    padding: 4px 3px !important;
-  }
-  /* O nome da campanha é o que mais estica a tabela */
-  #relatorio-impressao td:first-child,
-  #relatorio-impressao th:first-child {
-    max-width: 150px;
-  }
+  #relatorio-impressao td { white-space: normal !important; }
 
   /* Linha não deve partir no meio entre páginas */
   #relatorio-impressao tr { page-break-inside: avoid; }
