@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { Calendar, ChevronLeft, ChevronRight, X } from 'lucide-react'
 
 interface DatePickerProps {
@@ -40,40 +41,78 @@ function sameDay(a: Date, b: Date): boolean {
 }
 
 const DROPDOWN_WIDTH = 268
+const DROPDOWN_HEIGHT = 330   // altura aproximada, pra decidir abrir pra cima
 
 export function DatePicker({ value, onChange, label, placeholder = 'Selecionar...', className, minDate, clearable = true, error }: DatePickerProps) {
   const [open, setOpen] = useState(false)
-  const [align, setAlign] = useState<'left' | 'right'>('left')
+  // Coordenadas absolutas na viewport. O calendário é renderizado em portal
+  // no <body>, então precisa saber onde o campo está — não pode se apoiar no
+  // pai como um `position: absolute` faria.
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
   const selected = parseDate(value)
   const [viewDate, setViewDate] = useState(() => selected ?? new Date())
   const wrapperRef = useRef<HTMLDivElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
   const min = parseDate(minDate ?? '')
 
-  // Ao abrir: volta o calendário pro mês da data escolhida e decide de que lado
-  // abrir pra não cortar na borda da tela. Feito no clique (e não num efeito)
-  // porque depende do layout no instante da abertura.
+  /**
+   * Ao abrir: volta o calendário pro mês escolhido e calcula onde ele cabe.
+   *
+   * A posição é medida no clique porque depende do layout naquele instante —
+   * e em coordenadas de viewport porque o calendário vive num portal. Antes
+   * ele era `position: absolute` dentro do campo, e qualquer ancestral com
+   * `overflow` (o painel do lead, por exemplo) o recortava pela metade.
+   */
   function toggle() {
     if (open) { setOpen(false); return }
-    setViewDate(selected ?? new Date())
     const rect = wrapperRef.current?.getBoundingClientRect()
-    if (rect) {
-      const wouldOverflowRight = rect.left + DROPDOWN_WIDTH > window.innerWidth - 8
-      setAlign(wouldOverflowRight ? 'right' : 'left')
-    }
+    if (!rect) return
+
+    setViewDate(selected ?? new Date())
+
+    // Encosta na direita da tela? Alinha pela direita do campo.
+    const abririaFora = rect.left + DROPDOWN_WIDTH > window.innerWidth - 8
+    const left = abririaFora
+      ? Math.max(rect.right - DROPDOWN_WIDTH, 8)
+      : rect.left
+
+    // Sem espaço embaixo? Abre pra cima, em vez de vazar pelo rodapé.
+    const cabeEmbaixo = rect.bottom + DROPDOWN_HEIGHT < window.innerHeight - 8
+    const top = cabeEmbaixo
+      ? rect.bottom + 6
+      : Math.max(rect.top - DROPDOWN_HEIGHT - 6, 8)
+
+    setPos({ top, left })
     setOpen(true)
   }
 
   useEffect(() => {
     if (!open) return
+
     function handleClick(e: MouseEvent) {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) setOpen(false)
+      const alvo = e.target as Node
+      // O calendário está fora da árvore do campo (portal), então checar só o
+      // wrapper fecharia o menu no primeiro clique dentro dele.
+      const dentroDoCampo = wrapperRef.current?.contains(alvo)
+      const dentroDoCalendario = dropdownRef.current?.contains(alvo)
+      if (!dentroDoCampo && !dentroDoCalendario) setOpen(false)
     }
     function handleEsc(e: KeyboardEvent) { if (e.key === 'Escape') setOpen(false) }
+
+    // Rolar ou redimensionar deixaria o calendário parado no lugar errado,
+    // já que a posição foi medida na abertura. Fechar é mais honesto do que
+    // mostrar o menu deslocado do campo.
+    function fechar() { setOpen(false) }
+
     document.addEventListener('mousedown', handleClick)
     document.addEventListener('keydown', handleEsc)
+    window.addEventListener('resize', fechar)
+    window.addEventListener('scroll', fechar, true)   // true: pega scroll de contêiner interno
     return () => {
       document.removeEventListener('mousedown', handleClick)
       document.removeEventListener('keydown', handleEsc)
+      window.removeEventListener('resize', fechar)
+      window.removeEventListener('scroll', fechar, true)
     }
   }, [open])
 
@@ -136,11 +175,11 @@ export function DatePicker({ value, onChange, label, placeholder = 'Selecionar..
         )}
       </button>
 
-      {open && (
-        <div className="absolute z-50 top-full mt-1.5 rounded-xl p-3 shadow-2xl"
+      {open && pos && createPortal(
+        <div ref={dropdownRef} className="fixed z-[100] rounded-xl p-3 shadow-2xl"
           style={{
             background: '#141414', border: '1px solid #2a2a2a', width: DROPDOWN_WIDTH,
-            ...(align === 'right' ? { right: 0 } : { left: 0 }),
+            top: pos.top, left: pos.left,
           }}>
           {/* Header: mês/ano + navegação */}
           <div className="flex items-center justify-between mb-3">
@@ -215,7 +254,8 @@ export function DatePicker({ value, onChange, label, placeholder = 'Selecionar..
               Hoje
             </button>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
       {error && <p className="text-xs" style={{ color: '#ff4444' }}>{error}</p>}
