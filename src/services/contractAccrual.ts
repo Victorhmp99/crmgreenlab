@@ -3,7 +3,7 @@
 // criar import circular entre os dois.
 
 export type AccrualBillingType = 'recurring' | 'one_time'
-export type AccrualStatus      = 'active' | 'paused' | 'cancelled' | 'completed'
+export type AccrualStatus      = 'active' | 'paused' | 'cancelled' | 'completed' | 'upgraded'
 
 export interface AccrualContract {
   billing_type: AccrualBillingType

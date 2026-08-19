@@ -480,7 +480,7 @@ export async function fetchCategoryBreakdown(
 ): Promise<CategoryBreakdown[]> {
   let query = supabase
     .from('financial_records')
-    .select('type, category, amount')
+    .select('type, category, amount, financial_products(financial_categories(name))')
     .eq('tenant_id', tenantId)
 
   if (dateFrom) query = query.gte('date', dateFrom)
@@ -491,7 +491,16 @@ export async function fetchCategoryBreakdown(
 
   const map = new Map<string, { revenue: number; expenses: number }>()
   for (const row of data ?? []) {
-    const key = row.category ?? 'Sem categoria'
+    // A categoria do PRODUTO vinculado manda — é a fonte de verdade desde o
+    // catálogo (Etapa 2). O campo `category` solto no lançamento é o que
+    // sobra de quando não há produto (lançamento manual, sem catálogo).
+    // Antes esta função só olhava pro campo solto: toda compra avulsa com
+    // produto (como as feitas em "Produtos e adicionais") caía direto em
+    // "Sem categoria", mesmo tendo o produto certinho vinculado.
+    const viaProduto = (row.financial_products as unknown as
+      { financial_categories: { name: string } | null } | null)
+      ?.financial_categories?.name
+    const key = viaProduto ?? row.category ?? 'Sem categoria'
     if (!map.has(key)) map.set(key, { revenue: 0, expenses: 0 })
     const entry = map.get(key)!
     if (row.type === 'revenue') entry.revenue  += Number(row.amount)

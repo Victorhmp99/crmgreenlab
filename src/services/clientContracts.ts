@@ -18,7 +18,7 @@ export {
 }
 
 export type ContractBillingType = 'recurring' | 'one_time'
-export type ContractStatus      = 'active' | 'paused' | 'cancelled' | 'completed'
+export type ContractStatus      = 'active' | 'paused' | 'cancelled' | 'completed' | 'upgraded'
 
 export interface ClientContract {
   id:                string
@@ -35,6 +35,8 @@ export interface ClientContract {
   end_date:          string | null
   /** Quando a rotina diária avisou do vencimento. Null = ainda não venceu. */
   renewal_notified_at: string | null
+  /** Contrato que este substituiu, numa troca de plano. */
+  previous_contract_id: string | null
   billing_day:       number | null
   status:            ContractStatus
   created_by:        string | null
@@ -53,6 +55,10 @@ export interface CreateContractData {
   start_date:        string
   end_date?:         string | null
   billing_day?:      number | null
+  /** Preenchido quando este contrato SUBSTITUI outro (upsell/downgrade). O
+   *  antigo vira status 'upgraded' — diferente de cancelado, não conta como
+   *  perda de cliente nos relatórios. */
+  previous_contract_id?: string | null
 }
 
 /** Busca o contrato mais recente de um lead (qualquer status) */
@@ -93,6 +99,7 @@ export async function createClientContract(
     p_billing_day:       data.billing_day ?? null,
     p_created_by:        createdBy,
     p_end_date:          data.end_date ?? null,
+    p_previous_contract_id: data.previous_contract_id ?? null,
   })
 
   if (error) throw error

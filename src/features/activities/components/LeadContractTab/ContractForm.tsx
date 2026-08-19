@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { DatePicker } from '@/components/ui/DatePicker'
 import { useClientContractMutations } from '@/features/leads/hooks/useClientContracts'
+import { formatCurrency } from '@/lib/utils'
 import type { ClientContract, ContractBillingType } from '@/services/clientContracts'
 
 interface Props {
@@ -14,6 +15,9 @@ interface Props {
   leadName: string
   /** Quando presente, o form abre em modo edição desse contrato */
   contract?: ClientContract | null
+  /** Quando presente, o form cria um contrato NOVO vinculado a este — troca
+   *  de plano, não edição. O antigo vira status 'upgraded' ao salvar. */
+  upgradeFrom?: ClientContract | null
 }
 
 /** Data de hoje no fuso local — toISOString() usaria UTC e adiantaria o dia. */
@@ -29,14 +33,19 @@ const BILLING_OPTIONS = [
   { value: 'one_time',  label: 'Pagamento único' },
 ]
 
-export function ContractForm({ open, onClose, leadId, leadName, contract }: Props) {
+export function ContractForm({ open, onClose, leadId, leadName, contract, upgradeFrom }: Props) {
   const { create, update } = useClientContractMutations(leadId)
   const isEditing = !!contract
 
   // Valores iniciais lidos uma vez, na montagem. O componente é remontado por
   // `key` quando o modal abre, então não há efeito sincronizando props com
   // estado — que é o padrão que dispara render em cascata.
-  const [billingType, setBillingType]         = useState<ContractBillingType>(contract?.billing_type ?? 'recurring')
+  const [billingType, setBillingType]         = useState<ContractBillingType>(
+    contract?.billing_type ?? upgradeFrom?.billing_type ?? 'recurring',
+  )
+  // Em upgrade, o valor começa em branco de propósito — preencher com o
+  // preço antigo criaria o risco de salvar a troca sem realmente mudar o
+  // valor.
   const [amount, setAmount]                   = useState(contract ? String(contract.amount) : '')
   const [startDate, setStartDate]             = useState(contract?.start_date ?? todayISO())
   const [indefinite, setIndefinite]           = useState(contract ? contract.installments == null : false)
@@ -72,7 +81,10 @@ export function ContractForm({ open, onClose, leadId, leadName, contract }: Prop
     if (isEditing && contract) {
       await update.mutateAsync({ id: contract.id, data: payload })
     } else {
-      await create.mutateAsync({ lead_id: leadId, ...payload })
+      await create.mutateAsync({
+        lead_id: leadId, ...payload,
+        previous_contract_id: upgradeFrom?.id ?? null,
+      })
     }
     onClose()
   }
@@ -89,7 +101,7 @@ export function ContractForm({ open, onClose, leadId, leadName, contract }: Prop
     <Modal
       open={open}
       onClose={onClose}
-      title={isEditing ? 'Editar Contrato' : 'Criar Contrato'}
+      title={isEditing ? 'Editar Contrato' : upgradeFrom ? 'Trocar de plano' : 'Criar Contrato'}
       description={leadName}
       size="sm"
       footer={
@@ -106,6 +118,15 @@ export function ContractForm({ open, onClose, leadId, leadName, contract }: Prop
           <p className="text-xs rounded-lg px-3 py-2"
             style={{ color: '#818cf8', background: 'rgba(99,102,241,0.08)' }}>
             Editar aqui só atualiza o contrato — as tarefas de cobrança já geradas continuam com os valores originais.
+          </p>
+        )}
+
+        {upgradeFrom && (
+          <p className="text-xs rounded-lg px-3 py-2 leading-relaxed"
+            style={{ color: '#40a0ff', background: 'rgba(64,160,255,0.08)' }}>
+            Isto cria um contrato novo. Ao salvar, o contrato atual
+            ({formatCurrency(upgradeFrom.amount)}{upgradeFrom.billing_type === 'recurring' ? '/mês' : ''})
+            vira <strong>Substituído</strong> — não conta como cancelamento nos relatórios.
           </p>
         )}
 

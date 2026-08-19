@@ -25,6 +25,9 @@ export function LeadContractTab({ lead }: Props) {
   const { updateStatus, generateMore }         = useClientContractMutations(leadId)
   const [showForm, setShowForm] = useState(false)
   const [editingContract, setEditingContract] = useState(false)
+  // Troca de plano: abre o form de contrato NOVO, mas vinculado ao atual —
+  // diferente de "Editar" (mesmo contrato) e de "Criar" (sem vínculo nenhum).
+  const [upgradingFrom, setUpgradingFrom] = useState<ClientContract | null>(null)
 
   const hasActiveOrPaused = !!contract && contract.status !== 'cancelled'
   const contractTotal = getContractTotalValue(contract)
@@ -76,6 +79,7 @@ export function LeadContractTab({ lead }: Props) {
             onUpdateStatus={(status) => updateStatus.mutate({ id: contract.id, status })}
             onGenerateMore={() => generateMore.mutate(contract.amount)}
             generatingMore={generateMore.isPending}
+            onUpgrade={() => { setUpgradingFrom(contract); setEditingContract(false); setShowForm(true) }}
           />
         )}
       </div>
@@ -122,12 +126,13 @@ export function LeadContractTab({ lead }: Props) {
       {/* key força remontar ao abrir: os campos voltam ao valor inicial pelos
           próprios useState, sem um efeito sincronizando estado. */}
       <ContractForm
-        key={`${showForm}-${editingContract ? contract?.id ?? 'edit' : 'novo'}`}
+        key={`${showForm}-${editingContract ? contract?.id ?? 'edit' : upgradingFrom?.id ?? 'novo'}`}
         open={showForm}
-        onClose={() => { setShowForm(false); setEditingContract(false) }}
+        onClose={() => { setShowForm(false); setEditingContract(false); setUpgradingFrom(null) }}
         leadId={leadId}
         leadName={leadName}
         contract={editingContract ? contract : null}
+        upgradeFrom={upgradingFrom}
       />
     </div>
   )
@@ -203,11 +208,12 @@ function LeadValueSection({ lead, auto, autoTotal, contractTotal, purchasesSum }
   )
 }
 
-function ContractSummary({ contract, onUpdateStatus, onGenerateMore, generatingMore }: {
+function ContractSummary({ contract, onUpdateStatus, onGenerateMore, generatingMore, onUpgrade }: {
   contract: ClientContract
   onUpdateStatus: (status: ContractStatus) => void
   onGenerateMore: () => void
   generatingMore: boolean
+  onUpgrade: () => void
 }) {
   const current     = getCurrentInstallment(contract)
   const indefinite   = contract.billing_type === 'recurring' && contract.installments == null
@@ -232,6 +238,12 @@ function ContractSummary({ contract, onUpdateStatus, onGenerateMore, generatingM
         </span>
         <StatusBadge status={contract.status} />
       </div>
+
+      {contract.previous_contract_id && (
+        <p className="text-[11px]" style={{ color: '#666' }}>
+          Veio de uma troca de plano — o contrato anterior foi substituído por este.
+        </p>
+      )}
 
       <div className="text-sm" style={{ color: '#ccc' }}>
         {formatCurrency(contract.amount)}{contract.billing_type === 'recurring' && '/mês'}
@@ -281,7 +293,12 @@ function ContractSummary({ contract, onUpdateStatus, onGenerateMore, generatingM
       )}
 
       {contract.status === 'active' && (
-        <div className="flex gap-3 mt-1">
+        <div className="flex gap-3 mt-1 flex-wrap">
+          <button onClick={onUpgrade}
+            className="text-xs font-medium transition-colors" style={{ color: '#40a0ff' }}
+            title="Cliente muda de plano sem sair — o contrato atual vira 'Substituído', não 'Cancelado'">
+            Trocar de plano
+          </button>
           <button onClick={() => onUpdateStatus('paused')}
             className="text-xs font-medium transition-colors" style={{ color: '#888' }}
             onMouseEnter={(e) => (e.currentTarget.style.color = '#ccc')}
@@ -289,7 +306,8 @@ function ContractSummary({ contract, onUpdateStatus, onGenerateMore, generatingM
             Pausar
           </button>
           <button onClick={() => onUpdateStatus('cancelled')}
-            className="text-xs font-medium transition-colors" style={{ color: '#ff4444' }}>
+            className="text-xs font-medium transition-colors" style={{ color: '#ff4444' }}
+            title="O cliente está saindo de verdade. Se for só troca de plano, use 'Trocar de plano' acima">
             Cancelar
           </button>
         </div>
@@ -314,6 +332,9 @@ function StatusBadge({ status }: { status: ContractStatus }) {
     paused:    { label: 'Pausado',   color: '#fbbf24' },
     cancelled: { label: 'Cancelado', color: '#ff4444' },
     completed: { label: 'Concluído', color: '#888' },
+    // Diferente de cancelado de propósito: o cliente não saiu, trocou de
+    // plano. Cor azul (não vermelha) pra não ler como perda de bate-olho.
+    upgraded:  { label: 'Substituído', color: '#40a0ff' },
   }
   const { label, color } = map[status]
   return (
