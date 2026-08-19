@@ -27,6 +27,8 @@ export function GoalCalculator() {
   const [goalValue, setGoalValue] = useState('')
   const [singleProductId, setSingleProductId] = useState('')
   const [quantities, setQuantities] = useState<Record<string, number>>({})
+  /** Prazo da meta, em meses. Muda a conta de produto recorrente. */
+  const [meses, setMeses] = useState(1)
 
   const goal = Number(goalValue) || 0
 
@@ -61,9 +63,26 @@ export function GoalCalculator() {
         : null))
     : null
 
-  const qtyNeeded = unitValue != null && unitValue > 0 && goal > 0
-    ? Math.ceil(goal / unitValue)
+  const singleRecorrente = singleProduct?.billing_type === 'recurring'
+
+  /**
+   * Quanto UMA venda rende dentro do prazo.
+   *
+   * Produto de pagamento único rende o valor uma vez, não importa o prazo.
+   * Recorrente rende todo mês enquanto durar — então vender no começo do
+   * período rende `valor × meses`. É a hipótese mais favorável, e por isso
+   * está escrita na tela: se a venda acontecer no meio, rende menos.
+   */
+  const rendePorVenda = unitValue != null && unitValue > 0
+    ? (singleRecorrente ? unitValue * meses : unitValue)
     : null
+
+  const qtyNeeded = rendePorVenda != null && rendePorVenda > 0 && goal > 0
+    ? Math.ceil(goal / rendePorVenda)
+    : null
+
+  /** Ritmo necessário: total dividido pelo prazo, arredondado pra cima. */
+  const porMes = qtyNeeded != null && meses > 1 ? Math.ceil(qtyNeeded / meses) : null
 
   return (
     <div className="rounded-xl p-5" style={{ background: '#141414', border: '1px solid #1e1e1e' }}>
@@ -93,6 +112,16 @@ export function GoalCalculator() {
         <div className="w-44">
           <Input label="Valor da meta (R$)" type="number" min="0" placeholder="Ex: 20000"
             value={goalValue} onChange={(e) => setGoalValue(e.target.value)} />
+        </div>
+        <div className="w-36">
+          <Select label="Prazo" value={String(meses)}
+            onChange={(e) => setMeses(Number(e.target.value))}
+            options={[
+              { value: '1',  label: '1 mês' },
+              { value: '3',  label: '3 meses' },
+              { value: '6',  label: '6 meses' },
+              { value: '12', label: '12 meses' },
+            ]} />
         </div>
         {calcMode === 'single' && (
           <div className="w-56">
@@ -124,17 +153,32 @@ export function GoalCalculator() {
           ) : qtyNeeded != null ? (
             <div className="flex flex-col items-center gap-3 py-6 rounded-xl"
               style={{ background: '#1a1a1a' }}>
-              <p className="text-xs" style={{ color: '#888' }}>
-                Pra bater {formatCurrency(goal)} de {goalType === 'revenue' ? 'receita' : 'lucro'} vendendo <strong style={{ color: '#e8e8e8' }}>{singleProduct.name}</strong>:
+              <p className="text-xs text-center px-4" style={{ color: '#888' }}>
+                Pra bater {formatCurrency(goal)} de {goalType === 'revenue' ? 'receita' : 'lucro'} em{' '}
+                <strong style={{ color: '#e8e8e8' }}>{meses === 1 ? '1 mês' : `${meses} meses`}</strong>{' '}
+                vendendo <strong style={{ color: '#e8e8e8' }}>{singleProduct.name}</strong>:
               </p>
               <p className="text-4xl font-bold tabular-nums" style={{ color: 'var(--tenant-primary)' }}>
-                {qtyNeeded} <span className="text-base font-medium" style={{ color: '#888' }}>unidades</span>
+                {qtyNeeded} <span className="text-base font-medium" style={{ color: '#888' }}>
+                  {qtyNeeded === 1 ? 'venda' : 'vendas'}
+                </span>
               </p>
-              <div className="flex gap-4 text-xs" style={{ color: '#666' }}>
+              {porMes != null && (
+                <p className="text-sm" style={{ color: '#aaa' }}>
+                  ritmo de <strong style={{ color: '#e8e8e8' }}>{porMes}</strong> por mês
+                </p>
+              )}
+              <div className="flex gap-4 text-xs flex-wrap justify-center px-4" style={{ color: '#666' }}>
                 <span>{formatCurrency(singleProduct.default_price ?? 0)}/un</span>
                 {singleMargin != null && <span>Margem {singleMargin}%</span>}
-                <span>Total: {formatCurrency((singleProduct.default_price ?? 0) * qtyNeeded)}</span>
+                {singleRecorrente && <span style={{ color: '#00e676' }}>recorrente</span>}
               </div>
+              {singleRecorrente && meses > 1 && (
+                <p className="text-[11px] text-center px-6 leading-relaxed" style={{ color: '#666' }}>
+                  Produto recorrente: a conta assume que a venda acontece no início do período
+                  e rende {meses}× a mensalidade. Vendendo no meio do prazo, rende menos.
+                </p>
+              )}
             </div>
           ) : (
             <p className="text-xs text-center py-8" style={{ color: '#555' }}>

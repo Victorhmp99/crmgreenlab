@@ -1,8 +1,10 @@
 import { useState } from 'react'
-import { Plus, X, LayoutGrid, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Undo2 } from 'lucide-react'
+import { Plus, X, LayoutGrid } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Select } from '@/components/ui/Select'
 import { DatePicker } from '@/components/ui/DatePicker'
+import { PeriodPicker } from '../components/PeriodPicker'
+import { periodoDoMes, periodoAnterior, type Periodo } from '../periodo'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { FinancialSummaryCards } from '../components/FinancialSummary'
 import { FinancialChart } from '../components/FinancialChart'
@@ -14,6 +16,7 @@ import { CashFlowForecast } from '../components/CashFlowForecast'
 import { CategoryBreakdown } from '../components/CategoryBreakdown'
 import { RevenuePieChart } from '../components/RevenuePieChart'
 import { GoalCalculator } from '../components/GoalCalculator'
+import { CarteiraContratos } from '../components/CarteiraContratos'
 import { useFinancialSummary, useMonthlyTrend, useTransactions, useFaturamentoReceita } from '../hooks/useFinancial'
 import { useFinancialMutations } from '../hooks/useFinancialMutations'
 import { LeadDrawer } from '@/features/activities/components/LeadDrawer'
@@ -22,43 +25,15 @@ import { useLead } from '@/features/leads/hooks/useLead'
 import type { FinancialRecord, FinancialFilters } from '@/services/financial'
 import type { Lead } from '@/types'
 
-const MONTH_NAMES = [
-  'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
-  'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro',
-]
-
-// Primeiro/último dia do mês em foco + rótulo
-function monthBounds(viewMonth: Date) {
-  const from  = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), 1).toISOString().slice(0, 10)
-  const to    = new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 0).toISOString().slice(0, 10)
-  const monthName = MONTH_NAMES[viewMonth.getMonth()]
-  const label = `${monthName[0].toUpperCase()}${monthName.slice(1)} de ${viewMonth.getFullYear()}`
-  return { from, to, label }
-}
-
-// Mesmo período, mês anterior — usado pra comparação
-function prevMonthBounds(viewMonth: Date) {
-  const prev = new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, 1)
-  const from = new Date(prev.getFullYear(), prev.getMonth(), 1).toISOString().slice(0, 10)
-  const to   = new Date(prev.getFullYear(), prev.getMonth() + 1, 0).toISOString().slice(0, 10)
-  return { from, to }
-}
-
 const TYPE_OPTIONS = [
   { value: 'revenue', label: 'Receitas' },
   { value: 'expense', label: 'Despesas' },
 ]
 
 export function RevenuePage() {
-  const [viewMonth, setViewMonth] = useState(() => new Date())
-  const { from, to, label } = monthBounds(viewMonth)
-  const { from: prevFrom, to: prevTo } = prevMonthBounds(viewMonth)
-
-  const now = new Date()
-  const viewKey    = viewMonth.getFullYear() * 12 + viewMonth.getMonth()
-  const nowKey     = now.getFullYear() * 12 + now.getMonth()
-  const isCurrentMonth = viewKey === nowKey
-  const isFutureMonth  = viewKey > nowKey
+  const [periodo, setPeriodo] = useState<Periodo>(() => periodoDoMes(new Date()))
+  const { from, to, label } = periodo
+  const { from: prevFrom, to: prevTo } = periodoAnterior(periodo)
 
   const [filters, setFilters]               = useState<FinancialFilters>({ page: 1, pageSize: 25 })
   const [editingRecord, setEditingRecord]   = useState<FinancialRecord | null | undefined>(undefined)
@@ -108,60 +83,7 @@ export function RevenuePage() {
         </div>
       </div>
 
-      {/* Período em foco — controla todos os cards abaixo (exceto Previsão de Caixa, que tem período próprio) */}
-      <div className="flex items-center justify-between flex-wrap gap-3 rounded-xl px-4 py-3"
-        style={{ background: '#141414', border: '1px solid #1e1e1e' }}>
-        <div className="flex items-center gap-2 flex-wrap">
-          <CalendarIcon size={15} style={{ color: 'var(--tenant-primary)' }} />
-          <span className="text-sm" style={{ color: '#666' }}>Mostrando:</span>
-          <span className="text-sm font-semibold" style={{ color: '#e8e8e8' }}>{label}</span>
-          {isCurrentMonth ? (
-            <span className="text-[10px] rounded-full px-2 py-0.5"
-              style={{ background: 'rgba(0,230,118,0.12)', color: '#00e676' }}>
-              mês atual
-            </span>
-          ) : (
-            <span className="text-[10px] rounded-full px-2 py-0.5"
-              style={{ background: '#1e1e1e', color: '#888' }}>
-              {isFutureMonth ? 'mês futuro' : 'mês passado'}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-1">
-          <button onClick={() => setViewMonth((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
-            className="h-8 w-8 rounded-lg flex items-center justify-center transition-colors"
-            style={{ color: '#888' }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = '#1e1e1e')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-            title="Mês anterior">
-            <ChevronLeft size={15} />
-          </button>
-          {!isCurrentMonth && (
-            <button onClick={() => setViewMonth(new Date())}
-              className="flex items-center gap-1.5 text-xs font-medium rounded-lg px-3 py-1.5 transition-colors"
-              style={{ border: '1px solid #2a2a2a', color: '#aaa' }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = 'var(--tenant-primary)'
-                e.currentTarget.style.color = 'var(--tenant-primary)'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = '#2a2a2a'
-                e.currentTarget.style.color = '#aaa'
-              }}
-              title="Voltar para o mês atual">
-              <Undo2 size={12} /> Voltar pra hoje
-            </button>
-          )}
-          <button onClick={() => setViewMonth((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1))}
-            className="h-8 w-8 rounded-lg flex items-center justify-center transition-colors"
-            style={{ color: '#888' }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = '#1e1e1e')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-            title="Próximo mês">
-            <ChevronRight size={15} />
-          </button>
-        </div>
-      </div>
+      <PeriodPicker periodo={periodo} onChange={setPeriodo} />
 
       {/* Cards do mês em foco: Faturamento (vendido) → Receita (recebido) →
           Despesas → Lucro → Margem, com comparação vs mês anterior */}
@@ -187,6 +109,8 @@ export function RevenuePage() {
       </div>
 
       {/* Pizza de receita por categoria */}
+      <CarteiraContratos from={from} to={to} periodLabel={label} />
+
       <RevenuePieChart dateFrom={from} dateTo={to} periodLabel={label} />
 
       {/* Calculadora de meta */}
