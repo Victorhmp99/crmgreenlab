@@ -29,11 +29,13 @@ export const DEMO_CATEGORIES: FinancialCategory[] = [
   { id: 'c6', tenant_id: TENANT, name: 'Equipe',             type: 'expense', active: true, created_at: '' },
 ]
 
+// Mistura proposital de recorrente e único: é o que deixa a visão de
+// "quantos contratos de cada tipo" fazer sentido no modo demo.
 export const DEMO_PRODUCTS: FinancialProduct[] = [
-  { id: 'p1', tenant_id: TENANT, name: 'Gestão Tráfego Meta',   default_price: 2500, cost_price:  900, active: true, created_at: '' },
-  { id: 'p2', tenant_id: TENANT, name: 'Setup de CRM',          default_price: 1800, cost_price:  400, active: true, created_at: '' },
-  { id: 'p3', tenant_id: TENANT, name: 'Pacote de Criativos',   default_price:  950, cost_price:  300, active: true, created_at: '' },
-  { id: 'p4', tenant_id: TENANT, name: 'Consultoria Avulsa',    default_price:  600, cost_price:  120, active: true, created_at: '' },
+  { id: 'p1', tenant_id: TENANT, name: 'Gestão Tráfego Meta',   default_price: 2500, cost_price:  900, billing_type: 'recurring', category_id: null, active: true, created_at: '' },
+  { id: 'p2', tenant_id: TENANT, name: 'Setup de CRM',          default_price: 1800, cost_price:  400, billing_type: 'one_time',  category_id: null, active: true, created_at: '' },
+  { id: 'p3', tenant_id: TENANT, name: 'Pacote de Criativos',   default_price:  950, cost_price:  300, billing_type: 'one_time',  category_id: null, active: true, created_at: '' },
+  { id: 'p4', tenant_id: TENANT, name: 'Consultoria Avulsa',    default_price:  600, cost_price:  120, billing_type: 'one_time',  category_id: null, active: true, created_at: '' },
 ]
 
 export const DEMO_SUMMARY: FinancialSummary = {
