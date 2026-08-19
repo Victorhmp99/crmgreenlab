@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -16,6 +16,14 @@ interface Props {
   contract?: ClientContract | null
 }
 
+/** Data de hoje no fuso local — toISOString() usaria UTC e adiantaria o dia. */
+function todayISO(): string {
+  const d = new Date()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${mm}-${dd}`
+}
+
 const BILLING_OPTIONS = [
   { value: 'recurring', label: 'Recorrente (mensal)' },
   { value: 'one_time',  label: 'Pagamento único' },
@@ -25,29 +33,21 @@ export function ContractForm({ open, onClose, leadId, leadName, contract }: Prop
   const { create, update } = useClientContractMutations(leadId)
   const isEditing = !!contract
 
-  const [billingType, setBillingType]         = useState<ContractBillingType>('recurring')
-  const [amount, setAmount]                   = useState('')
-  const [startDate, setStartDate]             = useState(new Date().toISOString().slice(0, 10))
-  const [indefinite, setIndefinite]           = useState(false)
-  const [installments, setInstallments]       = useState('12')
-  const [isPercentage, setIsPercentage]       = useState(false)
-  const [percentageValue, setPercentageValue] = useState('')
-
-  useEffect(() => {
-    if (!open) return
-    if (contract) {
-      setBillingType(contract.billing_type)
-      setAmount(String(contract.amount))
-      setStartDate(contract.start_date)
-      setIndefinite(contract.installments == null)
-      setInstallments(contract.installments != null ? String(contract.installments) : '12')
-      setIsPercentage(contract.is_percentage)
-      setPercentageValue(contract.percentage_value != null ? String(contract.percentage_value) : '')
-    } else {
-      setBillingType('recurring'); setAmount(''); setStartDate(new Date().toISOString().slice(0, 10))
-      setIndefinite(false); setInstallments('12'); setIsPercentage(false); setPercentageValue('')
-    }
-  }, [open, contract])
+  // Valores iniciais lidos uma vez, na montagem. O componente é remontado por
+  // `key` quando o modal abre, então não há efeito sincronizando props com
+  // estado — que é o padrão que dispara render em cascata.
+  const [billingType, setBillingType]         = useState<ContractBillingType>(contract?.billing_type ?? 'recurring')
+  const [amount, setAmount]                   = useState(contract ? String(contract.amount) : '')
+  const [startDate, setStartDate]             = useState(contract?.start_date ?? todayISO())
+  const [indefinite, setIndefinite]           = useState(contract ? contract.installments == null : false)
+  const [installments, setInstallments]       = useState(
+    contract?.installments != null ? String(contract.installments) : '12',
+  )
+  const [isPercentage, setIsPercentage]       = useState(contract?.is_percentage ?? false)
+  const [percentageValue, setPercentageValue] = useState(
+    contract?.percentage_value != null ? String(contract.percentage_value) : '',
+  )
+  const [endDate, setEndDate]                 = useState(contract?.end_date ?? '')
 
   function resolveInstallments(): number | null {
     if (billingType === 'one_time') return 1
@@ -66,6 +66,7 @@ export function ContractForm({ open, onClose, leadId, leadName, contract }: Prop
       amount:           Number(amount),
       installments:     resolveInstallments(),
       start_date:       startDate,
+      end_date:         endDate || null,
     }
 
     if (isEditing && contract) {
@@ -120,6 +121,16 @@ export function ContractForm({ open, onClose, leadId, leadName, contract }: Prop
             value={amount} onChange={(e) => setAmount(e.target.value)} />
           <DatePicker label="Data início *" placeholder="Selecionar" clearable={false}
             value={startDate} onChange={(v) => v && setStartDate(v)} />
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <DatePicker label="Data de término" placeholder="Sem prazo de término"
+            value={endDate} onChange={setEndDate} minDate={startDate} />
+          <p className="text-xs leading-relaxed" style={{ color: '#666' }}>
+            {endDate
+              ? 'Ao chegar essa data, o contrato é pausado sozinho e vira uma tarefa de renovação — pausado, não cancelado, então dá pra retomar.'
+              : 'Opcional. Preencha para ser lembrado de renovar quando o contrato acabar.'}
+          </p>
         </div>
 
         {billingType === 'recurring' && (

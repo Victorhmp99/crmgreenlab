@@ -9,6 +9,7 @@ import { getCurrentInstallment, getContractTotalValue, getContractAccruedRevenue
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { ContractForm } from './ContractForm'
 import { AddPurchaseForm } from './AddPurchaseForm'
+import { ContractItems } from './ContractItems'
 import type { Lead } from '@/types'
 
 interface Props {
@@ -118,7 +119,10 @@ export function LeadContractTab({ lead }: Props) {
         )}
       </div>
 
+      {/* key força remontar ao abrir: os campos voltam ao valor inicial pelos
+          próprios useState, sem um efeito sincronizando estado. */}
       <ContractForm
+        key={`${showForm}-${editingContract ? contract?.id ?? 'edit' : 'novo'}`}
         open={showForm}
         onClose={() => { setShowForm(false); setEditingContract(false) }}
         leadId={leadId}
@@ -211,6 +215,14 @@ function ContractSummary({ contract, onUpdateStatus, onGenerateMore, generatingM
   const total        = getContractTotalValue(contract)
   const received     = getContractAccruedRevenue(contract)
 
+  // 30 dias de antecedência: tempo de conversar com o cliente antes do
+  // contrato pausar sozinho.
+  const venceEmBreve = (() => {
+    if (!contract.end_date || contract.status !== 'active') return false
+    const dias = (new Date(contract.end_date + 'T00:00:00').getTime() - Date.now()) / 86_400_000
+    return dias <= 30
+  })()
+
   return (
     <div className="mt-2 rounded-xl px-4 py-3 flex flex-col gap-2"
       style={{ background: '#141414', border: '1px solid #1e1e1e' }}>
@@ -242,6 +254,15 @@ function ContractSummary({ contract, onUpdateStatus, onGenerateMore, generatingM
       {contract.billing_type === 'one_time' && (
         <div className="text-xs" style={{ color: '#888' }}>
           {received > 0 ? `Recebido: ${formatCurrency(received)}` : 'Ainda não venceu'}
+        </div>
+      )}
+
+      {contract.end_date && (
+        <div className="text-xs" style={{ color: venceEmBreve ? '#fbbf24' : '#888' }}>
+          {contract.status === 'paused' && contract.renewal_notified_at
+            ? `Venceu em ${formatDate(contract.end_date)} — pausado automaticamente`
+            : `Termina em ${formatDate(contract.end_date)}`}
+          {venceEmBreve && contract.status === 'active' && ' — renove antes de vencer'}
         </div>
       )}
       {contract.billing_type === 'recurring' && !indefinite && (
@@ -279,6 +300,10 @@ function ContractSummary({ contract, onUpdateStatus, onGenerateMore, generatingM
           Reativar
         </button>
       )}
+
+      <div className="mt-2 pt-3" style={{ borderTop: '1px solid #1e1e1e' }}>
+        <ContractItems contractId={contract.id} contractAmount={total} />
+      </div>
     </div>
   )
 }

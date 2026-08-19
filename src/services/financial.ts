@@ -95,7 +95,7 @@ async function fetchLeadIdsWithDetailedFinancials(tenantId: string): Promise<Set
 async function fetchAllAccruedInstallments(tenantId: string): Promise<AccruedInstallment[]> {
   const { data, error } = await supabase
     .from('client_contracts')
-    .select('billing_type, amount, installments, start_date, status, updated_at')
+    .select('billing_type, amount, installments, start_date, end_date, status, updated_at')
     .eq('tenant_id', tenantId)
 
   if (error) throw error
@@ -107,6 +107,7 @@ async function fetchAllAccruedInstallments(tenantId: string): Promise<AccruedIns
       amount:       Number(c.amount),
       installments: c.installments,
       start_date:   c.start_date,
+      end_date:     c.end_date ?? null,
       status:       c.status,
       updated_at:   c.updated_at,
     }
@@ -305,7 +306,7 @@ export async function fetchTransactions(
   // 3. Parcelas de contrato já vencidas (contam como receita automática também)
   const contractsQuery = supabase
     .from('client_contracts')
-    .select('id, billing_type, amount, installments, start_date, status, updated_at, leads ( id, name )')
+    .select('id, billing_type, amount, installments, start_date, end_date, status, updated_at, leads ( id, name )')
     .eq('tenant_id', tenantId)
 
   const [manualRes, leadsRes, detailedIds, contractsRes] = await Promise.all([
@@ -366,6 +367,7 @@ export async function fetchTransactions(
         amount:       Number(row.amount),
         installments: row.installments,
         start_date:   row.start_date,
+        end_date:     row.end_date ?? null,
         status:       row.status,
         updated_at:   row.updated_at,
       }

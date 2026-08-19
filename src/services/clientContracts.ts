@@ -31,6 +31,10 @@ export interface ClientContract {
   /** null = recorrente sem prazo determinado (continua até cancelar) */
   installments:      number | null
   start_date:        string
+  /** Fim do contrato. Ao chegar, ele é pausado e vira tarefa de renovação. */
+  end_date:          string | null
+  /** Quando a rotina diária avisou do vencimento. Null = ainda não venceu. */
+  renewal_notified_at: string | null
   billing_day:       number | null
   status:            ContractStatus
   created_by:        string | null
@@ -47,6 +51,7 @@ export interface CreateContractData {
   /** null = recorrente sem prazo determinado */
   installments:      number | null
   start_date:        string
+  end_date?:         string | null
   billing_day?:      number | null
 }
 
@@ -87,6 +92,7 @@ export async function createClientContract(
     p_start_date:        data.start_date,
     p_billing_day:       data.billing_day ?? null,
     p_created_by:        createdBy,
+    p_end_date:          data.end_date ?? null,
   })
 
   if (error) throw error
@@ -105,7 +111,9 @@ export interface UpdateContractData {
   amount?:            number
   installments?:      number | null
   start_date?:        string
+  end_date?:          string | null
   billing_day?:       number | null
+  status?:            ContractStatus
 }
 
 /**
@@ -114,7 +122,14 @@ export interface UpdateContractData {
  * Se quiser tarefas atualizadas, cancele e crie um novo contrato.
  */
 export async function updateContract(id: string, data: UpdateContractData): Promise<void> {
-  const { error } = await supabase.from('client_contracts').update(data).eq('id', id)
+  const payload: Record<string, unknown> = { ...data }
+
+  // Reativar um contrato zera o aviso de renovação. Sem isso, o contrato
+  // renovado venceria de novo e a rotina diária ficaria calada, porque ela
+  // ignora quem já foi avisado uma vez.
+  if (data.status === 'active') payload.renewal_notified_at = null
+
+  const { error } = await supabase.from('client_contracts').update(payload).eq('id', id)
   if (error) throw error
 }
 

@@ -10,6 +10,8 @@ export interface AccrualContract {
   amount:       number
   installments: number | null
   start_date:   string
+  /** Fim do contrato. Null = sem prazo de término. */
+  end_date:     string | null
   status:       AccrualStatus
   updated_at:   string
 }
@@ -85,8 +87,18 @@ export function getCurrentInstallment(contract: AccrualContract): number {
  */
 export function expandAccruedInstallments(contract: AccrualContract): AccruedInstallment[] {
   const start = new Date(contract.start_date + 'T00:00:00')
-  // Congela no que já existia até a última atualização, se não estiver mais ativo
-  const cutoff = contract.status === 'active' ? null : toLocalDateString(new Date(contract.updated_at))
+
+  // Dois limites diferentes, e vale o menor deles:
+  //  - status: se não está mais ativo, congela na última atualização
+  //  - end_date: o contrato acabou naquele dia, independente do status
+  // Sem o segundo, um contrato com fim definido seguiria acumulando receita
+  // até a rotina diária pausá-lo — contando um dia que não existe.
+  const cutoffStatus = contract.status === 'active'
+    ? null
+    : toLocalDateString(new Date(contract.updated_at))
+  const cutoff = [cutoffStatus, contract.end_date]
+    .filter((d): d is string => !!d)
+    .sort()[0] ?? null
 
   if (contract.billing_type === 'one_time') {
     if (cutoff && contract.start_date > cutoff) return []
