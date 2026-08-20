@@ -14,11 +14,9 @@ import { CatalogModal } from '../components/CatalogModal'
 import { MRRSummary } from '../components/MRRSummary'
 import { CashFlowForecast } from '../components/CashFlowForecast'
 import { CategoryBreakdown } from '../components/CategoryBreakdown'
-import { RevenuePieChart } from '../components/RevenuePieChart'
+import { CategoriasVendidas } from '../components/CategoriasVendidas'
 import { GoalCalculator } from '../components/GoalCalculator'
 import { CarteiraContratos } from '../components/CarteiraContratos'
-import { MrrTcvChart } from '../components/MrrTcvChart'
-import { useCarteiraContratos } from '../hooks/useContractStats'
 import { useFinancialSummary, useMonthlyTrend, useTransactions, useFaturamentoReceita } from '../hooks/useFinancial'
 import { useFinancialMutations } from '../hooks/useFinancialMutations'
 import { LeadDrawer } from '@/features/activities/components/LeadDrawer'
@@ -48,7 +46,6 @@ export function RevenuePage() {
   const { data: summary,     isLoading: summaryLoading } = useFinancialSummary(from, to)
   const { data: prevSummary } = useFinancialSummary(prevFrom, prevTo)
   const { data: faturamentoData } = useFaturamentoReceita(from, to)
-  const { data: carteira } = useCarteiraContratos(from, to)
   const { data: trend = [],  isLoading: trendLoading   } = useMonthlyTrend(12)
   const { data: transactions, isLoading: listLoading   } = useTransactions(filters)
   const { remove } = useFinancialMutations()
@@ -105,22 +102,18 @@ export function RevenuePage() {
       {/* Gráfico de tendência 12 meses */}
       <FinancialChart data={trend} isLoading={trendLoading} />
 
-      {/* Previsão de caixa + breakdown por categoria */}
+      {/* Composição de contratos + produtos mais vendidos */}
+      <CarteiraContratos from={from} to={to} periodLabel={label} />
+
+      {/* O que mais vende (por categoria) ao lado do que mais custa.
+          Ambos saem da venda/gasto real, não de texto digitado à mão. */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <CashFlowForecast />
+        <CategoriasVendidas from={from} to={to} periodLabel={label} />
         <CategoryBreakdown dateFrom={from} dateTo={to} periodLabel={label} />
       </div>
 
-      {/* Composição de contratos + mais vendidos */}
-      <CarteiraContratos from={from} to={to} periodLabel={label} />
-
-      {/* Pizza de receita por categoria + MRR × TCV lado a lado — respondem
-          perguntas diferentes: de ONDE vem a receita (categoria) vs QUE TIPO
-          de receita é (recorrente ou pontual). */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <RevenuePieChart dateFrom={from} dateTo={to} periodLabel={label} />
-        <MrrTcvChart carteira={carteira} periodLabel={label} />
-      </div>
+      {/* Previsão de caixa */}
+      <CashFlowForecast />
 
       {/* Calculadora de meta */}
       <GoalCalculator />

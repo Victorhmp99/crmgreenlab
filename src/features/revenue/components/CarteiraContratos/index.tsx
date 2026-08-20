@@ -1,7 +1,7 @@
 import { Repeat, Receipt, TrendingUp, AlertTriangle, Trophy } from 'lucide-react'
 import { Spinner } from '@/components/ui/Spinner'
 import { formatCurrency } from '@/lib/utils'
-import { useCarteiraContratos, useProdutosMaisVendidos } from '../../hooks/useContractStats'
+import { useCarteiraContratos, useVendas } from '../../hooks/useContractStats'
 
 /**
  * Composição da carteira e ranking de produtos.
@@ -16,8 +16,9 @@ export function CarteiraContratos({ from, to, periodLabel }: {
   periodLabel: string
 }) {
   const { data: carteira, isLoading: carteiraLoading } = useCarteiraContratos(from, to)
-  const { data: produtos = [], isLoading: prodLoading } = useProdutosMaisVendidos(from, to)
+  const { data: vendas, isLoading: prodLoading } = useVendas(from, to)
 
+  const produtos    = vendas?.produtos ?? []
   const maiorTotal  = produtos[0]?.total ?? 0
   const totalGeral  = produtos.reduce((s, p) => s + p.total, 0)
 
@@ -53,6 +54,11 @@ export function CarteiraContratos({ from, to, periodLabel }: {
                 cor="#40a0ff"
               />
             </div>
+
+            {/* Proporção recorrente × pontual. Uma barra basta: os valores já
+                estão nos blocos acima, o que falta é a leitura de quanto o
+                faturamento depende de vender de novo todo mês. */}
+            <ProporcaoMrrTcv mrr={carteira.mrr} tcv={carteira.tcvNoPeriodo} />
 
             <div className="flex flex-col gap-1.5">
               <Linha
@@ -133,6 +139,27 @@ export function CarteiraContratos({ from, to, periodLabel }: {
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+function ProporcaoMrrTcv({ mrr, tcv }: { mrr: number; tcv: number }) {
+  const total = mrr + tcv
+  if (total <= 0) return null
+
+  const pctMrr = Math.round((mrr / total) * 100)
+
+  return (
+    <div className="mb-3">
+      <div className="flex h-2 rounded-full overflow-hidden gap-0.5" style={{ background: '#1a1a1a' }}>
+        {mrr > 0 && <div className="h-full rounded-full" style={{ width: `${(mrr / total) * 100}%`, background: '#00e676' }} />}
+        {tcv > 0 && <div className="h-full rounded-full" style={{ width: `${(tcv / total) * 100}%`, background: '#40a0ff' }} />}
+      </div>
+      <p className="text-[10px] mt-1.5" style={{ color: '#555' }}>
+        <span style={{ color: '#00e676' }}>{pctMrr}% recorrente</span>
+        {' · '}
+        <span style={{ color: '#40a0ff' }}>{100 - pctMrr}% pontual</span>
+      </p>
     </div>
   )
 }

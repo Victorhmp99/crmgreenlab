@@ -1,11 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
 import { useAuthStore } from '@/store/authStore'
-import { fetchCarteiraContratos, fetchProdutosMaisVendidos } from '@/services/contractStats'
+import { fetchCarteiraContratos, fetchVendas } from '@/services/contractStats'
 
 /**
  * Mesma queryKey usada por qualquer card que precise da carteira do período
- * (Carteira de contratos, MRR × TCV) — o React Query deduplica e os dois
- * cards compartilham uma única chamada de rede.
+ * — o React Query deduplica e os cards compartilham uma única chamada.
  */
 export function useCarteiraContratos(from: string, to: string) {
   const tenantId = useAuthStore((s) => s.tenant?.id)
@@ -16,11 +15,16 @@ export function useCarteiraContratos(from: string, to: string) {
   })
 }
 
-export function useProdutosMaisVendidos(from: string, to: string) {
+/**
+ * Ranking de produtos e de categorias do período. Vêm juntos de propósito:
+ * são a mesma venda vista de dois ângulos, e uma queryKey só garante que os
+ * dois cards nunca mostrem períodos diferentes.
+ */
+export function useVendas(from: string, to: string) {
   const tenantId = useAuthStore((s) => s.tenant?.id)
   return useQuery({
-    queryKey: ['produtos-mais-vendidos', tenantId, from, to],
-    queryFn:  () => fetchProdutosMaisVendidos(tenantId!, from, to),
+    queryKey: ['vendas-por-produto', tenantId, from, to],
+    queryFn:  () => fetchVendas(tenantId!, from, to),
     enabled:  !!tenantId,
   })
 }

@@ -84,8 +84,32 @@ export interface ProdutoVendido {
   total:     number
 }
 
+export interface CategoriaVendida {
+  categoria: string
+  vendas:    number
+  total:     number
+}
+
+export interface Vendas {
+  produtos:   ProdutoVendido[]
+  categorias: CategoriaVendida[]
+}
+
+const SEM_CATEGORIA = 'Sem categoria'
+
+/** Formato do embed aninhado produto → categoria que o Supabase devolve. */
+type ProdutoEmbed = { name: string; financial_categories: { name: string } | null } | null
+
+function nomeCategoria(embed: unknown): string {
+  return (embed as ProdutoEmbed)?.financial_categories?.name ?? SEM_CATEGORIA
+}
+
 /**
- * Produtos mais vendidos no período.
+ * O que mais vende no período — por produto e por categoria.
+ *
+ * As duas visões saem da MESMA varredura porque saem dos mesmos registros:
+ * separar em duas funções faria duas idas ao banco pra recontar as mesmas
+ * vendas, com risco de os dois rankings discordarem entre si.
  *
  * Junta duas origens, porque venda entra pelos dois caminhos: itens de
  * contrato e compras avulsas lançadas no lead. Olhar só um dos dois daria
@@ -98,23 +122,27 @@ export interface ProdutoVendido {
  * divisão, nunca como valor absoluto). Isso garante que a soma do ranking
  * pra um contrato bate exatamente com o valor dele — nem mais, nem menos —
  * mesmo que os preços dos itens tenham sido digitados de qualquer jeito.
+ *
+ * A categoria vem sempre do produto do catálogo, nunca de texto digitado à
+ * mão: é o vínculo que mantém "produtos mais vendidos" e "categorias que
+ * mais vendem" contando exatamente a mesma venda.
  */
-export async function fetchProdutosMaisVendidos(
+export async function fetchVendas(
   tenantId: string,
   from:     string,
   to:       string,
   limite = 8,
-): Promise<ProdutoVendido[]> {
+): Promise<Vendas> {
   const [itensRes, lancRes] = await Promise.all([
     supabase
       .from('contract_items')
-      .select('contract_id, product_id, description, unit_price, quantity, client_contracts!inner(amount, start_date, status)')
+      .select('contract_id, product_id, description, unit_price, quantity, financial_products(name, financial_categories(name)), client_contracts!inner(amount, start_date, status)')
       .eq('tenant_id', tenantId)
       .gte('client_contracts.start_date', from)
       .lte('client_contracts.start_date', to),
     supabase
       .from('financial_records')
-      .select('product_id, description, amount, financial_products(name)')
+      .select('product_id, description, amount, financial_products(name, financial_categories(name))')
       .eq('tenant_id', tenantId)
       .eq('type', 'revenue')
       .not('product_id', 'is', null)
@@ -125,22 +153,26 @@ export async function fetchProdutosMaisVendidos(
   if (itensRes.error) throw itensRes.error
   if (lancRes.error)  throw lancRes.error
 
-  const mapa = new Map<string, ProdutoVendido>()
+  const porProduto   = new Map<string, ProdutoVendido>()
+  const porCategoria = new Map<string, CategoriaVendida>()
 
-  function somar(chave: string, nome: string, productId: string | null, qtd: number, valor: number) {
-    const atual = mapa.get(chave)
-    if (atual) {
-      atual.vendas += qtd
-      atual.total  += valor
-    } else {
-      mapa.set(chave, { productId, nome, vendas: qtd, total: valor })
-    }
+  function somar(
+    chave: string, nome: string, productId: string | null,
+    categoria: string, qtd: number, valor: number,
+  ) {
+    const prod = porProduto.get(chave)
+    if (prod) { prod.vendas += qtd; prod.total += valor }
+    else      porProduto.set(chave, { productId, nome, vendas: qtd, total: valor })
+
+    const cat = porCategoria.get(categoria)
+    if (cat) { cat.vendas += qtd; cat.total += valor }
+    else     porCategoria.set(categoria, { categoria, vendas: qtd, total: valor })
   }
 
   // Agrupa os itens por contrato pra poder distribuir o valor REAL de cada
   // contrato entre eles — não dá pra somar item a item direto.
   type ItemRow = {
-    contract_id: string; product_id: string | null; description: string
+    product_id: string | null; description: string; categoria: string
     unit_price: number; quantity: number
   }
   const porContrato = new Map<string, { amount: number; itens: ItemRow[] }>()
@@ -150,7 +182,8 @@ export async function fetchProdutosMaisVendidos(
     const amount = Number(Array.isArray(contrato) ? contrato[0]?.amount : contrato?.amount)
     const grupo = porContrato.get(row.contract_id) ?? { amount, itens: [] }
     grupo.itens.push({
-      contract_id: row.contract_id, product_id: row.product_id, description: row.description,
+      product_id: row.product_id, description: row.description,
+      categoria:  nomeCategoria(row.financial_products),
       unit_price: Number(row.unit_price), quantity: Number(row.quantity),
     })
     porContrato.set(row.contract_id, grupo)
@@ -165,17 +198,25 @@ export async function fetchProdutosMaisVendidos(
       // partes iguais entre os itens, em vez de zerar a parte desse item.
       const parte = pesoTotal > 0 ? (peso / pesoTotal) * amount : amount / itens.length
       // Agrupa por produto quando há vínculo; itens avulsos agrupam pelo
-      // texto, senão cada linha viraria uma "categoria" diferente.
+      // texto, senão cada linha viraria um produto diferente.
       const chave = it.product_id ?? `avulso:${it.description}`
-      somar(chave, it.description, it.product_id, it.quantity, parte)
+      somar(chave, it.description, it.product_id, it.categoria, it.quantity, parte)
     }
   }
 
   for (const row of lancRes.data ?? []) {
-    const prod = row.financial_products as unknown as { name: string } | null
+    const prod  = row.financial_products as unknown as ProdutoEmbed
     const chave = row.product_id as string
-    somar(chave, prod?.name ?? row.description ?? 'Produto', chave, 1, Number(row.amount))
+    somar(
+      chave, prod?.name ?? row.description ?? 'Produto', chave,
+      nomeCategoria(row.financial_products), 1, Number(row.amount),
+    )
   }
 
-  return [...mapa.values()].sort((a, b) => b.total - a.total).slice(0, limite)
+  const porTotal = (a: { total: number }, b: { total: number }) => b.total - a.total
+
+  return {
+    produtos:   [...porProduto.values()].sort(porTotal).slice(0, limite),
+    categorias: [...porCategoria.values()].sort(porTotal).slice(0, limite),
+  }
 }
