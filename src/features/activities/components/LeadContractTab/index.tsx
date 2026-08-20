@@ -320,7 +320,7 @@ function ContractSummary({ contract, onUpdateStatus, onGenerateMore, generatingM
       )}
 
       <div className="mt-2 pt-3" style={{ borderTop: '1px solid #1e1e1e' }}>
-        <ContractItems contractId={contract.id} contractAmount={total} />
+        <ContractItems contractId={contract.id} />
       </div>
     </div>
   )

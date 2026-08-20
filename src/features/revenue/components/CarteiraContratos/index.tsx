@@ -1,9 +1,7 @@
-import { useQuery } from '@tanstack/react-query'
 import { Repeat, Receipt, TrendingUp, AlertTriangle, Trophy } from 'lucide-react'
 import { Spinner } from '@/components/ui/Spinner'
-import { useAuthStore } from '@/store/authStore'
 import { formatCurrency } from '@/lib/utils'
-import { fetchCarteiraContratos, fetchProdutosMaisVendidos } from '@/services/contractStats'
+import { useCarteiraContratos, useProdutosMaisVendidos } from '../../hooks/useContractStats'
 
 /**
  * Composição da carteira e ranking de produtos.
@@ -17,21 +15,11 @@ export function CarteiraContratos({ from, to, periodLabel }: {
   to:   string
   periodLabel: string
 }) {
-  const tenantId = useAuthStore((s) => s.tenant?.id)
+  const { data: carteira, isLoading: carteiraLoading } = useCarteiraContratos(from, to)
+  const { data: produtos = [], isLoading: prodLoading } = useProdutosMaisVendidos(from, to)
 
-  const { data: carteira, isLoading: carteiraLoading } = useQuery({
-    queryKey: ['carteira-contratos', tenantId, from, to],
-    queryFn:  () => fetchCarteiraContratos(tenantId!, from, to),
-    enabled:  !!tenantId,
-  })
-
-  const { data: produtos = [], isLoading: prodLoading } = useQuery({
-    queryKey: ['produtos-mais-vendidos', tenantId, from, to],
-    queryFn:  () => fetchProdutosMaisVendidos(tenantId!, from, to),
-    enabled:  !!tenantId,
-  })
-
-  const maiorTotal = produtos[0]?.total ?? 0
+  const maiorTotal  = produtos[0]?.total ?? 0
+  const totalGeral  = produtos.reduce((s, p) => s + p.total, 0)
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
@@ -138,6 +126,7 @@ export function CarteiraContratos({ from, to, periodLabel }: {
                 </div>
                 <span className="text-[10px]" style={{ color: '#555' }}>
                   {p.vendas} {p.vendas === 1 ? 'venda' : 'vendas'}
+                  {totalGeral > 0 && ` · ${((p.total / totalGeral) * 100).toFixed(1)}% da receita com produto`}
                 </span>
               </div>
             ))}

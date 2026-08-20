@@ -17,6 +17,8 @@ import { CategoryBreakdown } from '../components/CategoryBreakdown'
 import { RevenuePieChart } from '../components/RevenuePieChart'
 import { GoalCalculator } from '../components/GoalCalculator'
 import { CarteiraContratos } from '../components/CarteiraContratos'
+import { MrrTcvChart } from '../components/MrrTcvChart'
+import { useCarteiraContratos } from '../hooks/useContractStats'
 import { useFinancialSummary, useMonthlyTrend, useTransactions, useFaturamentoReceita } from '../hooks/useFinancial'
 import { useFinancialMutations } from '../hooks/useFinancialMutations'
 import { LeadDrawer } from '@/features/activities/components/LeadDrawer'
@@ -46,6 +48,7 @@ export function RevenuePage() {
   const { data: summary,     isLoading: summaryLoading } = useFinancialSummary(from, to)
   const { data: prevSummary } = useFinancialSummary(prevFrom, prevTo)
   const { data: faturamentoData } = useFaturamentoReceita(from, to)
+  const { data: carteira } = useCarteiraContratos(from, to)
   const { data: trend = [],  isLoading: trendLoading   } = useMonthlyTrend(12)
   const { data: transactions, isLoading: listLoading   } = useTransactions(filters)
   const { remove } = useFinancialMutations()
@@ -108,10 +111,16 @@ export function RevenuePage() {
         <CategoryBreakdown dateFrom={from} dateTo={to} periodLabel={label} />
       </div>
 
-      {/* Pizza de receita por categoria */}
+      {/* Composição de contratos + mais vendidos */}
       <CarteiraContratos from={from} to={to} periodLabel={label} />
 
-      <RevenuePieChart dateFrom={from} dateTo={to} periodLabel={label} />
+      {/* Pizza de receita por categoria + MRR × TCV lado a lado — respondem
+          perguntas diferentes: de ONDE vem a receita (categoria) vs QUE TIPO
+          de receita é (recorrente ou pontual). */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <RevenuePieChart dateFrom={from} dateTo={to} periodLabel={label} />
+        <MrrTcvChart carteira={carteira} periodLabel={label} />
+      </div>
 
       {/* Calculadora de meta */}
       <GoalCalculator />

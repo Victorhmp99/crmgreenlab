@@ -90,6 +90,14 @@ export interface ProdutoVendido {
  * Junta duas origens, porque venda entra pelos dois caminhos: itens de
  * contrato e compras avulsas lançadas no lead. Olhar só um dos dois daria
  * um ranking que contradiz o faturamento.
+ *
+ * O preço do ITEM de contrato é apenas ilustrativo — quem manda no
+ * faturamento é sempre `client_contracts.amount`. Um contrato com um item
+ * só recebe o valor cheio do contrato; um contrato com vários itens divide
+ * esse valor PROPORCIONALMENTE ao preço de cada item (usado só como peso da
+ * divisão, nunca como valor absoluto). Isso garante que a soma do ranking
+ * pra um contrato bate exatamente com o valor dele — nem mais, nem menos —
+ * mesmo que os preços dos itens tenham sido digitados de qualquer jeito.
  */
 export async function fetchProdutosMaisVendidos(
   tenantId: string,
@@ -100,7 +108,7 @@ export async function fetchProdutosMaisVendidos(
   const [itensRes, lancRes] = await Promise.all([
     supabase
       .from('contract_items')
-      .select('product_id, description, unit_price, quantity, client_contracts!inner(start_date, status)')
+      .select('contract_id, product_id, description, unit_price, quantity, client_contracts!inner(amount, start_date, status)')
       .eq('tenant_id', tenantId)
       .gte('client_contracts.start_date', from)
       .lte('client_contracts.start_date', to),
@@ -129,12 +137,38 @@ export async function fetchProdutosMaisVendidos(
     }
   }
 
+  // Agrupa os itens por contrato pra poder distribuir o valor REAL de cada
+  // contrato entre eles — não dá pra somar item a item direto.
+  type ItemRow = {
+    contract_id: string; product_id: string | null; description: string
+    unit_price: number; quantity: number
+  }
+  const porContrato = new Map<string, { amount: number; itens: ItemRow[] }>()
+
   for (const row of itensRes.data ?? []) {
-    const qtd = Number(row.quantity)
-    // Agrupa por produto quando há vínculo; itens avulsos agrupam pelo texto,
-    // senão cada linha viraria uma "categoria" diferente no ranking.
-    const chave = row.product_id ?? `avulso:${row.description}`
-    somar(chave, row.description, row.product_id, qtd, Number(row.unit_price) * qtd)
+    const contrato = row.client_contracts as unknown as { amount: number } | { amount: number }[]
+    const amount = Number(Array.isArray(contrato) ? contrato[0]?.amount : contrato?.amount)
+    const grupo = porContrato.get(row.contract_id) ?? { amount, itens: [] }
+    grupo.itens.push({
+      contract_id: row.contract_id, product_id: row.product_id, description: row.description,
+      unit_price: Number(row.unit_price), quantity: Number(row.quantity),
+    })
+    porContrato.set(row.contract_id, grupo)
+  }
+
+  for (const { amount, itens } of porContrato.values()) {
+    const pesoTotal = itens.reduce((s, it) => s + it.unit_price * it.quantity, 0)
+
+    for (const it of itens) {
+      const peso = it.unit_price * it.quantity
+      // Preço zerado ou não preenchido: divide o valor do contrato em
+      // partes iguais entre os itens, em vez de zerar a parte desse item.
+      const parte = pesoTotal > 0 ? (peso / pesoTotal) * amount : amount / itens.length
+      // Agrupa por produto quando há vínculo; itens avulsos agrupam pelo
+      // texto, senão cada linha viraria uma "categoria" diferente.
+      const chave = it.product_id ?? `avulso:${it.description}`
+      somar(chave, it.description, it.product_id, it.quantity, parte)
+    }
   }
 
   for (const row of lancRes.data ?? []) {

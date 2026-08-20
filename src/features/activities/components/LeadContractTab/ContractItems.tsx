@@ -16,16 +16,18 @@ import {
 /**
  * Produtos e serviços de um contrato.
  *
- * O preço fica no item, não no catálogo: cada venda negocia o seu, e o
- * catálogo entra só como sugestão inicial. Assim um desconto dado hoje não
- * reescreve o valor de um contrato fechado no ano passado.
+ * Isto é um REGISTRO do que foi vendido, não uma segunda fonte de valor. Quem
+ * manda no faturamento é sempre o valor do contrato — os itens existem pra
+ * responder "quais produtos mais saem" no relatório, não pra recalcular
+ * quanto o contrato vale. O preço aqui é ilustrativo: útil como referência e
+ * pra dividir o valor do contrato entre os itens quando há mais de um, mas
+ * nunca precisa bater com o valor do contrato.
  *
  * Itens podem ser adicionados depois — é o caso de adicional vendido no meio
  * do contrato.
  */
-export function ContractItems({ contractId, contractAmount }: {
-  contractId:     string
-  contractAmount: number
+export function ContractItems({ contractId }: {
+  contractId: string
 }) {
   const tenantId = useAuthStore((s) => s.tenant?.id)!
   const queryClient = useQueryClient()
@@ -56,9 +58,6 @@ export function ContractItems({ contractId, contractAmount }: {
   const [novoAberto, setNovoAberto] = useState(false)
 
   const total = itemsTotal(itens)
-  // O valor do contrato é o que manda no faturamento. Se os itens não somam o
-  // mesmo, alguém vai olhar o relatório e não entender a diferença.
-  const divergente = itens.length > 0 && Math.abs(total - contractAmount) > 0.01
 
   return (
     <div className="flex flex-col gap-2.5">
@@ -133,21 +132,19 @@ export function ContractItems({ contractId, contractAmount }: {
           {itens.length > 0 && (
             <div className="flex items-center justify-between px-3 py-2 rounded-lg"
               style={{ background: '#141414', border: '1px solid #1e1e1e' }}>
-              <span className="text-xs" style={{ color: '#888' }}>Soma dos itens</span>
-              <span className="text-sm font-semibold tabular-nums" style={{ color: '#e8e8e8' }}>
+              <span className="text-xs" style={{ color: '#888' }}>
+                Soma dos itens <span style={{ color: '#555' }}>(referência)</span>
+              </span>
+              <span className="text-sm tabular-nums" style={{ color: '#888' }}>
                 {formatCurrency(total)}
               </span>
             </div>
           )}
 
-          {divergente && (
-            <p className="text-[11px] leading-relaxed rounded-lg px-3 py-2"
-              style={{ color: '#fbbf24', background: 'rgba(251,191,36,0.07)', border: '1px solid rgba(251,191,36,0.2)' }}>
-              Os itens somam {formatCurrency(total)}, mas o valor do contrato é {formatCurrency(contractAmount)}.
-              Quem manda no faturamento é o valor do contrato — ajuste um dos dois para não confundir
-              o relatório depois.
-            </p>
-          )}
+          <p className="text-[11px] leading-relaxed" style={{ color: '#555' }}>
+            Quem conta pro faturamento é sempre o valor do contrato, lá em cima — os itens
+            servem só pra saber o que foi vendido nele.
+          </p>
         </>
       )}
     </div>
