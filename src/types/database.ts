@@ -53,6 +53,8 @@ export interface PipelineStage {
   is_final: boolean
   stage_type?: StageType        // adicionado depois — sempre vem do banco
   funnel_step_id?: string | null // mapeamento opcional para um passo do funil
+  /** Evento disparado pro Meta ao entrar nesta coluna (046). Null = nenhum. */
+  meta_event?: string | null
   created_at: string
 }
 

@@ -2,11 +2,13 @@ import { useState, useRef, useEffect } from 'react'
 import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Plus, GripVertical, Trash2, Check, X, Trophy, XCircle, Activity, Archive } from 'lucide-react'
+import { Plus, GripVertical, Trash2, Check, X, Trophy, XCircle, Activity, Archive, Radio } from 'lucide-react'
 import { cn, formatCurrencyCompact } from '@/lib/utils'
 import { KanbanCard } from '../KanbanCard'
 import { usePipelineManagement } from '../../hooks/usePipelineManagement'
 import { useFunnelSteps } from '@/features/funnel/hooks/useFunnelSteps'
+import { useCapiAtiva } from '@/features/integrations/hooks/useMetaCredentials'
+import { META_EVENTS, metaEventLabel } from '@/services/metaAds'
 import { Select } from '@/components/ui/Select'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { usePermissions } from '@/hooks/usePermissions'
@@ -57,9 +59,11 @@ export function KanbanColumn({
   const [stageColor, setStageColor] = useState(stage.color)
   const [stageType,  setStageType]  = useState<StageType>(stage.stage_type ?? 'in_progress')
   const [funnelStepId, setFunnelStepId] = useState<string>(stage.funnel_step_id ?? '')
+  const [metaEvent,    setMetaEvent]    = useState<string>(stage.meta_event ?? '')
   const inputRef = useRef<HTMLInputElement>(null)
 
   const { data: funnelSteps = [] } = useFunnelSteps()
+  const capiAtiva = useCapiAtiva()
 
   // Soma dos valores dos leads na coluna
   const columnValue = cards.reduce((sum, c) => sum + Number(c.lead.value ?? 0), 0)
@@ -91,6 +95,7 @@ export function KanbanColumn({
         color:          stageColor,
         stage_type:     stageType,
         funnel_step_id: funnelStepId || null,
+        meta_event:     metaEvent || null,
       },
     })
     setEditing(false)
@@ -212,6 +217,21 @@ export function KanbanColumn({
                 />
               </div>
             )}
+
+            {/* Evento pro Meta. Só aparece pra quem ligou a API de Conversões —
+                pra todo mundo mais seria um campo sem significado. */}
+            {capiAtiva && (
+              <div className="mt-1">
+                <Select
+                  value={metaEvent}
+                  onChange={(e) => setMetaEvent(e.target.value)}
+                  options={[
+                    { value: '', label: '— não avisa o Meta —' },
+                    ...META_EVENTS.map((ev) => ({ value: ev.value, label: `Avisa o Meta: ${ev.label}` })),
+                  ]}
+                />
+              </div>
+            )}
           </div>
         ) : (
           <>
@@ -222,11 +242,29 @@ export function KanbanColumn({
               style={{ color: '#e8e8e8' }}
               onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--tenant-primary)')}
               onMouseLeave={(e) => (e.currentTarget.style.color = '#e8e8e8')}
-              title={`Tipo: ${typeConfig.label} · Clique para editar`}
+              title={[
+                `Tipo: ${typeConfig.label}`,
+                capiAtiva && stage.meta_event
+                  ? `Avisa o Meta: ${metaEventLabel(stage.meta_event)}`
+                  : null,
+                'Clique para editar',
+              ].filter(Boolean).join(' · ')}
             >
               <span className="truncate">{stage.name}</span>
               {stage.stage_type && stage.stage_type !== 'in_progress' && (
                 <typeConfig.icon size={11} className="shrink-0" style={{ color: typeConfig.color }} />
+              )}
+              {/* Antena: esta coluna avisa o Meta. Sem isso, a marcação só
+                  existia na tela de Meta Ads e quem trabalha no funil o dia
+                  inteiro não tinha como saber que arrastar pra cá manda sinal
+                  pra fora do CRM. */}
+              {capiAtiva && stage.meta_event && (
+                <Radio
+                  size={11}
+                  className="shrink-0"
+                  style={{ color: '#40a0ff' }}
+                  aria-label={`Avisa o Meta: ${metaEventLabel(stage.meta_event)}`}
+                />
               )}
             </button>
             {columnValue > 0 && (

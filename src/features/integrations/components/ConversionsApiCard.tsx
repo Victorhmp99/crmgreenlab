@@ -51,6 +51,7 @@ export function ConversionsApiCard({ tenantId, credentials }: {
       setTokenInput('')
       setErro(null)
       queryClient.invalidateQueries({ queryKey: ['meta-credentials', tenantId] })
+      invalidarKanban()
     },
     onError: (e: Error) => setErro(e.message),
   })
@@ -60,14 +61,33 @@ export function ConversionsApiCard({ tenantId, credentials }: {
     onSuccess: () => {
       setDatasetInput('')
       queryClient.invalidateQueries({ queryKey: ['meta-credentials', tenantId] })
+      invalidarKanban()
     },
   })
+
+  // Qual coluna acabou de salvar. O seletor salva sozinho ao mudar, sem botão
+  // — sem um sinal de volta a pessoa fica sem saber se pegou.
+  const [salvou, setSalvou] = useState<string | null>(null)
 
   const mapear = useMutation({
     mutationFn: ({ stageId, event }: { stageId: string; event: MetaEvent | null }) =>
       updateStageMetaEvent(stageId, event),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['funis-para-mapear', tenantId] }),
+    onSuccess: (_, { stageId }) => {
+      setSalvou(stageId)
+      setTimeout(() => setSalvou((atual) => (atual === stageId ? null : atual)), 2000)
+      queryClient.invalidateQueries({ queryKey: ['funis-para-mapear', tenantId] })
+      // O Kanban mostra uma antena na coluna marcada — sem isso ela só
+      // apareceria lá depois de recarregar a página.
+      queryClient.invalidateQueries({ queryKey: ['pipeline-stages', tenantId] })
+    },
   })
+
+  // Ligar/desligar muda o que o Kanban mostra na coluna — precisa invalidar
+  // junto, senão a antena só aparece (ou some) no próximo recarregamento.
+  function invalidarKanban() {
+    queryClient.invalidateQueries({ queryKey: ['capi-ativa', tenantId] })
+    queryClient.invalidateQueries({ queryKey: ['pipeline-stages', tenantId] })
+  }
 
   function handleSalvar(e: FormEvent) {
     e.preventDefault()
@@ -274,6 +294,12 @@ export function ConversionsApiCard({ tenantId, credentials }: {
                           style={{ color: stage.meta_event ? '#e8e8e8' : '#777' }}>
                           {stage.name}
                         </span>
+                        {salvou === stage.id && (
+                          <span className="flex items-center gap-1 text-[10px] shrink-0"
+                            style={{ color: '#00e676' }}>
+                            <Check size={11} /> salvo
+                          </span>
+                        )}
                         <select
                           value={stage.meta_event ?? ''}
                           onChange={(e) => mapear.mutate({

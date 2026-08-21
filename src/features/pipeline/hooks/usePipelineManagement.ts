@@ -57,13 +57,16 @@ export function usePipelineManagement() {
   const editStage = useMutation({
     mutationFn: ({
       id, data, pipelineId: _pid,
-    }: { id: string; data: Partial<Pick<PipelineStage, 'name' | 'color' | 'stage_type' | 'funnel_step_id'>>; pipelineId: string }) =>
+    }: { id: string; data: Partial<Pick<PipelineStage, 'name' | 'color' | 'stage_type' | 'funnel_step_id' | 'meta_event'>>; pipelineId: string }) =>
       updateStage(id, data),
     onSuccess: (_, variables) => {
       invalidateStages(variables.pipelineId)
       queryClient.invalidateQueries({ queryKey: ['dashboard-metrics', tenantId] })
       queryClient.invalidateQueries({ queryKey: ['pipeline-financial', tenantId] })
       queryClient.invalidateQueries({ queryKey: ['funnel-metrics', tenantId] })
+      // A tela de Meta Ads lista as colunas marcadas — marcar por aqui tem
+      // que refletir lá, senão os dois lugares discordam.
+      queryClient.invalidateQueries({ queryKey: ['funis-para-mapear', tenantId] })
     },
   })
 

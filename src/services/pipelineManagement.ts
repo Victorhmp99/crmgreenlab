@@ -170,7 +170,8 @@ export async function createStage(
 
 export async function updateStage(
   id:   string,
-  data: Partial<Pick<PipelineStage, 'name' | 'color' | 'position' | 'is_final' | 'stage_type' | 'funnel_step_id'>>,
+  data: Partial<Pick<PipelineStage,
+    'name' | 'color' | 'position' | 'is_final' | 'stage_type' | 'funnel_step_id' | 'meta_event'>>,
 ): Promise<void> {
   const { error } = await supabase.from('pipeline_stages').update(data).eq('id', id)
   if (error) throw error
