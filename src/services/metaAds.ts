@@ -6,6 +6,10 @@ export interface MetaCredentials {
   /** Se já existe token salvo. O token em si NUNCA vem pro navegador. */
   hasToken:     boolean
   syncedAt:     string | null
+  /** Dataset (pixel) que recebe os eventos da API de Conversões. */
+  datasetId:    string | null
+  /** Idem: só informamos se existe, o token nunca desce. */
+  hasCapiToken: boolean
 }
 
 /**
@@ -117,15 +121,17 @@ export interface Campaign {
 export async function fetchMetaCredentials(tenantId: string): Promise<MetaCredentials | null> {
   const { data, error } = await supabase
     .from('meta_ads_credentials')
-    .select('synced_at, access_token')
+    .select('synced_at, access_token, dataset_id, capi_token')
     .eq('tenant_id', tenantId)
     .maybeSingle()
 
   if (error || !data) return null
 
   return {
-    hasToken: !!data.access_token,
-    syncedAt: data.synced_at,
+    hasToken:     !!data.access_token,
+    syncedAt:     data.synced_at,
+    datasetId:    data.dataset_id ?? null,
+    hasCapiToken: !!data.capi_token,
   }
 }
 
@@ -137,6 +143,137 @@ export async function saveMetaToken(tenantId: string, accessToken: string): Prom
       { tenant_id: tenantId, access_token: accessToken.trim(), updated_at: new Date().toISOString() },
       { onConflict: 'tenant_id' },
     )
+
+  if (error) throw error
+}
+
+// ── API de Conversões ─────────────────────────────────────────────────────────
+
+/** Eventos que o CRM sabe disparar. Espelha o CHECK de pipeline_stages. */
+export const META_EVENTS = [
+  { value: 'Lead',     label: 'Lead qualificado', descricao: 'Respondeu e tem perfil' },
+  { value: 'Schedule', label: 'Agendou',          descricao: 'Marcou consulta ou reunião' },
+  { value: 'Purchase', label: 'Fechou',           descricao: 'Virou cliente (leva o valor junto)' },
+] as const
+
+export type MetaEvent = typeof META_EVENTS[number]['value']
+
+export function metaEventLabel(value: string | null | undefined): string | null {
+  return META_EVENTS.find((e) => e.value === value)?.label ?? null
+}
+
+/**
+ * Salva dataset e token da API de Conversões.
+ *
+ * Token em branco mantém o que já está salvo — mesma regra do token de
+ * leitura. Como ele nunca desce pro navegador, campo vazio significa "não
+ * mexi nisso", não "apague".
+ */
+export async function saveCapiConfig(
+  tenantId:  string,
+  datasetId: string,
+  capiToken?: string,
+): Promise<void> {
+  const payload: Record<string, unknown> = {
+    tenant_id:  tenantId,
+    dataset_id: datasetId.trim() || null,
+    updated_at: new Date().toISOString(),
+  }
+  if (capiToken?.trim()) payload.capi_token = capiToken.trim()
+
+  const { error } = await supabase
+    .from('meta_ads_credentials')
+    .upsert(payload, { onConflict: 'tenant_id' })
+
+  if (error) throw error
+}
+
+/** Desliga o envio sem apagar o token de leitura de campanhas. */
+export async function disableCapi(tenantId: string): Promise<void> {
+  const { error } = await supabase
+    .from('meta_ads_credentials')
+    .update({ dataset_id: null, capi_token: null, updated_at: new Date().toISOString() })
+    .eq('tenant_id', tenantId)
+
+  if (error) throw error
+}
+
+export interface ConversionStats {
+  enviados:  number
+  pendentes: number
+  falhados:  number
+  /** Motivo da última falha — é o que diz o que corrigir (token, dataset). */
+  ultimoErro: string | null
+}
+
+export async function fetchConversionStats(tenantId: string): Promise<ConversionStats> {
+  const { data, error } = await supabase
+    .from('meta_conversion_events')
+    .select('status, last_error, created_at')
+    .eq('tenant_id', tenantId)
+    .order('created_at', { ascending: false })
+    .limit(500)
+
+  if (error) throw error
+
+  const linhas = data ?? []
+  return {
+    enviados:  linhas.filter((l) => l.status === 'sent').length,
+    pendentes: linhas.filter((l) => l.status === 'pending').length,
+    falhados:  linhas.filter((l) => l.status === 'failed').length,
+    ultimoErro: linhas.find((l) => l.status === 'failed')?.last_error ?? null,
+  }
+}
+
+export interface FunilParaMapear {
+  pipelineId:   string
+  pipelineName: string
+  stages: Array<{ id: string; name: string; position: number; meta_event: string | null }>
+}
+
+/**
+ * Colunas da empresa agrupadas por funil, pra montar o mapa coluna → evento.
+ *
+ * Agrupado por funil porque uma empresa pode ter vários e as colunas se
+ * repetem entre eles ("Agendado" existe em seis funis da Green Hub) — sem o
+ * nome do funil ao lado não dá pra saber qual "Agendado" se está marcando.
+ */
+export async function fetchFunisParaMapear(tenantId: string): Promise<FunilParaMapear[]> {
+  const { data, error } = await supabase
+    .from('pipeline_stages')
+    // A FK precisa ser nomeada: existem DUAS ligações entre pipeline_stages e
+    // pipelines (o funil da coluna, e a coluna inicial do funil). Sem
+    // qualificar, o PostgREST recusa a consulta por ambiguidade (PGRST201).
+    .select('id, name, position, meta_event, pipeline_id, pipelines!pipeline_stages_pipeline_id_fkey(name)')
+    .eq('tenant_id', tenantId)
+    .order('position', { ascending: true })
+
+  if (error) throw error
+
+  const mapa = new Map<string, FunilParaMapear>()
+  for (const row of data ?? []) {
+    const pid = row.pipeline_id as string
+    if (!pid) continue
+    const nome = (row.pipelines as unknown as { name: string } | null)?.name ?? 'Funil'
+    const funil = mapa.get(pid) ?? { pipelineId: pid, pipelineName: nome, stages: [] }
+    funil.stages.push({
+      id: row.id, name: row.name, position: row.position, meta_event: row.meta_event,
+    })
+    mapa.set(pid, funil)
+  }
+
+  return [...mapa.values()].sort((a, b) => a.pipelineName.localeCompare(b.pipelineName))
+}
+
+/** Liga (ou desliga, com null) o evento que uma coluna do funil dispara. */
+export async function updateStageMetaEvent(
+  stageId: string,
+  event:   MetaEvent | null,
+): Promise<void> {
+  const { error } = await supabase
+    .from('pipeline_stages')
+    .update({ meta_event: event })
+    .eq('id', stageId)
 
   if (error) throw error
 }

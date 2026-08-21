@@ -486,6 +486,75 @@ export const HELP_CATEGORIES: HelpCategory[] = [
         ),
       },
       {
+        slug: 'meta-capi-o-que-e',
+        question: 'O que é a API de Conversões e por que ligar?',
+        answer: (
+          <>
+            <P>Campanha que manda gente pro WhatsApp só ensina uma coisa pro Meta: <strong>quem mandou mensagem</strong>. Ele não faz ideia de quem virou lead bom, quem agendou e quem fechou — então otimiza a entrega buscando mais gente que manda mensagem, não mais gente que compra.</P>
+            <P>A API de Conversões fecha esse circuito: quando você move o card no funil, o CRM avisa o Meta. Com isso ele passa a procurar pessoas parecidas com quem <strong>fechou de verdade</strong>, e não com quem só chamou no WhatsApp.</P>
+            <Note>Só funciona pra frente: enquanto não estiver ligada, nenhum movimento de card vira sinal. Não existe envio retroativo.</Note>
+          </>
+        ),
+      },
+      {
+        slug: 'meta-capi-ligar',
+        question: 'Como ligo a API de Conversões?',
+        answer: (
+          <>
+            <P>O token da API de Conversões é <strong>diferente</strong> do token de leitura das campanhas. Você pode ter um, o outro, ou os dois.</P>
+            <Steps items={[
+              <>No Business Manager, volte no <strong>usuário do sistema</strong> → <strong>Adicionar ativos</strong> → aba <strong>Fontes de dados</strong> → marque o seu <strong>pixel</strong>.</>,
+              <>Gere um token novo marcando a permissão <code>ads_management</code>.</>,
+              <>Pegue o <strong>ID do dataset</strong> em Gerenciador de Eventos → seu pixel → Configurações.</>,
+              <>No CRM, em <strong>Meta Ads</strong>, no bloco <strong>API de Conversões</strong>, cole o ID do dataset e o token.</>,
+              <>Logo abaixo, marque em cada coluna do funil o que ela significa.</>,
+            ]} />
+            <Warn>O passo 1 é o que trava: atribuir só a conta de anúncios não basta — o <strong>pixel</strong> precisa estar entre os ativos do usuário do sistema, senão o Meta recusa o envio com "sem permissão".</Warn>
+          </>
+        ),
+      },
+      {
+        slug: 'meta-capi-eventos',
+        question: 'Que eventos marco em cada coluna?',
+        answer: (
+          <>
+            <P>São três, e a recomendação é usar só esses três:</P>
+            <Bullets items={[
+              <><strong>Lead qualificado</strong> — a pessoa respondeu e tem perfil. É o que substitui o "mandou mensagem" como sinal de qualidade.</>,
+              <><strong>Agendou</strong> — marcou a consulta ou reunião. É o mais subestimado: acontece cedo e tem volume bem maior que fechamento.</>,
+              <><strong>Fechou</strong> — virou cliente. Leva junto o valor do contrato, pro Meta otimizar por receita e não por quantidade.</>,
+            ]} />
+            <Warn>Não marque nada em "Perdido", "No-show" ou "Desqualificado". O Meta <strong>não aprende com evento negativo</strong> — não existe como dizer "esse lead foi ruim". O sinal de lead ruim é justamente a ausência do evento.</Warn>
+            <Note>Evitar espalhar em seis eventos também é de propósito: cada evento precisa de volume próprio, e dividir 100 leads por mês em seis eventos dá seis eventos que não servem pra nada.</Note>
+          </>
+        ),
+      },
+      {
+        slug: 'meta-capi-duplicado',
+        question: 'Se eu arrastar o card de volta, conta duas vezes?',
+        answer: (
+          <>
+            <P>Não. Cada evento sai <strong>uma vez por lead</strong>. Mover pra "Fechado", se arrepender, voltar e mover de novo manda um evento só.</P>
+            <P>Isso é proposital: sem a trava, o Meta acharia que aquele perfil de pessoa rende três vezes mais do que rende, e passaria a caçar o público errado.</P>
+            <Note>O envio não é instantâneo — acontece em até 5 minutos, em lote. Isso não faz diferença nenhuma pro Meta.</Note>
+          </>
+        ),
+      },
+      {
+        slug: 'meta-capi-quando-resultado',
+        question: 'Quanto tempo até dar resultado?',
+        answer: (
+          <>
+            <Bullets items={[
+              <><strong>Primeira semana</strong> — os eventos começam a aparecer no Gerenciador de Eventos. Já dá pra ver qual campanha traz lead que anda no funil e qual traz lead que morre no primeiro contato.</>,
+              <><strong>Cerca de 6 semanas</strong> — público grande o bastante pra criar um semelhante (lookalike) de lead qualificado. O Meta pede no mínimo 100 pessoas.</>,
+              <><strong>Otimização automática da entrega</strong> — só a partir de mais ou menos 50 eventos por semana em cada conjunto de anúncios. Abaixo disso o algoritmo não sai da fase de aprendizado.</>,
+            ]} />
+            <Warn>Se o card não é movido, não existe sinal. A integração depende do time comercial manter o funil em dia — CRM parado no "Novo Lead" não ensina nada pro Meta.</Warn>
+          </>
+        ),
+      },
+      {
         slug: 'meta-erro-sync',
         question: 'A sincronização deu erro. O que verifico?',
         answer: (

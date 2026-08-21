@@ -28,6 +28,7 @@ import {
 import { ColumnPicker } from '../components/ColumnPicker'
 import { lerColunasSalvas } from '../colunasSalvas'
 import { ReportModal } from '../components/ReportModal'
+import { ConversionsApiCard } from '../components/ConversionsApiCard'
 
 const OBJECTIVE_LABELS: Record<string, string> = {
   OUTCOME_LEADS:        'Cadastros',
@@ -510,6 +511,10 @@ export function MetaAdsPage() {
           </>
         )}
       </div>
+
+      {/* API de Conversões — o caminho de volta: o CRM contando pro Meta o que
+          aconteceu com o lead depois que ele entrou. */}
+      <ConversionsApiCard tenantId={tenantId} credentials={credentials} />
 
       {/* Tabela de campanhas */}
       <div className="rounded-xl overflow-hidden" style={{ background: '#141414', border: '1px solid #1e1e1e' }}>
