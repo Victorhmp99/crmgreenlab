@@ -32,3 +32,6 @@ dist-ssr
 .claude/
 
 .vercel
+
+# Cache do CLI do Supabase
+supabase/.temp/
