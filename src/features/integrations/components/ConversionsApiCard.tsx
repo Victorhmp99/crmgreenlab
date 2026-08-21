@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Radio, Check, AlertTriangle, Clock, Info } from 'lucide-react'
+import { Radio, Check, AlertTriangle, Clock, Info, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Spinner } from '@/components/ui/Spinner'
@@ -98,19 +98,82 @@ export function ConversionsApiCard({ tenantId, credentials }: {
         Ensina o Meta quem virou cliente de verdade, não só quem mandou mensagem
       </p>
 
-      {/* ── Conexão ───────────────────────────────────────────────────── */}
+      {/* ── Pra que serve ─────────────────────────────────────────────── */}
       <div className="rounded-lg p-3 mb-4 text-xs leading-relaxed"
-        style={{ background: 'rgba(64,160,255,0.06)', border: '1px solid rgba(64,160,255,0.2)', color: '#7ab3dd' }}>
+        style={{ background: '#171717', border: '1px solid #222', color: '#999' }}>
         <p className="flex items-start gap-2">
-          <Info size={13} className="shrink-0 mt-0.5" />
+          <Info size={13} className="shrink-0 mt-0.5" style={{ color: '#666' }} />
           <span>
-            O token aqui é <strong>diferente</strong> do token de leitura acima: precisa da
-            permissão <code>ads_management</code>, e o <strong>pixel</strong> tem que estar
-            atribuído ao usuário do sistema (não só a conta de anúncio). O ID do dataset é o
-            do pixel, em Gerenciador de Eventos → Configurações.
+            Hoje sua campanha de WhatsApp só sabe <strong style={{ color: '#ccc' }}>quem mandou
+            mensagem</strong> — então ela procura mais gente que manda mensagem, não mais gente
+            que compra. Ligando isso, cada vez que você move o card no funil o CRM avisa o Meta,
+            e ele passa a procurar pessoas parecidas com quem{' '}
+            <strong style={{ color: '#ccc' }}>fechou de verdade</strong>.
           </span>
         </p>
       </div>
+
+      {/* ── Passo a passo ─────────────────────────────────────────────── */}
+      {!ligado && (
+        <div className="rounded-xl px-4 py-3 text-xs mb-5"
+          style={{ background: 'rgba(64,160,255,0.08)', border: '1px solid rgba(64,160,255,0.15)', color: '#40a0ff' }}>
+          <p className="font-semibold mb-1.5 flex items-center gap-1.5">
+            <ExternalLink size={12} /> Como ligar (leva ~5 minutos, é grátis)
+          </p>
+          <ol className="list-decimal ml-4 space-y-1" style={{ color: '#7bb8f0' }}>
+            <li>
+              Abra o <strong>Gerenciador de Eventos</strong> em{' '}
+              <a href="https://business.facebook.com/events_manager" target="_blank" rel="noopener noreferrer"
+                className="underline" style={{ color: '#40a0ff' }}>business.facebook.com/events_manager</a>{' '}
+              → clique no seu <strong>pixel</strong> → <strong>Configurações</strong> → copie o{' '}
+              <strong>ID do dataset</strong>.
+              <br />
+              <span style={{ color: '#5a93c4' }}>
+                É o mesmo número que aparece como "ID do pixel". Não confunda com o ID da conta
+                de anúncio (aquele começa com <code>act_</code>).
+              </span>
+            </li>
+            <li>
+              Vá nas <strong>Configurações do Negócio</strong> →{' '}
+              <strong>Usuários → Usuários do sistema</strong> → clique no mesmo usuário que você
+              já usa aqui → <strong>Adicionar ativos</strong> → aba{' '}
+              <strong>Fontes de dados</strong> → marque o seu <strong>pixel</strong> → ligue{' '}
+              <strong>Gerenciar</strong>.
+              <br />
+              <span style={{ color: '#5a93c4' }}>
+                <strong>Este é o passo que trava.</strong> Ter a conta de anúncio atribuída não
+                basta — se o pixel não estiver na lista de ativos, o Meta recusa o envio dizendo
+                que falta permissão.
+              </span>
+            </li>
+            <li>
+              Ainda no usuário do sistema: <strong>Gerar novo token</strong> → escolha o app →
+              marque <code>ads_management</code> → copie.
+              <br />
+              <span style={{ color: '#5a93c4' }}>
+                É um token <strong>diferente</strong> do de leitura que você salvou acima. Aquele
+                só lê campanha; este escreve evento. Os dois convivem sem problema.
+              </span>
+            </li>
+            <li>Cole o ID do dataset e o token nos campos abaixo e clique em <strong>Ligar envio</strong>.</li>
+            <li>
+              Vai aparecer a lista das colunas do seu funil. Marque em cada uma o que ela
+              significa: <strong>Lead qualificado</strong>, <strong>Agendou</strong> ou{' '}
+              <strong>Fechou</strong>.
+              <br />
+              <span style={{ color: '#5a93c4' }}>
+                Deixe em "não manda nada" as colunas de Perdido, No-show e Desqualificado — isso
+                é de propósito, o Meta não aprende com evento negativo.
+              </span>
+            </li>
+          </ol>
+          <p className="mt-2" style={{ color: '#5a93c4' }}>
+            Depois disso é automático: sua equipe move o card como já faz, e o evento sai sozinho
+            em até 5 minutos. <strong>Só vale daqui pra frente</strong> — movimento de card feito
+            antes de ligar não é enviado.
+          </p>
+        </div>
+      )}
 
       <form onSubmit={handleSalvar} className="flex items-end gap-3 flex-wrap mb-4">
         <div className="w-52">
