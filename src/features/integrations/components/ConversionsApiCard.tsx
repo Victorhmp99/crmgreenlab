@@ -30,6 +30,18 @@ export function ConversionsApiCard({ tenantId, credentials }: {
   const [tokenInput,   setTokenInput]   = useState('')
   const [erro,         setErro]         = useState<string | null>(null)
 
+  // No primeiro render `credentials` ainda está carregando, então o useState
+  // acima nasce vazio e nunca mais se corrigia — ao recarregar a página o
+  // dataset salvo sumia da tela (e o Chrome preenchia o campo vazio com um
+  // e-mail salvo). Ajuste durante o render em vez de efeito: só reage quando
+  // o valor SALVO muda, então refetch que devolve o mesmo dataset não
+  // atropela o que a pessoa está digitando.
+  const [datasetSalvo, setDatasetSalvo] = useState(credentials?.datasetId ?? null)
+  if ((credentials?.datasetId ?? null) !== datasetSalvo) {
+    setDatasetSalvo(credentials?.datasetId ?? null)
+    setDatasetInput(credentials?.datasetId ?? '')
+  }
+
   const ligado = !!(credentials?.datasetId && credentials?.hasCapiToken)
 
   const { data: stats } = useQuery({
@@ -96,7 +108,16 @@ export function ConversionsApiCard({ tenantId, credentials }: {
 
   function handleSalvar(e: FormEvent) {
     e.preventDefault()
-    if (!datasetInput.trim()) return setErro('Informe o ID do dataset (pixel).')
+    const dataset = datasetInput.trim()
+
+    if (!dataset) return setErro('Informe o ID do dataset (pixel).')
+    // O ID do dataset é só número. Validar aqui pega de imediato o campo
+    // preenchido errado — por autofill do navegador ou por ter copiado o ID
+    // da conta de anúncio — em vez de deixar o erro aparecer 5 minutos
+    // depois, escrito em inglês, vindo do Meta.
+    if (!/^\d+$/.test(dataset)) {
+      return setErro('O ID do dataset é só número. Pegue em Gerenciador de Eventos → seu pixel → Configurações.')
+    }
     if (!credentials?.hasCapiToken && !tokenInput.trim()) {
       return setErro('Informe o token da API de Conversões.')
     }
@@ -200,11 +221,18 @@ export function ConversionsApiCard({ tenantId, credentials }: {
         </div>
       )}
 
-      <form onSubmit={handleSalvar} className="flex items-end gap-3 flex-wrap mb-4">
+      {/* autoComplete desligado nos dois: um campo de texto seguido de um
+          type="password" faz o Chrome tratar o par como formulário de login e
+          despejar e-mail e senha salvos por cima. Aconteceu de verdade — o
+          campo de dataset apareceu preenchido com um endereço de e-mail. */}
+      <form onSubmit={handleSalvar} autoComplete="off" className="flex items-end gap-3 flex-wrap mb-4">
         <div className="w-52">
           <Input
             label="ID do dataset (pixel) *"
             placeholder="1234567890123456"
+            inputMode="numeric"
+            name="meta-dataset-id"
+            autoComplete="off"
             value={datasetInput}
             onChange={(e) => setDatasetInput(e.target.value)}
           />
@@ -216,6 +244,8 @@ export function ConversionsApiCard({ tenantId, credentials }: {
               : 'Token da CAPI *'}
             type="password"
             placeholder={credentials?.hasCapiToken ? '•••••••• já salvo' : 'EAAxxxxx...'}
+            name="meta-capi-token"
+            autoComplete="new-password"
             value={tokenInput}
             onChange={(e) => setTokenInput(e.target.value)}
           />

@@ -405,12 +405,16 @@ export function MetaAdsPage() {
             </div>
 
             {/* Token da empresa (um só, atende todas as contas) */}
-            <form onSubmit={handleSaveToken} className="flex items-end gap-3 flex-wrap mb-5">
+            <form onSubmit={handleSaveToken} autoComplete="off" className="flex items-end gap-3 flex-wrap mb-5">
               <div className="flex-1 min-w-56">
                 <Input
                   label={isConnected ? 'Token de acesso (salvo — cole outro para trocar)' : 'Token de acesso *'}
                   type="password"
                   placeholder={isConnected ? '•••••••• já salvo' : 'EAAxxxxx...'}
+                  name="meta-read-token"
+                  // Sem isso o Chrome trata como campo de senha de login e
+                  // oferece credencial salva, que não tem nada a ver aqui.
+                  autoComplete="new-password"
                   value={tokenInput}
                   onChange={(e) => setTokenInput(e.target.value)}
                 />
