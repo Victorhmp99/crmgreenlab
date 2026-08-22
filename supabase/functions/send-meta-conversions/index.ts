@@ -131,7 +131,7 @@ Deno.serve(async (req) => {
   for (const [tenantId, eventos] of porTenant) {
     const { data: cred } = await supabase
       .from('meta_ads_credentials')
-      .select('dataset_id, capi_token, capi_test_code')
+      .select('dataset_id, capi_token, capi_test_code, capi_action_source')
       .eq('tenant_id', tenantId)
       .maybeSingle()
 
@@ -162,7 +162,7 @@ Deno.serve(async (req) => {
         event_name:    ev.event_name,
         event_time:    Math.floor(new Date(ev.event_time).getTime() / 1000),
         event_id:      ev.id,               // o Meta usa isso pra não contar duas vezes
-        action_source: 'system_generated',  // veio do CRM, não de clique em página
+        action_source: cred.capi_action_source ?? 'system_generated',  // veio do CRM, não de clique em página
         user_data:     userData,
       }
 
