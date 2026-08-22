@@ -186,6 +186,20 @@ export async function saveCapiConfig(
     .upsert(payload, { onConflict: 'tenant_id' })
 
   if (error) throw error
+
+  // Credencial errada é a causa mais comum de falha, e o unique da fila
+  // impede que o evento daquele lead seja gerado de novo. Salvar credencial
+  // nova é justamente o momento em que a causa costuma ter sido resolvida,
+  // então devolvemos os falhos pra fila junto — senão os leads que falharam
+  // durante o teste ficariam queimados pra sempre.
+  await supabase.rpc('reenfileirar_eventos_meta', { p_tenant_id: tenantId })
+}
+
+/** Devolve pra fila tudo que falhou. Usado pelo botão "tentar de novo". */
+export async function reenfileirarEventos(tenantId: string): Promise<number> {
+  const { data, error } = await supabase.rpc('reenfileirar_eventos_meta', { p_tenant_id: tenantId })
+  if (error) throw error
+  return (data as number) ?? 0
 }
 
 /** Desliga o envio sem apagar o token de leitura de campanhas. */

@@ -1,12 +1,12 @@
 import { useState, type FormEvent } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Radio, Check, AlertTriangle, Clock, Info, ExternalLink } from 'lucide-react'
+import { Radio, Check, AlertTriangle, Clock, Info, ExternalLink, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Spinner } from '@/components/ui/Spinner'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import {
-  saveCapiConfig, disableCapi, fetchConversionStats,
+  saveCapiConfig, disableCapi, fetchConversionStats, reenfileirarEventos,
   fetchFunisParaMapear, updateStageMetaEvent,
   META_EVENTS, type MetaEvent, type MetaCredentials,
 } from '@/services/metaAds'
@@ -80,6 +80,11 @@ export function ConversionsApiCard({ tenantId, credentials }: {
       // apareceria lá depois de recarregar a página.
       queryClient.invalidateQueries({ queryKey: ['pipeline-stages', tenantId] })
     },
+  })
+
+  const retentar = useMutation({
+    mutationFn: () => reenfileirarEventos(tenantId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['meta-conversion-stats', tenantId] }),
   })
 
   // Ligar/desligar muda o que o Kanban mostra na coluna — precisa invalidar
@@ -258,8 +263,22 @@ export function ConversionsApiCard({ tenantId, credentials }: {
         <div className="rounded-lg px-3 py-2 mb-4 text-xs"
           style={{ background: 'rgba(255,68,68,0.08)', border: '1px solid rgba(255,68,68,0.2)' }}>
           <p className="font-medium mb-1" style={{ color: '#ff6666' }}>O Meta recusou o último envio:</p>
-          <p className="font-mono leading-relaxed break-all" style={{ color: '#aa7777' }}>
+          <p className="font-mono leading-relaxed break-all mb-2" style={{ color: '#aa7777' }}>
             {stats.ultimoErro}
+          </p>
+          <button
+            type="button"
+            onClick={() => retentar.mutate()}
+            disabled={retentar.isPending}
+            className="flex items-center gap-1.5 text-xs rounded-lg px-2.5 py-1 transition-colors disabled:opacity-50"
+            style={{ background: 'rgba(255,68,68,0.12)', color: '#ff8888' }}
+          >
+            <RefreshCw size={11} className={retentar.isPending ? 'animate-spin' : undefined} />
+            {retentar.isPending ? 'Reenfileirando…' : 'Corrigi — tentar de novo'}
+          </button>
+          <p className="mt-1.5" style={{ color: '#7a5555' }}>
+            Salvar credencial nova já faz isso sozinho. Use o botão quando a falha foi do lado
+            do Meta e não teve nada pra corrigir aqui.
           </p>
         </div>
       )}
