@@ -149,17 +149,35 @@ export async function saveMetaToken(tenantId: string, accessToken: string): Prom
 
 // ── API de Conversões ─────────────────────────────────────────────────────────
 
-/** Eventos que o CRM sabe disparar. Espelha o CHECK de pipeline_stages. */
+/**
+ * Sugestões de evento. O nome final é livre — o campo aceita qualquer nome
+ * válido pro Meta, porque o pixel da empresa pode já ter evento com o mesmo
+ * sentido vindo de outra origem (Calendly, formulário) e aí convém um nome
+ * que deixe claro que veio do comercial.
+ *
+ * `Purchase` é o único que vale manter com o nome padrão mesmo assim: é ele
+ * que o Meta liga a valor e ROAS no relatório de campanha. Nome próprio ali
+ * custa esse relatório.
+ */
 export const META_EVENTS = [
+  { value: 'Purchase', label: 'Fechou',           descricao: 'Virou cliente — leva o valor junto. Mantenha este nome: é o que dá ROAS no relatório' },
   { value: 'Lead',     label: 'Lead qualificado', descricao: 'Respondeu e tem perfil' },
   { value: 'Schedule', label: 'Agendou',          descricao: 'Marcou consulta ou reunião' },
-  { value: 'Purchase', label: 'Fechou',           descricao: 'Virou cliente (leva o valor junto)' },
 ] as const
 
-export type MetaEvent = typeof META_EVENTS[number]['value']
+export type MetaEvent = string
+
+/** Regra de nome do Meta: letra no início, depois letra/número/_/-, até 40. */
+export const META_EVENT_REGEX = /^[A-Za-z][A-Za-z0-9_-]{1,39}$/
 
 export function metaEventLabel(value: string | null | undefined): string | null {
-  return META_EVENTS.find((e) => e.value === value)?.label ?? null
+  if (!value) return null
+  return META_EVENTS.find((e) => e.value === value)?.label ?? value
+}
+
+/** Se o nome não é um dos padrão — usado pra explicar o custo do personalizado. */
+export function isEventoPersonalizado(value: string | null | undefined): boolean {
+  return !!value && !META_EVENTS.some((e) => e.value === value)
 }
 
 /**

@@ -8,7 +8,8 @@ import { useConfirm } from '@/components/ui/ConfirmDialog'
 import {
   saveCapiConfig, disableCapi, fetchConversionStats, reenfileirarEventos,
   fetchFunisParaMapear, updateStageMetaEvent,
-  META_EVENTS, type MetaEvent, type MetaCredentials,
+  META_EVENTS, META_EVENT_REGEX, isEventoPersonalizado,
+  type MetaEvent, type MetaCredentials,
 } from '@/services/metaAds'
 
 /**
@@ -349,24 +350,10 @@ export function ConversionsApiCard({ tenantId, credentials }: {
                             <Check size={11} /> salvo
                           </span>
                         )}
-                        <select
-                          value={stage.meta_event ?? ''}
-                          onChange={(e) => mapear.mutate({
-                            stageId: stage.id,
-                            event: (e.target.value || null) as MetaEvent | null,
-                          })}
-                          className="text-xs rounded-lg px-2 py-1 outline-none shrink-0"
-                          style={{
-                            background: '#1a1a1a',
-                            border: `1px solid ${stage.meta_event ? '#2f6f4f' : '#252525'}`,
-                            color: stage.meta_event ? '#00e676' : '#666',
-                          }}
-                        >
-                          <option value="">não manda nada</option>
-                          {META_EVENTS.map((ev) => (
-                            <option key={ev.value} value={ev.value}>{ev.label}</option>
-                          ))}
-                        </select>
+                        <SeletorEvento
+                          valor={stage.meta_event}
+                          onChange={(event) => mapear.mutate({ stageId: stage.id, event })}
+                        />
                       </div>
                     ))}
                   </div>
@@ -382,6 +369,88 @@ export function ConversionsApiCard({ tenantId, credentials }: {
         </div>
       )}
     </div>
+  )
+}
+
+/**
+ * Escolha do evento da coluna: os três padrão, ou um nome próprio.
+ *
+ * O nome próprio existe porque o pixel da empresa pode já receber evento com
+ * o mesmo sentido de outra origem — o Calendly manda um "agendou", o
+ * formulário manda um "lead". Sem poder renomear, o evento do comercial
+ * viraria mais uma linha idêntica e ninguém saberia qual é qual.
+ */
+function SeletorEvento({ valor, onChange }: {
+  valor:    string | null
+  onChange: (event: string | null) => void
+}) {
+  const personalizado = isEventoPersonalizado(valor)
+  const [editando, setEditando] = useState(personalizado)
+  const [texto,    setTexto]    = useState(valor ?? '')
+  const [erro,     setErro]     = useState(false)
+
+  function confirmar() {
+    const nome = texto.trim()
+    if (!nome) { setErro(false); setEditando(false); onChange(null); return }
+    if (!META_EVENT_REGEX.test(nome)) { setErro(true); return }
+    setErro(false)
+    onChange(nome)
+  }
+
+  if (editando) {
+    return (
+      <div className="flex items-center gap-1.5 shrink-0">
+        <input
+          value={texto}
+          autoFocus
+          placeholder="AgendouCRM"
+          onChange={(e) => { setTexto(e.target.value); setErro(false) }}
+          onBlur={confirmar}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') { e.currentTarget.blur() }
+            if (e.key === 'Escape') { setTexto(valor ?? ''); setErro(false); setEditando(personalizado) }
+          }}
+          className="text-xs rounded-lg px-2 py-1 outline-none w-36"
+          style={{
+            background: '#1a1a1a',
+            border: `1px solid ${erro ? '#ff4444' : '#2f6f4f'}`,
+            color: '#00e676',
+          }}
+          title="Letras, números, _ e - . Sem espaço e sem acento."
+        />
+        <button
+          type="button"
+          onClick={() => { setTexto(''); setErro(false); setEditando(false); onChange(null) }}
+          className="text-[10px] transition-colors"
+          style={{ color: '#555' }}
+          title="Voltar para os eventos padrão"
+        >
+          padrão
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <select
+      value={valor ?? ''}
+      onChange={(e) => {
+        if (e.target.value === '__custom__') { setTexto(''); setEditando(true); return }
+        onChange(e.target.value || null)
+      }}
+      className="text-xs rounded-lg px-2 py-1 outline-none shrink-0"
+      style={{
+        background: '#1a1a1a',
+        border: `1px solid ${valor ? '#2f6f4f' : '#252525'}`,
+        color: valor ? '#00e676' : '#666',
+      }}
+    >
+      <option value="">não manda nada</option>
+      {META_EVENTS.map((ev) => (
+        <option key={ev.value} value={ev.value}>{ev.label}</option>
+      ))}
+      <option value="__custom__">nome próprio…</option>
+    </select>
   )
 }
 

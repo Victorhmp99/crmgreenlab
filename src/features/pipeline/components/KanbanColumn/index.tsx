@@ -228,6 +228,13 @@ export function KanbanColumn({
                   options={[
                     { value: '', label: '— não avisa o Meta —' },
                     ...META_EVENTS.map((ev) => ({ value: ev.value, label: `Avisa o Meta: ${ev.label}` })),
+                    // Nome próprio definido na tela de Meta Ads entra como
+                    // opção. Sem isso o select não acharia o valor atual,
+                    // mostraria a primeira opção, e salvar a coluna apagaria
+                    // o evento sem ninguém perceber.
+                    ...(metaEvent && !META_EVENTS.some((ev) => ev.value === metaEvent)
+                      ? [{ value: metaEvent, label: `Avisa o Meta: ${metaEvent}` }]
+                      : []),
                   ]}
                 />
               </div>
