@@ -126,12 +126,12 @@ Deno.serve(async (req) => {
   }
 
   // ── 4. Envia, empresa por empresa ────────────────────────────────────────
-  const resultado = { enviados: 0, falhados: 0, semCredencial: 0, erros: [] as string[] }
+  const resultado = { enviados: 0, falhados: 0, semCredencial: 0, erros: [] as string[], respostas: [] as string[] }
 
   for (const [tenantId, eventos] of porTenant) {
     const { data: cred } = await supabase
       .from('meta_ads_credentials')
-      .select('dataset_id, capi_token')
+      .select('dataset_id, capi_token, capi_test_code')
       .eq('tenant_id', tenantId)
       .maybeSingle()
 
@@ -186,16 +186,27 @@ Deno.serve(async (req) => {
         body: JSON.stringify({
           data:         payload.map((p) => p.evento),
           access_token: cred.capi_token,
+          // Enquanto a empresa tiver um código de teste salvo, o evento
+          // também aparece na aba "Eventos de teste" do Meta, na hora. É o
+          // único jeito de conferir sem esperar a indexação da visão geral.
+          ...(cred.capi_test_code ? { test_event_code: cred.capi_test_code } : {}),
         }),
       })
 
       const corpo = await resposta.text()
 
       if (resposta.ok) {
+        // Guarda o corpo mesmo no sucesso: HTTP 200 não garante que o Meta
+        // contou o evento. É aqui que vem events_received (pode ser 0) e os
+        // avisos em `messages` — sem isso, "enviado" é suposição.
         resultado.enviados += ids.length
+        resultado.respostas.push(corpo.slice(0, 300))
         await supabase
           .from('meta_conversion_events')
-          .update({ status: 'sent', sent_at: new Date().toISOString(), last_error: null })
+          .update({
+            status: 'sent', sent_at: new Date().toISOString(),
+            last_error: null, last_response: corpo.slice(0, 1000),
+          })
           .in('id', ids)
       } else {
         // O motivo real (token expirado, dataset errado, sem permissão) vem no

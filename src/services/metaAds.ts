@@ -10,6 +10,8 @@ export interface MetaCredentials {
   datasetId:    string | null
   /** Idem: só informamos se existe, o token nunca desce. */
   hasCapiToken: boolean
+  /** Código da aba "Eventos de teste". Não é segredo — pode vir pra tela. */
+  capiTestCode: string | null
 }
 
 /**
@@ -121,7 +123,7 @@ export interface Campaign {
 export async function fetchMetaCredentials(tenantId: string): Promise<MetaCredentials | null> {
   const { data, error } = await supabase
     .from('meta_ads_credentials')
-    .select('synced_at, access_token, dataset_id, capi_token')
+    .select('synced_at, access_token, dataset_id, capi_token, capi_test_code')
     .eq('tenant_id', tenantId)
     .maybeSingle()
 
@@ -132,6 +134,7 @@ export async function fetchMetaCredentials(tenantId: string): Promise<MetaCreden
     syncedAt:     data.synced_at,
     datasetId:    data.dataset_id ?? null,
     hasCapiToken: !!data.capi_token,
+    capiTestCode: data.capi_test_code ?? null,
   }
 }
 
@@ -191,11 +194,16 @@ export async function saveCapiConfig(
   tenantId:  string,
   datasetId: string,
   capiToken?: string,
+  testCode?: string,
 ): Promise<void> {
   const payload: Record<string, unknown> = {
-    tenant_id:  tenantId,
-    dataset_id: datasetId.trim() || null,
-    updated_at: new Date().toISOString(),
+    tenant_id:      tenantId,
+    dataset_id:     datasetId.trim() || null,
+    // Vazio LIMPA de propósito, ao contrário do token: código de teste
+    // esquecido ligado é pior que ausente — o Meta passa a tratar tudo como
+    // teste e os eventos param de contar pra valer.
+    capi_test_code: testCode?.trim() || null,
+    updated_at:     new Date().toISOString(),
   }
   if (capiToken?.trim()) payload.capi_token = capiToken.trim()
 
@@ -224,7 +232,7 @@ export async function reenfileirarEventos(tenantId: string): Promise<number> {
 export async function disableCapi(tenantId: string): Promise<void> {
   const { error } = await supabase
     .from('meta_ads_credentials')
-    .update({ dataset_id: null, capi_token: null, updated_at: new Date().toISOString() })
+    .update({ dataset_id: null, capi_token: null, capi_test_code: null, updated_at: new Date().toISOString() })
     .eq('tenant_id', tenantId)
 
   if (error) throw error

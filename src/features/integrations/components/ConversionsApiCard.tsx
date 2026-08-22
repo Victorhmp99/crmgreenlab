@@ -29,6 +29,7 @@ export function ConversionsApiCard({ tenantId, credentials }: {
 
   const [datasetInput, setDatasetInput] = useState(credentials?.datasetId ?? '')
   const [tokenInput,   setTokenInput]   = useState('')
+  const [testeInput,   setTesteInput]   = useState(credentials?.capiTestCode ?? '')
   const [erro,         setErro]         = useState<string | null>(null)
 
   // No primeiro render `credentials` ainda está carregando, então o useState
@@ -41,6 +42,7 @@ export function ConversionsApiCard({ tenantId, credentials }: {
   if ((credentials?.datasetId ?? null) !== datasetSalvo) {
     setDatasetSalvo(credentials?.datasetId ?? null)
     setDatasetInput(credentials?.datasetId ?? '')
+    setTesteInput(credentials?.capiTestCode ?? '')
   }
 
   const ligado = !!(credentials?.datasetId && credentials?.hasCapiToken)
@@ -59,7 +61,7 @@ export function ConversionsApiCard({ tenantId, credentials }: {
   })
 
   const salvar = useMutation({
-    mutationFn: () => saveCapiConfig(tenantId, datasetInput, tokenInput),
+    mutationFn: () => saveCapiConfig(tenantId, datasetInput, tokenInput, testeInput),
     onSuccess: () => {
       setTokenInput('')
       setErro(null)
@@ -251,6 +253,16 @@ export function ConversionsApiCard({ tenantId, credentials }: {
             onChange={(e) => setTokenInput(e.target.value)}
           />
         </div>
+        <div className="w-40">
+          <Input
+            label="Código de teste"
+            placeholder="TEST12345"
+            name="meta-capi-test"
+            autoComplete="off"
+            value={testeInput}
+            onChange={(e) => setTesteInput(e.target.value)}
+          />
+        </div>
         <Button type="submit" loading={salvar.isPending}>
           {ligado ? 'Atualizar' : 'Ligar envio'}
         </Button>
@@ -275,6 +287,21 @@ export function ConversionsApiCard({ tenantId, credentials }: {
       {erro && (
         <p className="text-sm rounded-lg px-3 py-2 mb-4"
           style={{ color: '#ff4444', background: 'rgba(255,68,68,0.1)' }}>{erro}</p>
+      )}
+
+      {/* Codigo de teste esquecido ligado e pior que ausente: o Meta trata
+          tudo como teste e nenhum evento conta pra campanha. Por isso o aviso
+          e permanente e amarelo, nao uma nota discreta. */}
+      {ligado && credentials?.capiTestCode && (
+        <div className="rounded-lg px-3 py-2 mb-4 text-xs flex items-start gap-2"
+          style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)', color: '#fbbf24' }}>
+          <AlertTriangle size={13} className="shrink-0 mt-0.5" />
+          <span>
+            <strong>Modo de teste ligado.</strong> Os eventos aparecem na aba "Eventos de teste"
+            do Meta na hora, mas <strong>não contam</strong> pra otimização da campanha. Apague o
+            código de teste quando terminar de conferir.
+          </span>
+        </div>
       )}
 
       {/* ── Status do envio ───────────────────────────────────────────── */}
