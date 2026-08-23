@@ -40,18 +40,44 @@ async function sha256(valor: string): Promise<string> {
 }
 
 /**
- * Telefone no formato que o Meta espera: só dígitos, com código do país e
- * SEM o "+". Número brasileiro salvo como (61) 99999-9999 vira 5561999999999.
+ * Telefone no formato do Meta: só dígitos, com código do país, sem "+".
  *
- * Sem o 55 na frente o Meta trata como número de outro país e o match
- * simplesmente não acontece — falha silenciosa, que é a pior de todas aqui.
+ * Devolve LISTA porque um número pode ter duas formas válidas de busca. Um
+ * terço da base estava gravado como celular sem o nono dígito, formato que
+ * não casa com ninguém hoje — falha silenciosa, a pior categoria: o evento
+ * é aceito pelo Meta e simplesmente não encontra a pessoa.
  */
-function normalizarTelefone(bruto: string): string | null {
-  const digitos = bruto.replace(/\D/g, '')
-  if (digitos.length < 8) return null
-  // 10 dígitos (fixo com DDD) ou 11 (celular com DDD) = número BR sem país
-  if (digitos.length === 10 || digitos.length === 11) return `55${digitos}`
-  return digitos
+function normalizarTelefone(bruto: string): string[] {
+  let d = bruto.replace(/\D/g, '').replace(/^0+/, '')
+  if (d.length < 8) return []
+
+  // Sem país na frente: assume Brasil quando o formato bate com número BR.
+  // 11 dígitos = DDD + celular (começa com 9). 10 = DDD + 8 dígitos, que
+  // pode ser fixo OU celular antigo — a regra do nono dígito resolve abaixo.
+  if (d.length === 11 && /^[1-9][1-9]9/.test(d)) d = `55${d}`
+  else if (d.length === 10 && /^[1-9][1-9]/.test(d)) d = `55${d}`
+
+  if (!d.startsWith('55') || d.length < 12 || d.length > 13) {
+    // Não dá pra afirmar que é brasileiro. Número incompleto não casa com
+    // ninguém e ainda derruba a nota de correspondência — melhor não mandar.
+    return d.length >= 11 ? [d] : []
+  }
+
+  const ddd = d.slice(2, 4)
+  const assinante = d.slice(4)
+  if (!/^[1-9][1-9]$/.test(ddd)) return [d]
+
+  // Celular no Brasil tem 9 dígitos e começa com 9. Número de 8 dígitos
+  // começando com 6-9 é celular de antes da regra do nono dígito: o número
+  // atual daquela pessoa é o mesmo com 9 na frente. Fixo começa com 2-5 e
+  // tem 8 dígitos mesmo — não se mexe.
+  if (assinante.length === 8 && /^[6-9]/.test(assinante)) {
+    // Manda as duas: a versão antiga não é número válido hoje, então não
+    // corre risco de casar com outra pessoa, e cobre base gravada no
+    // formato velho.
+    return [`55${ddd}9${assinante}`, d]
+  }
+  return [d]
 }
 
 function normalizarEmail(bruto: string): string | null {
@@ -133,14 +159,16 @@ Deno.serve(async (req) => {
   // receita — ele vai atrás do cliente mais barato, não do melhor. O valor do
   // contrato é a fonte mais confiável; o campo `value` do lead é a estimativa
   // que o vendedor digitou e serve de reserva.
-  const idsPurchase = linhas.filter((l) => l.event_name === 'Purchase').map((l) => l.lead_id)
+  // Valor fechado por lead. Contrato é a fonte mais confiável: é o que foi
+  // assinado, não a estimativa que o vendedor digitou no card.
   const valorPorLead = new Map<string, number>()
+  const idsLeads = [...new Set(linhas.map((l) => l.lead_id))]
 
-  if (idsPurchase.length) {
+  if (idsLeads.length) {
     const { data: contratos } = await supabase
       .from('client_contracts')
       .select('lead_id, amount')
-      .in('lead_id', idsPurchase)
+      .in('lead_id', idsLeads)
       .in('status', ['active', 'completed', 'upgraded'])
 
     for (const c of contratos ?? []) {
@@ -150,7 +178,7 @@ Deno.serve(async (req) => {
   }
 
   // ── 4. Envia, empresa por empresa ────────────────────────────────────────
-  const resultado = { enviados: 0, falhados: 0, semCredencial: 0, erros: [] as string[], respostas: [] as string[] }
+  const resultado = { enviados: 0, falhados: 0, semCredencial: 0, semMatch: 0, erros: [] as string[], respostas: [] as string[] }
 
   for (const [tenantId, eventos] of porTenant) {
     const { data: cred } = await supabase
@@ -171,11 +199,13 @@ Deno.serve(async (req) => {
     }
 
     const payload = []
+    const semChave: string[] = []
+
     for (const ev of eventos) {
       const userData: Record<string, string[]> = {}
 
-      const tel = ev.leads?.phone ? normalizarTelefone(ev.leads.phone) : null
-      if (tel) userData.ph = [await sha256(tel)]
+      const tels = ev.leads?.phone ? normalizarTelefone(ev.leads.phone) : []
+      if (tels.length) userData.ph = await Promise.all(tels.map(sha256))
 
       const email = ev.leads?.email ? normalizarEmail(ev.leads.email) : null
       if (email) userData.em = [await sha256(email)]
@@ -197,9 +227,13 @@ Deno.serve(async (req) => {
       // telefone ou o nome batem em mais de uma pessoa.
       userData.country = [await sha256('br')]
 
-      // Nome e pais sozinhos nao identificam ninguem — sem telefone nem
-      // e-mail o evento nao tem como casar e so sujaria a taxa.
-      if (!userData.ph && !userData.em) continue  // sem chave de match, não adianta
+      // Nome e país sozinhos não identificam ninguém. Sem telefone nem e-mail
+      // o evento não tem como casar: sai da fila como 'skipped' em vez de
+      // ficar sendo retentado pra sempre.
+      if (!userData.ph && !userData.em) {
+        semChave.push(ev.id)
+        continue
+      }  // sem chave de match, não adianta
 
       const evento: Record<string, unknown> = {
         event_name:    ev.event_name,
@@ -209,12 +243,25 @@ Deno.serve(async (req) => {
         user_data:     userData,
       }
 
-      if (ev.event_name === 'Purchase') {
-        const valor = valorPorLead.get(ev.lead_id) ?? Number(ev.leads?.value ?? 0)
-        if (valor > 0) evento.custom_data = { value: valor, currency: 'BRL' }
-      }
+      // Valor em TODO evento que tiver, não só no fechamento: é assim que o
+      // Meta calcula retorno sobre investimento em vez de só contar cabeça.
+      // No fechamento vale o contrato (dinheiro real); nas etapas anteriores,
+      // o valor estimado do lead, que é o que se sabe naquele momento.
+      const contrato = valorPorLead.get(ev.lead_id) ?? 0
+      const estimado = Number(ev.leads?.value ?? 0)
+      const valor = contrato > 0 ? contrato : estimado
+
+      if (valor > 0) evento.custom_data = { value: valor, currency: 'BRL' }
 
       payload.push({ linha: ev.id, evento })
+    }
+
+    if (semChave.length) {
+      resultado.semMatch += semChave.length
+      await supabase
+        .from('meta_conversion_events')
+        .update({ status: 'skipped', last_error: 'lead sem telefone ou e-mail utilizável' })
+        .in('id', semChave)
     }
 
     if (!payload.length) continue
