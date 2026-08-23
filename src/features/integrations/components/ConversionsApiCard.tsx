@@ -1,12 +1,12 @@
 import { useState, type FormEvent } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Radio, Check, AlertTriangle, Clock, Info, ExternalLink, RefreshCw } from 'lucide-react'
+import { Radio, Check, AlertTriangle, Clock, Info, ExternalLink, RefreshCw, Send } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Spinner } from '@/components/ui/Spinner'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import {
-  saveCapiConfig, disableCapi, fetchConversionStats, reenfileirarEventos,
+  saveCapiConfig, disableCapi, fetchConversionStats, reenfileirarEventos, enviarEventosAgora,
   fetchFunisParaMapear, updateStageMetaEvent,
   META_EVENTS, META_EVENT_REGEX, isEventoPersonalizado,
   type MetaEvent, type MetaCredentials,
@@ -94,6 +94,18 @@ export function ConversionsApiCard({ tenantId, credentials }: {
       // O Kanban mostra uma antena na coluna marcada — sem isso ela só
       // apareceria lá depois de recarregar a página.
       queryClient.invalidateQueries({ queryKey: ['pipeline-stages', tenantId] })
+    },
+  })
+
+  const enviarAgora = useMutation({
+    mutationFn: () => enviarEventosAgora(tenantId),
+    onSuccess: () => {
+      // Dá tempo do Meta responder antes de reler os números, senão a tela
+      // ainda mostraria a fila cheia e pareceria que o botão não fez nada.
+      setTimeout(
+        () => queryClient.invalidateQueries({ queryKey: ['meta-conversion-stats', tenantId] }),
+        4000,
+      )
     },
   })
 
@@ -309,7 +321,20 @@ export function ConversionsApiCard({ tenantId, credentials }: {
         <div className="flex gap-2 flex-wrap mb-4">
           <Pill icone={<Check size={12} />}   cor="#00e676" texto={`${stats.enviados} enviados`} />
           {stats.pendentes > 0 && (
-            <Pill icone={<Clock size={12} />} cor="#fbbf24" texto={`${stats.pendentes} na fila`} />
+            <>
+              <Pill icone={<Clock size={12} />} cor="#fbbf24" texto={`${stats.pendentes} na fila`} />
+              <button
+                type="button"
+                onClick={() => enviarAgora.mutate()}
+                disabled={enviarAgora.isPending}
+                title="O envio normal acontece de 5 em 5 minutos"
+                className="flex items-center gap-1.5 text-xs rounded-full px-2.5 py-1 transition-colors disabled:opacity-50"
+                style={{ background: 'rgba(0,230,118,0.1)', color: '#00e676' }}
+              >
+                <Send size={11} />
+                {enviarAgora.isPending ? 'Enviando…' : 'Enviar agora'}
+              </button>
+            </>
           )}
           {stats.falhados > 0 && (
             <Pill icone={<AlertTriangle size={12} />} cor="#ff4444" texto={`${stats.falhados} falharam`} />

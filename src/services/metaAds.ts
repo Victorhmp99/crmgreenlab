@@ -221,6 +221,18 @@ export async function saveCapiConfig(
   await supabase.rpc('reenfileirar_eventos_meta', { p_tenant_id: tenantId })
 }
 
+/**
+ * Dispara a fila na hora, sem esperar os 5 minutos do cron.
+ *
+ * Existe pro momento da configuração: esperar sem saber se vai funcionar faz
+ * a pessoa achar que quebrou. Na operação normal ninguém precisa disso.
+ */
+export async function enviarEventosAgora(tenantId: string): Promise<number> {
+  const { data, error } = await supabase.rpc('enviar_eventos_meta_agora', { p_tenant_id: tenantId })
+  if (error) throw error
+  return (data as number) ?? 0
+}
+
 /** Devolve pra fila tudo que falhou. Usado pelo botão "tentar de novo". */
 export async function reenfileirarEventos(tenantId: string): Promise<number> {
   const { data, error } = await supabase.rpc('reenfileirar_eventos_meta', { p_tenant_id: tenantId })

@@ -59,6 +59,30 @@ function normalizarEmail(bruto: string): string | null {
   return limpo.includes('@') ? limpo : null
 }
 
+/** Minusculo, sem pontuacao e sem digito — a regra de nome do Meta. */
+function normalizarNome(bruto: string): string {
+  return bruto.toLowerCase().replace(/[^a-zÀ-ɏ\s]/gi, '').trim()
+}
+
+function semAcento(valor: string): string {
+  return valor.normalize('NFD').replace(/[̀-ͯ]/g, '')
+}
+
+/**
+ * Nome vira duas hashes quando tem acento: com e sem.
+ *
+ * A correspondencia do Meta e por hash exata, e nao da pra saber de que
+ * forma o nome da pessoa foi gravado do lado dele. Mandar as duas variantes
+ * cobre os dois casos — o campo aceita lista, e sao formas do MESMO nome, nao
+ * pessoas diferentes.
+ */
+async function hashesDeNome(parte: string): Promise<string[]> {
+  const limpo = normalizarNome(parte)
+  if (!limpo) return []
+  const variantes = new Set([limpo, semAcento(limpo)])
+  return Promise.all([...variantes].map(sha256))
+}
+
 interface LinhaFila {
   id:         string
   tenant_id:  string
@@ -66,7 +90,7 @@ interface LinhaFila {
   event_name: string
   event_time: string
   attempts:   number
-  leads: { phone: string | null; email: string | null; value: number | null } | null
+  leads: { name: string | null; phone: string | null; email: string | null; value: number | null } | null
 }
 
 Deno.serve(async (req) => {
@@ -84,7 +108,7 @@ Deno.serve(async (req) => {
   // ── 1. Pega o que está pendente ──────────────────────────────────────────
   const { data: fila, error: erroFila } = await supabase
     .from('meta_conversion_events')
-    .select('id, tenant_id, lead_id, event_name, event_time, attempts, leads(phone, email, value)')
+    .select('id, tenant_id, lead_id, event_name, event_time, attempts, leads(name, phone, email, value)')
     .in('status', ['pending', 'failed'])
     .lt('attempts', MAX_TENTATIVAS)
     .order('created_at', { ascending: true })
@@ -156,7 +180,26 @@ Deno.serve(async (req) => {
       const email = ev.leads?.email ? normalizarEmail(ev.leads.email) : null
       if (email) userData.em = [await sha256(email)]
 
-      if (!Object.keys(userData).length) continue  // sem chave de match, não adianta
+      // Quanto mais chaves, melhor a correspondencia. So com telefone a nota
+      // do Meta fica em 2.5/10; nome e pais sao dados que o CRM ja tem e
+      // custam zero pra mandar junto.
+      const partes = (ev.leads?.name ?? '').trim().split(/\s+/).filter(Boolean)
+      if (partes.length) {
+        const fn = await hashesDeNome(partes[0])
+        if (fn.length) userData.fn = fn
+        if (partes.length > 1) {
+          const ln = await hashesDeNome(partes[partes.length - 1])
+          if (ln.length) userData.ln = ln
+        }
+      }
+
+      // Base inteira e brasileira; o Meta usa o pais como desempate quando o
+      // telefone ou o nome batem em mais de uma pessoa.
+      userData.country = [await sha256('br')]
+
+      // Nome e pais sozinhos nao identificam ninguem — sem telefone nem
+      // e-mail o evento nao tem como casar e so sujaria a taxa.
+      if (!userData.ph && !userData.em) continue  // sem chave de match, não adianta
 
       const evento: Record<string, unknown> = {
         event_name:    ev.event_name,
