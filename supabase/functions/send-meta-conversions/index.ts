@@ -116,7 +116,7 @@ interface LinhaFila {
   event_name: string
   event_time: string
   attempts:   number
-  leads: { name: string | null; phone: string | null; email: string | null; value: number | null } | null
+  leads: { name: string | null; phone: string | null; email: string | null; value: number | null; fbc: string | null; fbp: string | null } | null
 }
 
 Deno.serve(async (req) => {
@@ -134,7 +134,7 @@ Deno.serve(async (req) => {
   // ── 1. Pega o que está pendente ──────────────────────────────────────────
   const { data: fila, error: erroFila } = await supabase
     .from('meta_conversion_events')
-    .select('id, tenant_id, lead_id, event_name, event_time, attempts, leads(name, phone, email, value)')
+    .select('id, tenant_id, lead_id, event_name, event_time, attempts, leads(name, phone, email, value, fbc, fbp)')
     .in('status', ['pending', 'failed'])
     .lt('attempts', MAX_TENTATIVAS)
     .order('created_at', { ascending: true })
@@ -202,7 +202,9 @@ Deno.serve(async (req) => {
     const semChave: string[] = []
 
     for (const ev of eventos) {
-      const userData: Record<string, string[]> = {}
+      // string[] pros campos hasheados (aceitam varias formas do mesmo dado);
+      // string simples pra fbc/fbp, que o Meta espera em texto puro.
+      const userData: Record<string, string | string[]> = {}
 
       const tels = ev.leads?.phone ? normalizarTelefone(ev.leads.phone) : []
       if (tels.length) userData.ph = await Promise.all(tels.map(sha256))
@@ -227,10 +229,20 @@ Deno.serve(async (req) => {
       // telefone ou o nome batem em mais de uma pessoa.
       userData.country = [await sha256('br')]
 
-      // Nome e país sozinhos não identificam ninguém. Sem telefone nem e-mail
-      // o evento não tem como casar: sai da fila como 'skipped' em vez de
-      // ficar sendo retentado pra sempre.
-      if (!userData.ph && !userData.em) {
+      // Identificador do clique no anúncio, capturado no formulário do funil.
+      // É a chave mais forte que existe: aponta O CLIQUE, então o Meta sabe
+      // exatamente quem é, sem probabilidade. Vai em texto puro de propósito —
+      // fbc e fbp NÃO são hasheados, ao contrário de todo o resto.
+      //
+      // Guardado no lead, vale pra todos os eventos dele: o mesmo fbc sai no
+      // "agendou" de hoje e no "fechou" daqui a vinte dias.
+      if (ev.leads?.fbc) userData.fbc = ev.leads.fbc
+      if (ev.leads?.fbp) userData.fbp = ev.leads.fbp
+
+      // Nome e país sozinhos não identificam ninguém. Sem telefone, e-mail
+      // NEM identificador de clique, o evento não tem como casar: sai da fila
+      // como 'skipped' em vez de ficar sendo retentado pra sempre.
+      if (!userData.ph && !userData.em && !userData.fbc) {
         semChave.push(ev.id)
         continue
       }  // sem chave de match, não adianta

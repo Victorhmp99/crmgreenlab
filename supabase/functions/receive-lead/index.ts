@@ -19,6 +19,8 @@
  *   source_campaign?: string
  *   notes?:           string
  *   custom_fields?:   Record<string, string | number | boolean>
+ *   fbc?:             string  — cookie _fbc do Pixel, ou fb.1.<ts>.<fbclid>
+ *   fbp?:             string  — cookie _fbp do Pixel
  *   _hp?:             string  — honeypot opcional; se vier preenchido, a
  *                      resposta finge sucesso mas nada é gravado no banco
  * }
@@ -110,6 +112,20 @@ function buildFieldKeyResolver(
   }
 }
 
+/** fb.1.<subdominios>.<timestamp>.<fbclid> — o Pixel usa 1 no segundo campo. */
+function validaFbc(valor: unknown): string | null {
+  if (typeof valor !== 'string') return null
+  const limpo = valor.trim()
+  return /^fb\.\d+\.\d{10,}\.[A-Za-z0-9_-]{5,}$/.test(limpo) ? limpo.slice(0, 500) : null
+}
+
+/** fb.1.<timestamp>.<numero aleatorio> — mesma forma, gerado pelo Pixel. */
+function validaFbp(valor: unknown): string | null {
+  if (typeof valor !== 'string') return null
+  const limpo = valor.trim()
+  return /^fb\.\d+\.\d{10,}\.\d+$/.test(limpo) ? limpo.slice(0, 200) : null
+}
+
 /**
  * Sanitiza custom_fields: só aceita string/number/boolean, com limites de
  * quantidade e tamanho. Resolve cada chave via `resolveKey` (chave ou rótulo).
@@ -172,6 +188,7 @@ Deno.serve(async (req) => {
     tenant_id, webhook_key, name, phone, email,
     source, source_campaign, notes, custom_fields, value,
     pipeline_id,   // opcional — define em qual pipeline o lead entra automaticamente
+    fbc, fbp,      // identificadores de clique do Meta, capturados no formulário
     _hp,           // honeypot opcional
   } = payload
 
@@ -294,6 +311,11 @@ Deno.serve(async (req) => {
     tags:            [] as string[],
     value:           (typeof value === 'number' && Number.isFinite(value)) ? value : null,
     custom_fields:   safeCustomFields,
+    // Identificadores de clique do Meta. Formato conferido antes de gravar:
+    // fbc tem forma fixa (fb.1.<timestamp>.<fbclid>) e valor fora dela é
+    // lixo que só derrubaria a correspondência se fosse enviado adiante.
+    fbc:             validaFbc(fbc) ?? validaFbc(safeCustomFields?.fbc),
+    fbp:             validaFbp(fbp) ?? validaFbp(safeCustomFields?.fbp),
   }
 
   const { data: insertedLead, error: insertErr } = await supabaseAdmin
@@ -321,6 +343,18 @@ Deno.serve(async (req) => {
         return json({ error: 'Erro ao localizar lead existente' }, 500)
       }
       lead = existing
+
+      // Lead que já existia: se agora veio identificador de clique, grava por
+      // cima. Sem isso, quem voltou pelo anúncio uma segunda vez nunca
+      // ganharia fbc — e é justamente quem clicou de novo que interessa.
+      // Sobrescreve de propósito: o clique mais recente é o que deve levar o
+      // crédito, que é como o próprio Meta atribui.
+      const clique: Record<string, string> = {}
+      if (leadPayload.fbc) clique.fbc = leadPayload.fbc
+      if (leadPayload.fbp) clique.fbp = leadPayload.fbp
+      if (Object.keys(clique).length) {
+        await supabaseAdmin.from('leads').update(clique).eq('id', existing.id)
+      }
     } else {
       console.error('[receive-lead] lead insert error:', insertErr)
       return json({ error: 'Erro ao criar lead' }, 500)
