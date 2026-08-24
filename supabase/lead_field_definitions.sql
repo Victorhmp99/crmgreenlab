@@ -1,6 +1,8 @@
 -- ============================================================================
 -- Custom Fields System
--- Tabela de definições + RPCs + seed dos 4 campos padrão
+-- Tabela de definições + RPCs
+-- (o seed dos 4 campos padrão foi removido na migration 056 — empresa nova
+--  nasce sem campo nenhum, cada uma cria os seus)
 -- ============================================================================
 
 -- 1. Tabela de definições de campos personalizados
