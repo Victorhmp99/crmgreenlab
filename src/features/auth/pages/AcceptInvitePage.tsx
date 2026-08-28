@@ -63,8 +63,10 @@ export function AcceptInvitePage() {
 
       setInviteData(data)
 
-      // Verifica se o e-mail já tem conta via RPC (sem criar conta fantasma)
-      const { data: exists } = await supabase.rpc('check_email_exists', { p_email: data.email })
+      // Pergunta amarrada ao TOKEN, não ao e-mail: a versão anterior
+      // respondia sobre qualquer endereço sem login, o que permitia varrer
+      // uma lista e descobrir quem é cliente da plataforma.
+      const { data: exists } = await supabase.rpc('invite_email_has_account', { p_token: token })
 
       setPageState(exists ? 'form-existing' : 'form-new')
     })()
