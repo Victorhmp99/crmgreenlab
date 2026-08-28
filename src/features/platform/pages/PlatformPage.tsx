@@ -19,7 +19,7 @@ import { useAuthStore } from '@/store/authStore'
 import { createInvite } from '@/services/users'
 import { SignupLinkModal } from '@/features/users/components/SignupLinkModal'
 import { SendNotificationModal } from '@/features/notifications/components/SendNotificationModal'
-import { Send } from 'lucide-react'
+import { Send, ArrowUpDown } from 'lucide-react'
 import { FEATURE_CATALOG, PLAN_CATALOG, sameFeatureSet } from '@/hooks/useFeatures'
 import type { UserRole } from '@/types'
 
@@ -52,6 +52,9 @@ interface TenantStat {
   user_count:        number
   lead_count:        number
   tenant_features:   string[]
+  /** Dono derivado: o admin mais antigo da empresa (não existe coluna de criador). */
+  owner_name:        string | null
+  owner_email:       string | null
 }
 
 // ── Serviços ──────────────────────────────────────────────────────────────────
@@ -76,6 +79,57 @@ async function fetchAllTenants() {
     .order('name')
   if (error) throw error
   return data ?? []
+}
+
+
+// ── Ordenação ────────────────────────────────────────────────────────────────
+
+/** Nome A-Z, ou por data de entrada nos dois sentidos. */
+type Ordem = 'nome' | 'antigos' | 'recentes'
+
+const ORDENS: Array<{ valor: Ordem; rotulo: string }> = [
+  { valor: 'nome',     rotulo: 'A–Z' },
+  { valor: 'antigos',  rotulo: 'Mais antigos' },
+  { valor: 'recentes', rotulo: 'Mais recentes' },
+]
+
+function SortControl({ ordem, onChange }: { ordem: Ordem; onChange: (o: Ordem) => void }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <ArrowUpDown size={13} style={{ color: '#444' }} />
+      <div className="flex rounded-lg overflow-hidden" style={{ border: '1px solid #232323' }}>
+        {ORDENS.map((o) => (
+          <button
+            key={o.valor}
+            onClick={() => onChange(o.valor)}
+            className="text-[11px] px-2.5 py-1 transition-colors"
+            style={{
+              background: ordem === o.valor ? 'rgba(0,230,118,0.1)' : 'transparent',
+              color:      ordem === o.valor ? '#00e676' : '#666',
+            }}
+          >
+            {o.rotulo}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Ordena sem alterar o array original — a lista vem de cache do React Query e
+ * `sort` in-place mutaria o dado compartilhado.
+ *
+ * `localeCompare` com pt-BR pra "Ângela" não cair depois de "Zuleica", que é o
+ * que acontece comparando por código de caractere.
+ */
+function ordenar<T>(itens: T[], ordem: Ordem, nome: (i: T) => string, data: (i: T) => string): T[] {
+  return [...itens].sort((a, b) => {
+    if (ordem === 'nome') return nome(a).localeCompare(nome(b), 'pt-BR', { sensitivity: 'base' })
+    const da = new Date(data(a)).getTime()
+    const db = new Date(data(b)).getTime()
+    return ordem === 'antigos' ? da - db : db - da
+  })
 }
 
 // ── Sub-componentes ───────────────────────────────────────────────────────────
@@ -341,6 +395,7 @@ function UsersTab({ isMaster }: { isMaster: boolean }) {
   const queryClient = useQueryClient()
   const confirm = useConfirm()
   const [statusFilter, setStatusFilter]       = useState<string>('all')
+  const [ordem,        setOrdem]              = useState<Ordem>('recentes')
   const [showInvite, setShowInvite]           = useState(false)
   const [showSignupLink, setShowSignupLink]   = useState(false)
   const [confirmRemove, setConfirmRemove]     = useState<PlatformUser | null>(null)
@@ -422,9 +477,15 @@ function UsersTab({ isMaster }: { isMaster: boolean }) {
     },
   })
 
-  const filtered = statusFilter === 'all'
+  const filtrados = statusFilter === 'all'
     ? users
     : users.filter((u) => u.account_status === statusFilter)
+
+  const filtered = ordenar(
+    filtrados, ordem,
+    (u) => u.full_name || u.email,
+    (u) => u.joined_at,
+  )
 
   const today    = new Date(); today.setHours(0, 0, 0, 0)
   const newToday = users.filter((u) => new Date(u.joined_at) >= today).length
@@ -456,7 +517,8 @@ function UsersTab({ isMaster }: { isMaster: boolean }) {
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <SortControl ordem={ordem} onChange={setOrdem} />
           <Button size="sm" variant="ghost" onClick={() => setShowSignupLink(true)}>
             <Link2 size={14} />
             Link de cadastro
@@ -1015,11 +1077,14 @@ function TenantsTab() {
   const [inviting, setInviting] = useState<TenantStat | null>(null)
   const [confirmName, setConfirmName] = useState('')
   const [deleteErr,   setDeleteErr]   = useState<string | null>(null)
+  const [ordem,       setOrdem]       = useState<Ordem>('recentes')
 
-  const { data: tenants = [], isLoading, error } = useQuery({
+  const { data: todas = [], isLoading, error } = useQuery({
     queryKey: ['platform-stats'],
     queryFn:  fetchPlatformStats,
   })
+
+  const tenants = ordenar(todas, ordem, (t) => t.tenant_name, (t) => t.tenant_created_at)
 
   const toggleMutation = useMutation({
     mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
@@ -1030,17 +1095,16 @@ function TenantsTab() {
   })
 
   const deleteMutation = useMutation({
+    // Uma RPC, não uma cadeia de deletes pelo navegador. A versão anterior
+    // apagava tabela por tabela e por último `tenants` — que tem RLS só de
+    // SELECT, então o DELETE não apagava nada e devolvia sucesso com zero
+    // linhas. A tela dizia que excluiu e a empresa continuava lá.
     mutationFn: async (tenantId: string) => {
-      // Deleta na ordem correta para respeitar FK constraints
-      await supabase.from('pipeline_cards').delete().eq('tenant_id', tenantId)
-      await supabase.from('pipeline_stages').delete().eq('tenant_id', tenantId)
-      await supabase.from('pipelines').delete().eq('tenant_id', tenantId)
-      await supabase.from('leads').delete().eq('tenant_id', tenantId)
-      await supabase.from('tenant_invites').delete().eq('tenant_id', tenantId)
-      await supabase.from('user_memberships').delete().eq('tenant_id', tenantId)
-      await supabase.from('tenant_settings').delete().eq('tenant_id', tenantId)
-      const { error } = await supabase.from('tenants').delete().eq('id', tenantId)
+      const { data, error } = await supabase.rpc('delete_tenant_completely', { p_tenant_id: tenantId })
       if (error) throw error
+      // Zero linha significa que não achou (ou não pôde). Sem essa checagem o
+      // silêncio volta a parecer sucesso, que foi exatamente o defeito.
+      if (!data) throw new Error('Nenhuma empresa foi excluída. Recarregue a página e tente de novo.')
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['platform-stats'] })
@@ -1062,14 +1126,21 @@ function TenantsTab() {
 
   return (
     <>
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <p className="text-xs" style={{ color: '#555' }}>
+          {tenants.length} {tenants.length === 1 ? 'empresa' : 'empresas'}
+        </p>
+        <SortControl ordem={ordem} onChange={setOrdem} />
+      </div>
+
       <div className="rounded-xl overflow-hidden"
         style={{ background: '#141414', border: '1px solid #1e1e1e' }}>
         <table className="w-full text-sm">
           <thead>
             <tr style={{ background: '#111', borderBottom: '1px solid #1a1a1a' }}>
-              {['Empresa', 'Plano', 'Usuários', 'Leads', 'Criado em', 'Status', 'Ações'].map((h, i) => (
+              {['Empresa', 'Dono', 'Plano', 'Usuários', 'Leads', 'Criado em', 'Status', 'Ações'].map((h, i) => (
                 <th key={h}
-                  className={`px-4 py-3 text-xs font-medium uppercase tracking-wide ${i >= 5 ? 'text-center' : 'text-left'}`}
+                  className={`px-4 py-3 text-xs font-medium uppercase tracking-wide ${i >= 6 ? 'text-center' : 'text-left'}`}
                   style={{ color: '#444' }}>
                   {h}
                 </th>
@@ -1096,6 +1167,25 @@ function TenantsTab() {
                     )}
                   </p>
                   <p className="text-[11px] mt-0.5" style={{ color: '#444' }}>/{t.tenant_slug}</p>
+                </td>
+
+                {/* Dono: o admin mais antigo da empresa. Muita gente não tem
+                    nome preenchido no perfil, então o e-mail é o que sempre
+                    identifica — sem ele a coluna ficaria vazia sem motivo
+                    aparente. */}
+                <td className="px-4 py-3">
+                  {t.owner_email ? (
+                    <>
+                      {t.owner_name && (
+                        <p className="text-xs" style={{ color: '#ccc' }}>{t.owner_name}</p>
+                      )}
+                      <p className="text-[11px]" style={{ color: t.owner_name ? '#555' : '#aaa' }}>
+                        {t.owner_email}
+                      </p>
+                    </>
+                  ) : (
+                    <span className="text-[11px]" style={{ color: '#444' }}>sem responsável</span>
+                  )}
                 </td>
 
                 <td className="px-4 py-3">
