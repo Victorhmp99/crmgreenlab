@@ -39,6 +39,8 @@ export function getAssignableRoles(
 ): { value: UserRole; label: string }[] {
   if (isSuperAdmin)             return ROLE_OPTIONS
   if (currentRole === 'admin')  return ROLE_OPTIONS.filter((r) => r.value !== 'admin')
-  if (currentRole === 'manager') return ROLE_OPTIONS.filter((r) => r.value === 'seller')
+  // Gestor pode promover até gestor: o dono não deve ser ponto único de
+  // falha da operação. Nunca admin — esse nível é de revenda, não de empresa.
+  if (currentRole === 'manager') return ROLE_OPTIONS.filter((r) => r.value !== 'admin')
   return []
 }

@@ -19,10 +19,15 @@ export function ChangeRoleModal({ user, onClose }: ChangeRoleModalProps) {
   const [selected, setSelected] = useState<UserRole>(user?.role ?? 'seller')
 
   const availableRoles = getAssignableRoles(myRole, isSuperAdmin)
-  // Bloqueia abrir o modal pra alterar Admin/Manager se sou Manager
-  const canChangeThisUser = myRole === 'admin'
-    || isSuperAdmin
-    || (myRole === 'manager' && user?.role === 'seller')
+
+  // Espelha as regras do servidor. Elas valem lá de qualquer forma — aqui é
+  // só pra pessoa não descobrir a proibição depois de clicar em Salvar.
+  const ehDono = user?.isOwner === true
+  const podeMexer = isSuperAdmin || (
+    !ehDono
+    && (myRole === 'admin' || (myRole === 'manager' && user?.role !== 'admin'))
+  )
+  const canChangeThisUser = podeMexer
 
   async function handleSave() {
     if (!user) return
@@ -79,7 +84,9 @@ export function ChangeRoleModal({ user, onClose }: ChangeRoleModalProps) {
         ) : (
           <div className="rounded-xl px-3 py-2.5 text-xs"
             style={{ background: 'rgba(255,68,68,0.08)', border: '1px solid rgba(255,68,68,0.2)', color: '#ff4444' }}>
-            Você não tem permissão para alterar o papel deste usuário. Apenas Admin ou Super Admin pode promover/rebaixar Gestores e Admins.
+            {ehDono
+              ? 'Este é o criador da empresa. O acesso dele não pode ser alterado por outro membro — nem por quem ele promoveu a gestor.'
+              : 'Você não tem permissão para alterar o papel deste usuário. Não é possível mexer em quem tem acesso maior que o seu.'}
           </div>
         )}
       </div>

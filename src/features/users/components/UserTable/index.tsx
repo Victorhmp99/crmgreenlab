@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ShieldOff, ShieldCheck, Settings, Building2, Trash2 } from 'lucide-react'
 import { RoleBadge } from '../RoleBadge'
 import { Spinner } from '@/components/ui/Spinner'
-import { formatDate } from '@/lib/utils'
+import { formatDateTime } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useUserMutations } from '../../hooks/useUserMutations'
@@ -155,6 +155,15 @@ export function UserTable({ users, isLoading, onChangeRole }: UserTableProps) {
                             você
                           </span>
                         )}
+                        {/* O criador não pode ser alterado nem removido. O selo
+                            explica por que os botões da linha estão apagados. */}
+                        {u.isOwner && (
+                          <span className="ml-1.5 text-[10px] rounded-full px-1.5 py-0.5 font-semibold"
+                            style={{ background: 'rgba(251,191,36,0.12)', color: '#fbbf24' }}
+                            title="Criador da empresa — o acesso dele não pode ser alterado por outro membro">
+                            criador
+                          </span>
+                        )}
                       </p>
                       {u.fullName && <p className="text-xs" style={{ color: '#555' }}>{u.email}</p>}
                     </div>
@@ -186,13 +195,13 @@ export function UserTable({ users, isLoading, onChangeRole }: UserTableProps) {
                   <LimitCell user={u} canEdit={canEditLimit && !isSelf} />
                 </td>
 
-                <td className="px-4 py-3 text-xs" style={{ color: '#555' }}>
-                  {formatDate(u.joinedAt)}
+                <td className="px-4 py-3 text-xs whitespace-nowrap" style={{ color: '#555' }}>
+                  {formatDateTime(u.joinedAt)}
                 </td>
 
                 <td className="px-4 py-3">
                   <div className="flex items-center justify-end gap-1">
-                    {!isSelf && (
+                    {!isSelf && !u.isOwner && (
                       <button onClick={() => onChangeRole(u)}
                         className="h-8 w-8 rounded-lg flex items-center justify-center transition-colors"
                         style={{ color: '#555' }}
@@ -208,7 +217,7 @@ export function UserTable({ users, isLoading, onChangeRole }: UserTableProps) {
                         <Settings size={15} />
                       </button>
                     )}
-                    {!isSelf && (
+                    {!isSelf && !u.isOwner && (
                       <button
                         onClick={() => toggleActive.mutate({ membershipId: u.membershipId, active: !u.active })}
                         disabled={toggleActive.isPending}
@@ -227,7 +236,7 @@ export function UserTable({ users, isLoading, onChangeRole }: UserTableProps) {
                         {u.active ? <ShieldOff size={15} /> : <ShieldCheck size={15} />}
                       </button>
                     )}
-                    {canRemoveTarget(u) && (
+                    {canRemoveTarget(u) && !u.isOwner && (
                       <button
                         onClick={() => setConfirmRemove(u)}
                         className="h-8 w-8 rounded-lg flex items-center justify-center transition-colors"

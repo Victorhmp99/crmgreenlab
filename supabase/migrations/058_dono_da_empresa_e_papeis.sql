@@ -1,0 +1,28 @@
+-- Ver histórico no Supabase: migrations 060, 061 e 062 aplicadas em 23/08/2026.
+--
+-- 1) tenants.owner_user_id — dono explícito da empresa
+--    Antes "quem criou" era deduzido na hora (admin mais antigo). Serve pra
+--    exibir numa lista, mas não pra sustentar REGRA: a dedução muda se alguém
+--    remove e recria um vínculo, e a proteção passaria a proteger a pessoa
+--    errada. Backfill pelo mesmo critério + trigger que marca o dono no
+--    primeiro vínculo de cada empresa nova.
+--
+-- 2) set_member_role(membership, papel) — troca de papel com hierarquia
+--    Antes o frontend escrevia direto em user_memberships. Duas consequências:
+--    a) gestor NÃO conseguia mudar papel nenhum (RLS só permite
+--       is_tenant_admin) e o update devolvia sucesso com zero linhas — a tela
+--       dizia que salvou e nada mudava;
+--    b) toda a regra morava na tela, que qualquer um contorna chamando a API.
+--    Regras: o criador é intocável; ninguém altera quem tem acesso maior que
+--    o seu; ninguém concede acesso maior que o próprio; ninguém ultrapassa o
+--    papel do criador; ninguém altera o próprio acesso.
+--
+-- 3) get_tenant_users passou a devolver is_owner, pra tela marcar a linha e
+--    apagar os botões em vez de deixar clicar e falhar no servidor.
+--
+-- 4) create_signup_token — gestor passa a poder gerar link de GESTOR pra
+--    própria empresa (o dono não deve ser ponto único de falha), e a empresa
+--    alvo deixou de ser adivinhada: antes era LIMIT 1 sem ordenação entre as
+--    empresas do gerador, então quem participa de várias criava link pra
+--    empresa errada sem aviso nenhum. Agora quem chama informa e o servidor
+--    confere o vínculo.

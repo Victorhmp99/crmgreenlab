@@ -14,6 +14,8 @@ export interface TenantUser {
   tenantName:            string
   tenantId:              string
   maxCompaniesOverride:  number | null
+  /** Criador da empresa: ninguém pode alterar nem remover o acesso dele. */
+  isOwner:               boolean
 }
 
 export interface TenantInvite {
@@ -39,7 +41,7 @@ export async function fetchTenantUsers(tenantId: string): Promise<TenantUser[]> 
     full_name: string | null; role: string; active: boolean;
     account_status: string; joined_at: string;
     tenant_name: string; tenant_id: string;
-    max_companies_override: number | null;
+    max_companies_override: number | null; is_owner: boolean;
   }>).map((row) => ({
     membershipId:         row.membership_id,
     userId:               row.user_id,
@@ -51,16 +53,25 @@ export async function fetchTenantUsers(tenantId: string): Promise<TenantUser[]> 
     tenantName:           row.tenant_name,
     tenantId:             row.tenant_id,
     maxCompaniesOverride: row.max_companies_override ?? null,
+    isOwner:              row.is_owner === true,
   }))
 }
 
 // ── Alterar role ──────────────────────────────────────────────────────────────
 
+/**
+ * Altera o papel de um membro.
+ *
+ * Vai por RPC, não por update direto: a tabela só aceita escrita de
+ * `is_tenant_admin`, então gestor recebia sucesso com zero linhas alteradas —
+ * a tela dizia que salvou e nada mudava. E toda a regra de hierarquia ficava
+ * só no navegador, que qualquer um contorna chamando a API direto.
+ */
 export async function updateUserRole(membershipId: string, role: UserRole): Promise<void> {
-  const { error } = await supabase
-    .from('user_memberships')
-    .update({ role })
-    .eq('id', membershipId)
+  const { error } = await supabase.rpc('set_member_role', {
+    p_membership_id: membershipId,
+    p_role:          role,
+  })
 
   if (error) throw error
 }

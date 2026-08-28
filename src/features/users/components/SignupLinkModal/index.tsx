@@ -40,11 +40,12 @@ export function SignupLinkModal({ open, onClose, showTenantPicker, availableTena
   // Define os roles permitidos baseado no caller
   // - Super admin: admin + manager + seller
   // - Admin: manager + seller
-  // - Manager (gestor): só seller
+  // - Manager (gestor): seller + manager (para não ser o único ponto de
+  //   falha da operação da empresa dele)
   const allowedRoles: UserRole[] = useMemo(() => {
     if (isSuperAdmin) return ['admin', 'manager', 'seller']
     if (isAdmin)      return ['manager', 'seller']
-    if (currentMembership?.role === 'manager') return ['seller']
+    if (currentMembership?.role === 'manager') return ['manager', 'seller']
     return []
   }, [isSuperAdmin, isAdmin, currentMembership])
 
@@ -59,8 +60,13 @@ export function SignupLinkModal({ open, onClose, showTenantPicker, availableTena
   // Apenas super admin selecionando vendedor (decide em qual tenant o vendedor entra)
   const needsTenantPicker = isSuperAdmin && role === 'seller' && showTenantPicker
 
-  // O que o link vai fazer (descrição na UI)
-  const willJoinExisting = role === 'seller'
+  // O que o link vai fazer (descrição na UI).
+  //
+  // Gestor é caso à parte: pra ele o servidor força a PRÓPRIA empresa em
+  // qualquer papel, então o link nunca cria empresa nova. Sem essa distinção
+  // a tela prometeria "cria uma nova empresa" e entregaria outra coisa.
+  const souGestor = !isSuperAdmin && !isAdmin && currentMembership?.role === 'manager'
+  const willJoinExisting = role === 'seller' || souGestor
   const targetTenantName = needsTenantPicker
     ? availableTenants?.find((t) => t.id === tenantId)?.name
     : currentTenant?.name
@@ -68,14 +74,20 @@ export function SignupLinkModal({ open, onClose, showTenantPicker, availableTena
   async function handleGenerate() {
     setLoading(true); setErr(null); setToken(null)
     try {
-      // target_tenant_id:
-      // - admin/manager: SEMPRE null (cria nova empresa)
-      // - seller (super admin): tenant escolhido
-      // - seller (admin/gestor): backend força o próprio tenant — passa null
+      // Manda SEMPRE a empresa em que a pessoa está. O servidor confere o
+      // vínculo antes de usar.
+      //
+      // Antes ia null e o servidor escolhia uma das empresas do gerador com
+      // LIMIT 1 sem ordenação — quem participa de várias (o caso comum aqui)
+      // gerava link apontando pra empresa errada, sem nenhum aviso.
+      //
+      // Super admin escolhendo na lista é a exceção: ali a empresa vem do
+      // seletor. E link de gestor gerado por admin abre empresa nova, então
+      // vai sem alvo mesmo.
       const targetTenantId =
-        role !== 'seller' ? null :
-        needsTenantPicker ? (tenantId || null) :
-        null  // backend força o tenant do caller
+        needsTenantPicker           ? (tenantId || null) :
+        (isAdmin && role !== 'seller') ? null :
+        (currentTenant?.id ?? null)
 
       const { data, error } = await supabase.rpc('create_signup_token', {
         p_role:             role,
