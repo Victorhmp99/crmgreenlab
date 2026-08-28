@@ -14,7 +14,7 @@ import { Modal }   from '@/components/ui/Modal'
 import { Input }   from '@/components/ui/Input'
 import { Select }  from '@/components/ui/Select'
 import { supabase } from '@/lib/supabase'
-import { formatDate } from '@/lib/utils'
+import { formatDate, formatDateTime } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 import { createInvite } from '@/services/users'
 import { SignupLinkModal } from '@/features/users/components/SignupLinkModal'
@@ -81,6 +81,91 @@ async function fetchAllTenants() {
   return data ?? []
 }
 
+
+
+// ── Empresas de um usuário ───────────────────────────────────────────────────
+
+interface EmpresaDoUsuario {
+  tenant_id: string; tenant_name: string; role: string; active: boolean
+  is_owner: boolean; joined_at: string; lead_count: number
+}
+
+/**
+ * Onde essa pessoa está, tudo numa tela.
+ *
+ * A listagem principal mostra uma linha por VÍNCULO, então quem participa de
+ * nove empresas aparece nove vezes e não dá pra ver o conjunto. Aqui é o
+ * inverso: uma pessoa, todas as empresas dela.
+ */
+function UserCompaniesModal({ user, onClose }: { user: PlatformUser | null; onClose: () => void }) {
+  const { data: empresas = [], isLoading } = useQuery({
+    queryKey: ['user-companies', user?.user_id],
+    queryFn:  async () => {
+      const { data, error } = await supabase.rpc('get_user_companies', { p_user_id: user!.user_id })
+      if (error) throw error
+      return (data ?? []) as EmpresaDoUsuario[]
+    },
+    enabled: !!user?.user_id,
+  })
+
+  return (
+    <Modal open={!!user} onClose={onClose} title="Empresas deste usuário" size="md">
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center gap-3 p-3 rounded-xl"
+          style={{ background: '#1a1a1a', border: '1px solid #2a2a2a' }}>
+          <div>
+            <p className="text-sm font-medium" style={{ color: '#e8e8e8' }}>
+              {user?.full_name || user?.email}
+            </p>
+            <p className="text-xs mt-0.5" style={{ color: '#555' }}>
+              {isLoading ? 'carregando…' : `${empresas.length} ${empresas.length === 1 ? 'empresa' : 'empresas'}`}
+            </p>
+          </div>
+        </div>
+
+        {isLoading ? (
+          <div className="flex justify-center py-8"><Spinner size="md" /></div>
+        ) : empresas.length === 0 ? (
+          <p className="text-xs text-center py-6" style={{ color: '#555' }}>
+            Este usuário não está em nenhuma empresa. Ele consegue entrar no sistema e não verá nada.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            {empresas.map((e) => (
+              <div key={e.tenant_id} className="flex items-center gap-3 px-3 py-2 rounded-lg"
+                style={{ border: '1px solid #1e1e1e', opacity: e.active ? 1 : 0.5 }}>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs truncate flex items-center gap-1.5" style={{ color: '#e8e8e8' }}>
+                    {e.tenant_name}
+                    {e.is_owner && (
+                      <span className="text-[9px] rounded-full px-1.5 py-0.5 font-semibold shrink-0"
+                        style={{ background: 'rgba(251,191,36,0.12)', color: '#fbbf24' }}>criador</span>
+                    )}
+                    {!e.active && (
+                      <span className="text-[9px] rounded-full px-1.5 py-0.5 shrink-0"
+                        style={{ background: '#1e1e1e', color: '#888' }}>inativo</span>
+                    )}
+                  </p>
+                  <p className="text-[10px] mt-0.5" style={{ color: '#555' }}>
+                    desde {formatDate(e.joined_at)} · {e.lead_count} leads
+                  </p>
+                </div>
+                <span className="text-[10px] rounded-full px-2 py-0.5 shrink-0"
+                  style={
+                    e.role === 'admin'   ? { background: 'rgba(255,68,68,0.1)',  color: '#ff6666' } :
+                    e.role === 'manager' ? { background: 'rgba(64,160,255,0.1)', color: '#40a0ff' } :
+                                           { background: '#1e1e1e', color: '#888' }
+                  }>
+                  {{ admin: 'Admin', manager: 'Gestor', seller: 'Vendedor' }[e.role] ?? e.role}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </Modal>
+  )
+}
 
 // ── Ordenação ────────────────────────────────────────────────────────────────
 
@@ -396,6 +481,7 @@ function UsersTab({ isMaster }: { isMaster: boolean }) {
   const confirm = useConfirm()
   const [statusFilter, setStatusFilter]       = useState<string>('all')
   const [ordem,        setOrdem]              = useState<Ordem>('recentes')
+  const [verEmpresas,  setVerEmpresas]        = useState<PlatformUser | null>(null)
   const [showInvite, setShowInvite]           = useState(false)
   const [showSignupLink, setShowSignupLink]   = useState(false)
   const [confirmRemove, setConfirmRemove]     = useState<PlatformUser | null>(null)
@@ -584,15 +670,22 @@ function UsersTab({ isMaster }: { isMaster: boolean }) {
                       <>
                         <p className="font-medium text-xs flex items-center gap-1.5" style={{ color: '#e8e8e8' }}>
                           {u.full_name ?? u.email}
-                          {u.company_count > 1 && (
-                            <span className="text-[9px] rounded-full px-1.5 py-0.5"
-                              style={{ background: 'rgba(0,230,118,0.1)', color: '#00e676' }}>
-                              {u.company_count} empresas
-                            </span>
-                          )}
+                          {/* A listagem tem uma linha por VÍNCULO: quem está
+                              em nove empresas aparece nove vezes e o conjunto
+                              se perde. Clicar aqui mostra a conta inteira. */}
+                          <button
+                            onClick={() => setVerEmpresas(u)}
+                            className="text-[9px] rounded-full px-1.5 py-0.5 transition-colors"
+                            style={{
+                              background: u.company_count > 1 ? 'rgba(0,230,118,0.1)' : '#1e1e1e',
+                              color:      u.company_count > 1 ? '#00e676' : '#777',
+                            }}
+                            title="Ver todas as empresas desta conta">
+                            {u.company_count} {u.company_count === 1 ? 'empresa' : 'empresas'}
+                          </button>
                         </p>
                         {u.full_name && <p className="text-[11px] mt-0.5" style={{ color: '#444' }}>{u.email}</p>}
-                        <p className="text-[10px] mt-0.5" style={{ color: '#333' }}>desde {formatDate(u.joined_at)}</p>
+                        <p className="text-[10px] mt-0.5" style={{ color: '#333' }}>desde {formatDateTime(u.joined_at)}</p>
                       </>
                     ) : (
                       <p className="text-[10px] pl-3" style={{ color: '#333', borderLeft: '2px solid #222' }}>
@@ -721,6 +814,8 @@ function UsersTab({ isMaster }: { isMaster: boolean }) {
           </table>
         </div>
       )}
+
+      <UserCompaniesModal user={verEmpresas} onClose={() => setVerEmpresas(null)} />
 
       <PlatformInviteModal open={showInvite} onClose={() => setShowInvite(false)} />
       <SignupLinkModal
@@ -1202,7 +1297,7 @@ function TenantsTab() {
 
                 <td className="px-4 py-3 tabular-nums text-xs" style={{ color: '#aaa' }}>{t.user_count}</td>
                 <td className="px-4 py-3 tabular-nums text-xs" style={{ color: '#aaa' }}>{t.lead_count}</td>
-                <td className="px-4 py-3 text-xs" style={{ color: '#666' }}>{formatDate(t.tenant_created_at)}</td>
+                <td className="px-4 py-3 text-xs whitespace-nowrap" style={{ color: '#666' }}>{formatDateTime(t.tenant_created_at)}</td>
 
                 <td className="px-4 py-3 text-center">
                   <span className="inline-flex items-center gap-1.5 text-xs font-medium"
