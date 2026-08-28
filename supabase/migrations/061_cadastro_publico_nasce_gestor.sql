@@ -1,0 +1,15 @@
+-- Quem se cadastrava sozinho pela tela inicial nascia com papel 'admin'.
+-- Admin é o nível de REVENDA: pode gerar link pra outras pessoas criarem
+-- empresas próprias. Ou seja, o autosserviço distribuía o nível mais alto do
+-- produto pra qualquer um que preenchesse um formulário.
+--
+-- A conta nascia 'pending' e precisava de liberação, o que segurava o dano —
+-- mas o papel errado ficava gravado e passava despercebido na liberação, já
+-- que quem libera olha a conta, não o papel.
+--
+-- Agora o padrão é gestor: dono da própria empresa, sem poder de revenda.
+-- Admin só nasce de link gerado por super admin, que é a regra do produto.
+-- Super admin criando a própria empresa continua como admin.
+--
+-- Corpo completo aplicado na migration 070 do Supabase (mesma função de
+-- register_new_tenant_with_admin, com v_role iniciando em 'manager').
