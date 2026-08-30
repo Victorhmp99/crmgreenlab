@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef, type FormEvent } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { RefreshCw, Link2, AlertTriangle, CheckCircle, Trash2, ExternalLink, Plus, Power, FileText } from 'lucide-react'
+import {
+  RefreshCw, Link2, AlertTriangle, CheckCircle, Trash2, ExternalLink, Plus, Power, FileText,
+  ChevronDown, KeyRound,
+} from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
@@ -102,6 +105,13 @@ export function MetaAdsPage() {
   const [colunas, setColunas] = useState<ColumnKey[]>(() => lerColunasSalvas(tenantId))
   const [reportOpen, setReportOpen] = useState(false)
 
+  /* Instrução e token são de configuração: lidos uma vez, revisitados só
+     quando um token vence. Ficavam abertos pra sempre, empurrando pra baixo a
+     lista de contas, que é o que se usa depois. Abre pra quem ainda não
+     conectou — que é justamente quem precisa ler. */
+  const [verComoConectar, setVerComoConectar] = useState(true)
+  const [verToken,        setVerToken]        = useState(true)
+
   const { data: credentials, isLoading: credLoading } = useQuery({
     queryKey: ['meta-credentials', tenantId],
     queryFn:  () => fetchMetaCredentials(tenantId),
@@ -186,6 +196,13 @@ export function MetaAdsPage() {
   })
 
   const isConnected = !!credentials?.hasToken
+
+  const [sincronizado, setSincronizado] = useState<boolean | null>(null)
+  if (sincronizado !== isConnected) {
+    setSincronizado(isConnected)
+    setVerComoConectar(!isConnected)
+    setVerToken(!isConnected)
+  }
   const canSync     = isConnected && adAccounts.some((a) => a.active)
 
   // Conta que vale de fato: se a selecionada foi removida ou pausada, cai pra
@@ -338,11 +355,20 @@ export function MetaAdsPage() {
           <div className="flex justify-center py-6"><Spinner /></div>
         ) : (
           <>
-            <div className="rounded-xl px-4 py-3 text-xs mb-5"
-              style={{ background: 'rgba(64,160,255,0.08)', border: '1px solid rgba(64,160,255,0.15)', color: '#40a0ff' }}>
-              <p className="font-semibold mb-1.5 flex items-center gap-1.5">
-                <ExternalLink size={12} /> Como conectar (leva ~5 minutos, é grátis)
-              </p>
+            <div className="rounded-xl text-xs mb-5 overflow-hidden"
+              style={{ background: 'rgba(64,160,255,0.08)', border: '1px solid rgba(64,160,255,0.15)' }}>
+              <button type="button" onClick={() => setVerComoConectar((v) => !v)}
+                className="w-full flex items-center justify-between gap-2 px-4 py-2.5 transition-colors"
+                style={{ color: '#40a0ff' }}>
+                <span className="font-semibold flex items-center gap-1.5">
+                  <ExternalLink size={12} /> Como conectar (leva ~5 minutos, é grátis)
+                </span>
+                <ChevronDown size={14}
+                  style={{ transform: verComoConectar ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />
+              </button>
+
+              {verComoConectar && (
+              <div className="px-4 pb-3">
               <ol className="list-decimal ml-4 space-y-1" style={{ color: '#7bb8f0' }}>
                 <li>
                   Abra o <strong>Gerenciador de Negócios</strong> do Facebook em{' '}
@@ -402,9 +428,29 @@ export function MetaAdsPage() {
                 <br />
                 O token fica guardado no servidor e é usado só para leitura — ele nunca aparece de volta nesta tela.
               </p>
+              </div>
+              )}
             </div>
 
-            {/* Token da empresa (um só, atende todas as contas) */}
+            {/* Token: um só por empresa, atende todas as contas. Recolhido
+                depois de conectado — é o campo menos tocado da tela. */}
+            {isConnected && (
+              <button type="button" onClick={() => setVerToken((v) => !v)}
+                className="w-full flex items-center justify-between gap-2 rounded-lg px-3 py-2 mb-5 transition-colors"
+                style={{ background: '#171717', border: '1px solid #222' }}>
+                <span className="flex items-center gap-2 text-xs" style={{ color: '#888' }}>
+                  <KeyRound size={12} style={{ color: '#555' }} /> Token de acesso
+                  <span style={{ color: '#555' }}>· salvo no servidor</span>
+                </span>
+                <ChevronDown size={14} style={{
+                  color: '#555',
+                  transform: verToken ? 'rotate(180deg)' : 'none',
+                  transition: 'transform .15s',
+                }} />
+              </button>
+            )}
+
+            {verToken && (
             <form onSubmit={handleSaveToken} autoComplete="off" className="flex items-end gap-3 flex-wrap mb-5">
               <div className="flex-1 min-w-56">
                 <Input
@@ -439,6 +485,7 @@ export function MetaAdsPage() {
                 </button>
               )}
             </form>
+            )}
 
             {/* Contas de anúncio — várias por empresa, todas no mesmo token */}
             <div style={{ borderTop: '1px solid #1e1e1e' }} className="pt-4">
