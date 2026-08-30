@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
-import { Users, Megaphone, ArrowUpRight, Tag, Filter, FileText } from 'lucide-react'
+import { Users, Megaphone, ArrowUpRight, Tag, Filter, FileText, PhoneCall } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { fetchDesempenhoLigacoes } from '@/services/reports'
 import { DatePicker } from '@/components/ui/DatePicker'
 import { Select } from '@/components/ui/Select'
 import { Spinner } from '@/components/ui/Spinner'
@@ -70,6 +72,13 @@ export function ReportsPage() {
   }, [pipelinesList, funnelPipelineId])
   const { data: funnelData, isLoading: funnelDataLoading } = usePipelineFunnel(funnelPipelineId || null)
 
+  const tenantId = useAuthStore((s) => s.tenant?.id)
+  const { data: ligacoes } = useQuery({
+    queryKey: ['desempenho-ligacoes', tenantId, dateFrom, dateTo],
+    queryFn:  () => fetchDesempenhoLigacoes(tenantId!, dateFrom, dateTo),
+    enabled:  !!tenantId,
+  })
+
   return (
     <div className="flex flex-col gap-6">
       {/* Cabeçalho */}
@@ -101,6 +110,45 @@ export function ReportsPage() {
       />
 
       {(<>
+
+      {/* Ligações — o número que a operação não tinha antes de existir o
+          registro de um toque no lead. */}
+      <DarkCard>
+        <SectionTitle icon={PhoneCall} title="Ligações" />
+        {!ligacoes || ligacoes.total === 0 ? (
+          <p className="text-sm py-6 text-center" style={{ color: '#555' }}>
+            Nenhuma ligação registrada no período. Registre pelo card do lead, ao lado do
+            telefone — é um clique, e é o que permite medir sua taxa de atendimento.
+          </p>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <NumeroLigacoes rotulo="Taxa de atendimento"
+                valor={`${ligacoes.taxaAtendimento.toFixed(0)}%`} cor="#00e676"
+                sub={`${ligacoes.atendidas} de ${ligacoes.total} discadas`} />
+              <NumeroLigacoes rotulo="Não atenderam"
+                valor={String(ligacoes.naoAtendidas)} cor="#fbbf24" sub="tentar outro horário" />
+              <NumeroLigacoes rotulo="Caixa postal"
+                valor={String(ligacoes.caixaPostal)} cor="#a78bfa" sub="número certo, sem resposta" />
+              <NumeroLigacoes rotulo="Número errado"
+                valor={String(ligacoes.numeroErrado)} cor="#ff4444" sub="problema de cadastro" />
+            </div>
+
+            {ligacoes.minutosAteContato != null && (
+              <p className="text-xs mt-4" style={{ color: '#666' }}>
+                Da entrada do lead até a primeira ligação:{' '}
+                <strong style={{ color: ligacoes.minutosAteContato <= 30 ? '#00e676' : '#fbbf24' }}>
+                  {ligacoes.minutosAteContato < 60
+                    ? `${Math.round(ligacoes.minutosAteContato)} min`
+                    : `${(ligacoes.minutosAteContato / 60).toFixed(1)} h`}
+                </strong>{' '}
+                (mediana). Quanto mais perto do momento em que a pessoa preencheu, maior a
+                chance de ela lembrar e atender.
+              </p>
+            )}
+          </>
+        )}
+      </DarkCard>
 
       {/* Performance por vendedor */}
       <DarkCard>
@@ -380,6 +428,18 @@ function PipelineBreakdownRow({ pipeline }: {
           })}
         </div>
       )}
+    </div>
+  )
+}
+
+function NumeroLigacoes({ rotulo, valor, cor, sub }: {
+  rotulo: string; valor: string; cor: string; sub: string
+}) {
+  return (
+    <div className="rounded-lg px-3 py-2.5" style={{ background: '#1a1a1a' }}>
+      <p className="text-[10px] uppercase tracking-wide" style={{ color: '#666' }}>{rotulo}</p>
+      <p className="text-xl font-bold tabular-nums mt-0.5" style={{ color: cor }}>{valor}</p>
+      <p className="text-[11px]" style={{ color: '#555' }}>{sub}</p>
     </div>
   )
 }

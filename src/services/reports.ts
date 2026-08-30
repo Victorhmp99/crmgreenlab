@@ -826,3 +826,89 @@ export async function fetchPipelineFunnel(
     convRate: entered > 0 ? Math.round((won / entered) * 100) : 0,
   }
 }
+
+// ── Desempenho de ligações ────────────────────────────────────────────────────
+
+export interface DesempenhoLigacoes {
+  total:         number
+  atendidas:     number
+  naoAtendidas:  number
+  caixaPostal:   number
+  numeroErrado:  number
+  /** % de quem atendeu sobre o total discado. */
+  taxaAtendimento: number
+  /** Mediana de minutos entre o lead entrar e a primeira ligação. */
+  minutosAteContato: number | null
+}
+
+/**
+ * O número que a operação não tinha.
+ *
+ * Antes disso a taxa de atendimento era palpite: ninguém registrava ligação,
+ * então não dava pra saber se o problema era o número exibido, o horário ou a
+ * demora. Também não dava pra medir se qualquer investimento em telefonia
+ * melhorou algo, porque não havia linha de base.
+ *
+ * A mediana de tempo até o primeiro contato entra junto de propósito: é o
+ * fator que costuma pesar mais que o resto somado, e é o mais barato de
+ * corrigir.
+ */
+export async function fetchDesempenhoLigacoes(
+  tenantId: string,
+  from?:    string,
+  to?:      string,
+): Promise<DesempenhoLigacoes> {
+  let q = supabase
+    .from('lead_activities')
+    .select('metadata, created_at, lead_id, leads!inner(created_at)')
+    .eq('tenant_id', tenantId)
+    .eq('type', 'call')
+
+  if (from) q = q.gte('created_at', from)
+  if (to)   q = q.lte('created_at', `${to}T23:59:59`)
+
+  const { data, error } = await q
+  if (error) throw error
+
+  const linhas = (data ?? []) as unknown as Array<{
+    metadata: { resultado?: string } | null
+    created_at: string
+    lead_id: string
+    leads: { created_at: string } | { created_at: string }[]
+  }>
+
+  const conta = (r: string) =>
+    linhas.filter((l) => l.metadata?.resultado === r).length
+
+  const atendidas = conta('atendeu')
+  // Só entram no cálculo as ligações COM resultado marcado. Ligação sem
+  // resultado não é "não atendida" — é desconhecida, e tratá-la como zero
+  // rebaixaria a taxa sem motivo.
+  const comResultado = linhas.filter((l) => !!l.metadata?.resultado).length
+
+  // Primeira ligação de cada lead, comparada com a entrada dele.
+  const primeiraPorLead = new Map<string, { ligou: number; entrou: number }>()
+  for (const l of linhas) {
+    const lead = Array.isArray(l.leads) ? l.leads[0] : l.leads
+    if (!lead) continue
+    const ligou  = new Date(l.created_at).getTime()
+    const entrou = new Date(lead.created_at).getTime()
+    const atual  = primeiraPorLead.get(l.lead_id)
+    if (!atual || ligou < atual.ligou) primeiraPorLead.set(l.lead_id, { ligou, entrou })
+  }
+
+  const esperas = [...primeiraPorLead.values()]
+    .map((v) => (v.ligou - v.entrou) / 60000)
+    .filter((m) => m >= 0)
+    .sort((a, b) => a - b)
+
+  return {
+    total:            linhas.length,
+    atendidas,
+    naoAtendidas:     conta('nao_atendeu'),
+    caixaPostal:      conta('caixa_postal'),
+    numeroErrado:     conta('numero_errado'),
+    taxaAtendimento:  comResultado > 0 ? (atendidas / comResultado) * 100 : 0,
+    minutosAteContato: esperas.length ? esperas[Math.floor(esperas.length / 2)] : null,
+  }
+}

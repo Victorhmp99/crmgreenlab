@@ -11,6 +11,7 @@ import { LeadSourceBadge } from '@/features/leads/components/LeadSourceBadge'
 import { TagPicker } from '@/features/leads/components/TagPicker'
 import { useLeadTags } from '@/features/leads/hooks/useLeadTags'
 import { LeadTimeline } from '../LeadTimeline'
+import { RegistroRapidoLigacao } from '../RegistroRapidoLigacao'
 import { LeadComments } from '../LeadComments'
 import { ActivityForm } from '../ActivityForm'
 import { LeadContractTab } from '../LeadContractTab'
@@ -224,14 +225,19 @@ export function LeadDrawer({ lead, onClose, onEdit, initialTab }: LeadDrawerProp
 
                 <Field icon={<Phone size={13} />} label="Telefone">
                   {lead.phone ? (
-                    <div className="flex items-center gap-2">
-                      <a href={`tel:${lead.phone}`} style={{ color: '#e8e8e8' }}>{formatPhone(lead.phone)}</a>
-                      <a href={`https://wa.me/55${lead.phone.replace(/\D/g, '')}`}
-                        target="_blank" rel="noopener noreferrer"
-                        className="text-xs font-medium flex items-center gap-1"
-                        style={{ color: '#00e676' }}>
-                        <span>●</span> WhatsApp
-                      </a>
+                    <div className="flex flex-col gap-1.5">
+                      <div className="flex items-center gap-2">
+                        <a href={`tel:${lead.phone}`} style={{ color: '#e8e8e8' }}>{formatPhone(lead.phone)}</a>
+                        <a href={`https://wa.me/55${lead.phone.replace(/\D/g, '')}`}
+                          target="_blank" rel="noopener noreferrer"
+                          className="text-xs font-medium flex items-center gap-1"
+                          style={{ color: '#00e676' }}>
+                          <span>●</span> WhatsApp
+                        </a>
+                      </div>
+                      {/* Fica colado no telefone de propósito: é onde a pessoa
+                          está olhando no segundo seguinte à ligação. */}
+                      <RegistroRapidoLigacao leadId={lead.id} />
                     </div>
                   ) : <Empty />}
                 </Field>
