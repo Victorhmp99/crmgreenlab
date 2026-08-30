@@ -84,6 +84,25 @@ export interface ResultadoDiscagem {
 }
 
 /**
+ * Renova o token do login antes de discar, se ele estiver perto de vencer.
+ *
+ * Discar é a única ação do CRM que a pessoa dispara DEPOIS de sair da aba:
+ * ela vai pro softphone, atende, volta e clica de novo. Nesse intervalo o
+ * navegador suspende o temporizador que renova o token, e o clique seguinte
+ * sai com credencial vencida — a função devolve 401 e a tela acusa "Sessão
+ * inválida", como se o login tivesse caído. Não caiu; só não foi renovado a
+ * tempo, e reclamar de sessão manda a pessoa fazer login à toa.
+ */
+async function garantirSessao(): Promise<void> {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) return
+
+  // Com folga: token que vence em 30s vence no meio da requisição.
+  const faltam = (session.expires_at ?? 0) * 1000 - Date.now()
+  if (faltam < 60_000) await supabase.auth.refreshSession()
+}
+
+/**
  * Dispara a ligação. O provedor toca PRIMEIRO no ramal do vendedor e só
  * depois disca pro cliente — então ele precisa estar com o webphone aberto.
  */
@@ -92,9 +111,19 @@ export async function discar(
   leadId:   string,
   telefone: string,
 ): Promise<ResultadoDiscagem> {
-  const { data, error } = await supabase.functions.invoke('telefonia-discar', {
-    body: { tenant_id: tenantId, lead_id: leadId, telefone },
-  })
+  await garantirSessao()
+
+  const corpo = { tenant_id: tenantId, lead_id: leadId, telefone }
+  let { data, error } = await supabase.functions.invoke('telefonia-discar', { body: corpo })
+
+  // 401 mesmo depois da renovação preventiva: o token venceu entre a checagem
+  // e o envio. Renova de fato e tenta uma vez — é exatamente o que a pessoa
+  // faria clicando de novo, e ela não deveria precisar descobrir isso sozinha.
+  const ctxStatus = (error as { context?: Response } | null)?.context?.status
+  if (ctxStatus === 401) {
+    await supabase.auth.refreshSession()
+    ;({ data, error } = await supabase.functions.invoke('telefonia-discar', { body: corpo }))
+  }
 
   if (error) {
     // O invoke devolve só "non-2xx status code"; o motivo real está no corpo
