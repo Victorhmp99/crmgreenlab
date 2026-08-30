@@ -237,7 +237,7 @@ export function LeadDrawer({ lead, onClose, onEdit, initialTab }: LeadDrawerProp
                       </div>
                       {/* Fica colado no telefone de propósito: é onde a pessoa
                           está olhando no segundo seguinte à ligação. */}
-                      <RegistroRapidoLigacao leadId={lead.id} />
+                      <RegistroRapidoLigacao leadId={lead.id} telefone={lead.phone} />
                     </div>
                   ) : <Empty />}
                 </Field>

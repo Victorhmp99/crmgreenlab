@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { PhoneCall, Check } from 'lucide-react'
+import { PhoneCall, Check, Phone, Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
 import { RESULTADOS, rotuloDoResultado, type ResultadoLigacao } from './resultados'
+import { discar } from '@/services/telefonia'
+import { useTelefoniaAtiva } from '@/features/settings/hooks/useTelefonia'
 
 /**
  * Registro de ligação em um toque.
@@ -19,11 +21,25 @@ import { RESULTADOS, rotuloDoResultado, type ResultadoLigacao } from './resultad
  * operação inteira precisa e hoje ninguém tem.
  */
 
-export function RegistroRapidoLigacao({ leadId }: { leadId: string }) {
+export function RegistroRapidoLigacao({ leadId, telefone }: { leadId: string; telefone?: string | null }) {
   const queryClient = useQueryClient()
   const tenantId = useAuthStore((s) => s.tenant?.id)
   const user     = useAuthStore((s) => s.user)
   const [registrado, setRegistrado] = useState<ResultadoLigacao | null>(null)
+  const [erroDiscar, setErroDiscar]  = useState<string | null>(null)
+  const telefoniaAtiva = useTelefoniaAtiva()
+
+  // Com telefonia ligada, o resultado chega sozinho pelo webhook — os botões
+  // manuais viram reserva, pra quem ligou pelo celular fora do sistema.
+  const ligar = useMutation({
+    mutationFn: async () => {
+      const r = await discar(tenantId!, leadId, telefone ?? '')
+      if (!r.ok) throw new Error(r.erro ?? 'Falha ao iniciar a ligação')
+      return r
+    },
+    onSuccess: () => setErroDiscar(null),
+    onError:   (e: Error) => setErroDiscar(e.message),
+  })
 
   const registrar = useMutation({
     mutationFn: async (resultado: ResultadoLigacao) => {
@@ -64,9 +80,34 @@ export function RegistroRapidoLigacao({ leadId }: { leadId: string }) {
   }
 
   return (
-    <div className="flex items-center gap-1.5 flex-wrap">
+    <div className="flex flex-col gap-1.5">
+      {telefoniaAtiva && telefone && (
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => ligar.mutate()}
+            disabled={ligar.isPending}
+            className="flex items-center gap-1.5 text-xs rounded-lg px-2.5 py-1 transition-colors disabled:opacity-50"
+            style={{ background: 'rgba(0,230,118,0.12)', color: '#00e676' }}
+          >
+            {ligar.isPending
+              ? <><Loader2 size={12} className="animate-spin" /> Chamando seu ramal…</>
+              : <><Phone size={12} /> Ligar</>}
+          </button>
+          {ligar.isSuccess && !ligar.isPending && (
+            <span className="text-[11px]" style={{ color: '#666' }}>
+              Atenda no seu ramal — a ligação sai depois disso
+            </span>
+          )}
+        </div>
+      )}
+
+      {erroDiscar && (
+        <p className="text-[11px]" style={{ color: '#ff6666' }}>{erroDiscar}</p>
+      )}
+
+      <div className="flex items-center gap-1.5 flex-wrap">
       <span className="flex items-center gap-1 text-[11px] mr-0.5" style={{ color: '#555' }}>
-        <PhoneCall size={11} /> Ligou? Registre:
+        <PhoneCall size={11} /> {telefoniaAtiva ? 'Ligou por fora? Registre:' : 'Ligou? Registre:'}
       </span>
       {RESULTADOS.map((r) => (
         <button
@@ -81,6 +122,7 @@ export function RegistroRapidoLigacao({ leadId }: { leadId: string }) {
           {r.rotulo}
         </button>
       ))}
+      </div>
     </div>
   )
 }

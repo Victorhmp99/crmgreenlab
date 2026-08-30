@@ -16,6 +16,8 @@ export interface TenantUser {
   maxCompaniesOverride:  number | null
   /** Criador da empresa: ninguém pode alterar nem remover o acesso dele. */
   isOwner:               boolean
+  /** Ramal na telefonia. Sem ele a pessoa não consegue discar pelo CRM. */
+  ramal:                 string | null
 }
 
 export interface TenantInvite {
@@ -41,7 +43,7 @@ export async function fetchTenantUsers(tenantId: string): Promise<TenantUser[]> 
     full_name: string | null; role: string; active: boolean;
     account_status: string; joined_at: string;
     tenant_name: string; tenant_id: string;
-    max_companies_override: number | null; is_owner: boolean;
+    max_companies_override: number | null; is_owner: boolean; ramal: string | null;
   }>).map((row) => ({
     membershipId:         row.membership_id,
     userId:               row.user_id,
@@ -54,6 +56,7 @@ export async function fetchTenantUsers(tenantId: string): Promise<TenantUser[]> 
     tenantId:             row.tenant_id,
     maxCompaniesOverride: row.max_companies_override ?? null,
     isOwner:              row.is_owner === true,
+    ramal:                row.ramal ?? null,
   }))
 }
 

@@ -11,6 +11,7 @@ import { useTenantStore } from '@/store/tenantStore'
 import { supabase } from '@/lib/supabase'
 import { ChannelManager } from '../components/ChannelManager'
 import { LeadFieldsManager } from '../components/LeadFieldsManager'
+import { TelefoniaCard } from '../components/TelefoniaCard'
 import { DeleteTenantModal } from '@/components/layout/Sidebar/DeleteTenantModal'
 
 const schema = z.object({
@@ -286,6 +287,9 @@ export function SettingsPage() {
 
       {/* ── Gestão de campos personalizados do lead ─────────────────────── */}
       <LeadFieldsManager />
+
+      {/* Telefonia: token, URL de retorno e ramal de cada vendedor */}
+      {(isAdmin || isSuperAdmin) && <TelefoniaCard />}
 
       {/* ── Zona de perigo (admin only) ──────────────────────────────────── */}
       {(isAdmin || isSuperAdmin) && (
