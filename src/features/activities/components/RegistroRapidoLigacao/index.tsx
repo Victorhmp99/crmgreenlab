@@ -30,7 +30,7 @@ export function RegistroRapidoLigacao({ leadId, telefone }: { leadId: string; te
   const [registrado, setRegistrado] = useState<ResultadoLigacao | null>(null)
   const [erroDiscar, setErroDiscar]  = useState<string | null>(null)
   const telefoniaAtiva = useTelefoniaAtiva()
-  const { isAdmin, isSuperAdmin } = usePermissions()
+  const { isAdmin, isManager, isSuperAdmin } = usePermissions()
 
   // Com telefonia ligada, o resultado chega sozinho pelo webhook — os botões
   // manuais viram reserva, pra quem ligou pelo celular fora do sistema.
@@ -84,32 +84,16 @@ export function RegistroRapidoLigacao({ leadId, telefone }: { leadId: string; te
 
   return (
     <div className="flex flex-col gap-1.5">
-      {/* Sem telefonia, o lugar do botão não fica vazio: explica o que
-          existiria ali e leva pra configuração. Recurso que não se anuncia é
-          recurso que ninguém liga. */}
-      {!telefoniaAtiva && telefone && (
-        <div className="rounded-lg px-2.5 py-2 text-[11px] leading-relaxed"
-          style={{ background: '#171717', border: '1px solid #222', color: '#777' }}>
-          <p className="flex items-start gap-1.5">
-            <Phone size={11} className="shrink-0 mt-0.5" />
-            <span>
-              Dá pra <strong style={{ color: '#aaa' }}>ligar daqui</strong>, com a chamada saindo
-              pelo número da empresa e a gravação voltando sozinha pro histórico do lead.
-              Precisa conectar a telefonia primeiro.
-            </span>
-          </p>
-          {(isAdmin || isSuperAdmin) ? (
-            <Link to="/settings"
-              className="inline-flex items-center gap-1 mt-1.5 rounded-lg px-2 py-1 transition-colors"
-              style={{ background: 'rgba(0,230,118,0.1)', color: '#00e676' }}>
-              <Settings2 size={11} /> Configurar telefonia
-            </Link>
-          ) : (
-            <p className="mt-1" style={{ color: '#555' }}>
-              Peça ao administrador da empresa para ativar.
-            </p>
-          )}
-        </div>
+      {/* Sem telefonia: uma linha e um botão. A versão anterior explicava
+          demais e era cortada pela largura do card — texto que não cabe não
+          informa ninguém. */}
+      {!telefoniaAtiva && telefone && (isAdmin || isManager || isSuperAdmin) && (
+        <Link to="/settings"
+          className="inline-flex items-center gap-1.5 text-[11px] rounded-lg px-2 py-1 transition-colors self-start"
+          style={{ background: '#1a1a1a', border: '1px solid #262626', color: '#888' }}
+          title="Ligar pelo CRM, com gravação automática no histórico do lead">
+          <Settings2 size={11} /> Configurar ligação
+        </Link>
       )}
 
       {telefoniaAtiva && telefone && (

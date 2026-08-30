@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { PhoneCall, Copy, Check, Info, ExternalLink } from 'lucide-react'
+import { PhoneCall, Copy, Check, Info, ExternalLink, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { useAuthStore } from '@/store/authStore'
@@ -28,8 +28,18 @@ export function TelefoniaCard() {
   const [token,   setToken]   = useState('')
   const [copiado, setCopiado] = useState(false)
   const [erro,    setErro]    = useState<string | null>(null)
+  // Abre sozinho pra quem ainda não configurou — é quem precisa ler.
+  const [verPasso, setVerPasso] = useState(false)
 
   const ligado = !!(config?.hasToken && config.ativo)
+
+  // Quem ainda não ligou é exatamente quem precisa do passo a passo, então
+  // ele começa aberto até a configuração existir. Depois fica recolhido.
+  const [passoSincronizado, setPassoSincronizado] = useState<boolean | null>(null)
+  if (config !== undefined && passoSincronizado !== ligado) {
+    setPassoSincronizado(ligado)
+    setVerPasso(!ligado)
+  }
 
   const urlWebhook = config?.webhookSecret
     ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/telefonia-webhook?s=${config.webhookSecret}`
@@ -86,14 +96,23 @@ export function TelefoniaCard() {
         precisar anotar nada.
       </p>
 
-      {/* Passo a passo só quando ainda não está ligado: depois de configurado
-          vira ruído em cima do que a pessoa usa todo dia. */}
-      {!ligado && (
-        <div className="rounded-xl px-4 py-3 text-xs"
-          style={{ background: 'rgba(64,160,255,0.08)', border: '1px solid rgba(64,160,255,0.15)', color: '#40a0ff' }}>
-          <p className="font-semibold mb-1.5 flex items-center gap-1.5">
+      {/* Recolhido por padrão: instrução longa aberta o tempo todo empurra
+          pra baixo justamente os campos que a pessoa veio preencher. Quem já
+          sabe cola o token direto; quem não sabe abre. */}
+      <div className="rounded-xl text-xs overflow-hidden"
+        style={{ background: 'rgba(64,160,255,0.08)', border: '1px solid rgba(64,160,255,0.15)' }}>
+        <button type="button" onClick={() => setVerPasso((v) => !v)}
+          className="w-full flex items-center justify-between gap-2 px-4 py-2.5 transition-colors"
+          style={{ color: '#40a0ff' }}>
+          <span className="font-semibold flex items-center gap-1.5">
             <ExternalLink size={12} /> Como ligar (leva ~10 minutos)
-          </p>
+          </span>
+          <ChevronDown size={14}
+            style={{ transform: verPasso ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />
+        </button>
+
+        {verPasso && (
+        <div className="px-4 pb-3">
           <ol className="list-decimal ml-4 space-y-1" style={{ color: '#7bb8f0' }}>
             <li>
               Crie a conta em{' '}
@@ -132,7 +151,8 @@ export function TelefoniaCard() {
             chamada.
           </p>
         </div>
-      )}
+        )}
+      </div>
 
       <form onSubmit={handleSalvar} autoComplete="off" className="flex items-end gap-3 flex-wrap">
         <div className="flex-1 min-w-56">

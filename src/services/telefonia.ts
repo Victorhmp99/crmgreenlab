@@ -61,12 +61,18 @@ export async function desligarTelefonia(tenantId: string): Promise<void> {
   if (error) throw error
 }
 
-/** Ramal de cada pessoa da empresa — é o que permite ela discar. */
+/**
+ * Ramal de cada pessoa da empresa — é o que permite ela discar.
+ *
+ * Vai por RPC: a tabela de vínculos só aceita escrita de admin, então o
+ * gestor receberia sucesso com zero linhas alteradas e o campo voltaria
+ * vazio sem erro nenhum.
+ */
 export async function salvarRamal(membershipId: string, ramal: string): Promise<void> {
-  const { error } = await supabase
-    .from('user_memberships')
-    .update({ ramal: ramal.trim() || null })
-    .eq('id', membershipId)
+  const { error } = await supabase.rpc('definir_ramal', {
+    p_membership_id: membershipId,
+    p_ramal:         ramal,
+  })
 
   if (error) throw error
 }

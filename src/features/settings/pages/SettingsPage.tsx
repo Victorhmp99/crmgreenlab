@@ -33,7 +33,7 @@ const COLOR_PRESETS = [
 
 export function SettingsPage() {
   const { tenant }                = useAuth()
-  const { isAdmin, isSuperAdmin } = usePermissions()
+  const { isAdmin, isManager, isSuperAdmin } = usePermissions()
   const settings                  = useTenantStore((s) => s.settings)
   const setSettings               = useTenantStore((s) => s.setSettings)
   const [saved, setSaved]         = useState(false)
@@ -288,8 +288,10 @@ export function SettingsPage() {
       {/* ── Gestão de campos personalizados do lead ─────────────────────── */}
       <LeadFieldsManager />
 
-      {/* Telefonia: token, URL de retorno e ramal de cada vendedor */}
-      {(isAdmin || isSuperAdmin) && <TelefoniaCard />}
+      {/* Telefonia: token, URL de retorno e ramal de cada vendedor.
+          Gestor também configura — é ele que toca a operação da empresa.
+          Restringir a admin fazia cada cliente depender de nós pra ligar. */}
+      {(isManager || isAdmin || isSuperAdmin) && <TelefoniaCard />}
 
       {/* ── Zona de perigo (admin only) ──────────────────────────────────── */}
       {(isAdmin || isSuperAdmin) && (
