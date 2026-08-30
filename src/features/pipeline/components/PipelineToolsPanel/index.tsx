@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   X, Zap, Pencil, ArrowLeftRight, MessageCircle, Globe,
-  Code2, Bot, Upload, Download, ScanSearch, Trash2,
+  Code2, Upload, Download, ScanSearch, Trash2,
   ChevronRight, BarChart2, Target, Users,
   GitBranch, ListChecks,
 } from 'lucide-react'
@@ -96,11 +96,12 @@ interface PipelineToolsPanelProps {
   onImport:         () => void
   onExport:         () => void
   onDelete:         () => void
+  onDuplicates:     () => void
 }
 
 export function PipelineToolsPanel({
   open, onClose, pipeline,
-  onOpenAutomations, onEdit, onImport, onExport, onDelete,
+  onOpenAutomations, onEdit, onImport, onExport, onDelete, onDuplicates,
 }: PipelineToolsPanelProps) {
   const navigate = useNavigate()
   const { hasFeature } = useFeatures()
@@ -209,13 +210,6 @@ export function PipelineToolsPanel({
       description: 'Meta Business API — alta escala',
       comingSoon:  true,
     },
-    {
-      icon:        <Bot size={16} style={{ color: '#f97316' }} />,
-      iconBg:      'rgba(249,115,22,0.12)',
-      label:       'Agente de IA',
-      description: 'Vincule um agente de IA',
-      comingSoon:  true,
-    },
   ]
 
   const leadsItems: ToolItem[] = [
@@ -237,8 +231,12 @@ export function PipelineToolsPanel({
       icon:        <ScanSearch size={16} style={{ color: '#fbbf24' }} />,
       iconBg:      'rgba(251,191,36,0.12)',
       label:       'Procurar Duplicatas',
-      description: 'Encontre leads duplicados',
-      comingSoon:  true,
+      description: 'Mesma pessoa cadastrada duas vezes',
+      onClick:     () => { onClose(); onDuplicates() },
+      // Juntar leads apaga um deles e move contrato: é limpeza de base, não
+      // rotina de vendedor. O banco recusa de qualquer forma, mas mostrar o
+      // que a pessoa não pode usar só gera chamado.
+      managerOnly: true,
     },
   ]
 

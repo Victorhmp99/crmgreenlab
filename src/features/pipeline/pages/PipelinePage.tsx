@@ -3,6 +3,7 @@ import { ArrowLeft, Settings, RefreshCw, Pencil, Search } from 'lucide-react'
 import { KanbanBoard } from '../components/KanbanBoard'
 import { PipelineGrid } from '../components/PipelineGrid'
 import { PipelineToolsPanel } from '../components/PipelineToolsPanel'
+import { DuplicatasModal } from '@/features/leads/components/DuplicatasModal'
 import { PipelineCreationWizard } from '../components/PipelineCreationWizard'
 import { DeletePipelineModal } from '../components/DeletePipelineModal'
 import { PipelineAutomationsModal } from '../components/PipelineAutomationsModal'
@@ -63,6 +64,7 @@ export function PipelinePage() {
   const [selectedPipelineId, setSelectedPipelineId] = useState<string | null>(null)
 
   // ── Estado de modais ──────────────────────────────────────────────────────
+  const [showDuplicatas, setShowDuplicatas] = useState(false)
   const [showTools,            setShowTools]            = useState(false)
   const [showAutomations,      setShowAutomations]      = useState(false)
   const [showEditWizard,       setShowEditWizard]       = useState(false)
@@ -385,7 +387,10 @@ export function PipelinePage() {
         onImport={() => setShowImport(true)}
         onExport={() => setShowExport(true)}
         onDelete={() => setShowDeletePipeline(true)}
+        onDuplicates={() => setShowDuplicatas(true)}
       />
+
+      <DuplicatasModal open={showDuplicatas} onClose={() => setShowDuplicatas(false)} />
 
       {/* ── Automações ───────────────────────────────────────────────────── */}
       {selectedPipeline && (
