@@ -1,4 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { fetchRegrasPipeline, definirMotivoPerda } from '@/services/regrasPipeline'
+import { MotivoPerdaModal } from '../MotivoPerdaModal'
 import {
   DndContext,
   DragOverlay,
@@ -64,6 +67,24 @@ function resolveOverStageId(overId: string, columns: ColumnData[]): string | nul
 }
 
 export function KanbanBoard({ stages, cards, pipelineId, onAddLead, onRemoveCard, onSelectLead }: KanbanBoardProps) {
+  const { data: regras } = useQuery({
+    queryKey: ['regras-pipeline', pipelineId],
+    queryFn:  () => fetchRegrasPipeline(pipelineId),
+    enabled:  !!pipelineId,
+  })
+
+  /* Pergunta o motivo da perda e ESPERA a resposta antes de mover. Uma promessa
+     em vez de estado solto porque o arrastar precisa pausar no meio: sem isso o
+     card iria pra coluna e o banco recusaria depois, e o vendedor veria o card
+     voltar sozinho com um erro — funciona, mas parece defeito. */
+  const [pedidoMotivo, setPedidoMotivo] = useState<
+    { nome: string; resolver: (motivo: string | null) => void } | null
+  >(null)
+
+  function pedirMotivoPerda(nome: string): Promise<string | null> {
+    return new Promise((resolver) => setPedidoMotivo({ nome, resolver }))
+  }
+
   const { move, reorder } = usePipelineMutations()
   const { reorderStages }  = usePipelineManagement()
 
@@ -73,6 +94,7 @@ export function KanbanBoard({ stages, cards, pipelineId, onAddLead, onRemoveCard
   const [activeColumn,  setActiveColumn]  = useState<ColumnData | null>(null)
   const [overColumnId,  setOverColumnId]  = useState<string | null>(null)
   const [convertedLead, setConvertedLead] = useState<string | null>(null) // nome do lead convertido (popup)
+  const [erroMovimento, setErroMovimento] = useState<string | null>(null) // regra recusou o movimento
 
   const displayStages  = localStages  ?? stages
   const displayColumns = localColumns ?? buildColumns(displayStages, cards)
@@ -223,6 +245,18 @@ export function KanbanBoard({ stages, cards, pipelineId, onAddLead, onRemoveCard
 
     try {
       if (sourceCol.stage.id !== destCol.stage.id) {
+        const destType   = destCol.stage.stage_type   ?? (destCol.stage.is_final   ? 'won' : 'in_progress')
+        const sourceType = sourceCol.stage.stage_type ?? (sourceCol.stage.is_final ? 'won' : 'in_progress')
+
+        // Motivo ANTES do movimento: é a única hora em que quem arrastou sabe
+        // a resposta de cabeça. Perguntado depois, num relatório, ninguém
+        // lembra — e foi por isso que esse dado nunca existiu.
+        if (destType === 'lost' && regras?.exigirMotivoPerda) {
+          const motivo = await pedirMotivoPerda(movedCard.lead.name ?? 'este lead')
+          if (!motivo) { setLocalColumns(null); return }
+          await definirMotivoPerda(movedCard.lead.id, motivo)
+        }
+
         // 1. Move o card para a nova coluna
         await move.mutateAsync({
           cardId:        activeId,
@@ -234,8 +268,6 @@ export function KanbanBoard({ stages, cards, pipelineId, onAddLead, onRemoveCard
         })
 
         // 1b. Auto-conversão de status conforme o tipo da etapa de destino
-        const destType   = destCol.stage.stage_type ?? (destCol.stage.is_final ? 'won' : 'in_progress')
-        const sourceType = sourceCol.stage.stage_type ?? (sourceCol.stage.is_final ? 'won' : 'in_progress')
         const { supabase } = await import('@/lib/supabase')
         if (destType === 'won' && movedCard.lead.status !== 'converted') {
           await supabase.from('leads')
@@ -281,9 +313,15 @@ export function KanbanBoard({ stages, cards, pipelineId, onAddLead, onRemoveCard
       }
     } catch (err) {
       console.error('[Pipeline] erro ao mover card:', err)
+      // As regras de movimentação recusam no banco, com mensagem em português.
+      // Sem mostrá-la, o card volta sozinho e parece bug — a pessoa tentaria
+      // de novo pra sempre sem descobrir que falta o contrato.
+      const msg = err instanceof Error ? err.message : String(err)
+      setErroMovimento(msg)
+      setTimeout(() => setErroMovimento(null), 6000)
       setLocalColumns(null)
     }
-  }, [localColumns, localStages, stages, cards, pipelineId, move, reorder, reorderStages])
+  }, [localColumns, localStages, stages, cards, pipelineId, move, reorder, reorderStages, regras?.exigirMotivoPerda])
 
   return (
     <DndContext
@@ -320,6 +358,24 @@ export function KanbanBoard({ stages, cards, pipelineId, onAddLead, onRemoveCard
       </DragOverlay>
 
       {/* 🎉 Popup de conversão (venda fechada) */}
+      {erroMovimento && (
+        <div
+          className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[400] flex items-start gap-3 px-5 py-4 rounded-2xl max-w-md"
+          style={{
+            background: '#0d0d0d',
+            border:     '1px solid rgba(255,68,68,0.45)',
+            boxShadow:  '0 8px 40px rgba(255,68,68,0.2)',
+            animation:  'fadeIn 0.25s ease',
+          }}
+        >
+          <span className="text-xl">🚫</span>
+          <div>
+            <p className="text-sm font-bold" style={{ color: '#ff6666' }}>Não deu pra mover</p>
+            <p className="text-xs mt-0.5" style={{ color: '#bbb' }}>{erroMovimento}</p>
+          </div>
+        </div>
+      )}
+
       {convertedLead && (
         <div
           className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[400] flex items-center gap-3 px-5 py-4 rounded-2xl"
@@ -341,6 +397,12 @@ export function KanbanBoard({ stages, cards, pipelineId, onAddLead, onRemoveCard
           </div>
         </div>
       )}
+      <MotivoPerdaModal
+        open={!!pedidoMotivo}
+        nomeLead={pedidoMotivo?.nome ?? ''}
+        onCancelar={() => { pedidoMotivo?.resolver(null); setPedidoMotivo(null) }}
+        onConfirmar={(motivo) => { pedidoMotivo?.resolver(motivo); setPedidoMotivo(null) }}
+      />
     </DndContext>
   )
 }

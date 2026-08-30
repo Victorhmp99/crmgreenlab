@@ -4,6 +4,7 @@ import { KanbanBoard } from '../components/KanbanBoard'
 import { PipelineGrid } from '../components/PipelineGrid'
 import { PipelineToolsPanel } from '../components/PipelineToolsPanel'
 import { DuplicatasModal } from '@/features/leads/components/DuplicatasModal'
+import { RegrasMovimentacaoModal } from '../components/RegrasMovimentacaoModal'
 import { PipelineCreationWizard } from '../components/PipelineCreationWizard'
 import { DeletePipelineModal } from '../components/DeletePipelineModal'
 import { PipelineAutomationsModal } from '../components/PipelineAutomationsModal'
@@ -65,6 +66,7 @@ export function PipelinePage() {
 
   // ── Estado de modais ──────────────────────────────────────────────────────
   const [showDuplicatas, setShowDuplicatas] = useState(false)
+  const [showRegras,     setShowRegras]     = useState(false)
   const [showTools,            setShowTools]            = useState(false)
   const [showAutomations,      setShowAutomations]      = useState(false)
   const [showEditWizard,       setShowEditWizard]       = useState(false)
@@ -388,7 +390,17 @@ export function PipelinePage() {
         onExport={() => setShowExport(true)}
         onDelete={() => setShowDeletePipeline(true)}
         onDuplicates={() => setShowDuplicatas(true)}
+        onRules={() => setShowRegras(true)}
       />
+
+      {selectedPipeline && (
+        <RegrasMovimentacaoModal
+          open={showRegras}
+          onClose={() => setShowRegras(false)}
+          pipelineId={selectedPipeline.id}
+          pipelineName={selectedPipeline.name}
+        />
+      )}
 
       <DuplicatasModal open={showDuplicatas} onClose={() => setShowDuplicatas(false)} />
 

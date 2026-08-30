@@ -97,11 +97,12 @@ interface PipelineToolsPanelProps {
   onExport:         () => void
   onDelete:         () => void
   onDuplicates:     () => void
+  onRules:          () => void
 }
 
 export function PipelineToolsPanel({
   open, onClose, pipeline,
-  onOpenAutomations, onEdit, onImport, onExport, onDelete, onDuplicates,
+  onOpenAutomations, onEdit, onImport, onExport, onDelete, onDuplicates, onRules,
 }: PipelineToolsPanelProps) {
   const navigate = useNavigate()
   const { hasFeature } = useFeatures()
@@ -148,8 +149,10 @@ export function PipelineToolsPanel({
       icon:        <ArrowLeftRight size={16} style={{ color: '#f97316' }} />,
       iconBg:      'rgba(249,115,22,0.12)',
       label:       'Regras de Movimentação',
-      description: 'Restrições de troca de etapa',
-      comingSoon:  true,
+      description: 'Exigir contrato pra fechar, motivo pra perder',
+      onClick:     () => { onClose(); onRules() },
+      // Define o rigor do funil inteiro: não é decisão de vendedor.
+      managerOnly: true,
     },
   ]
 
