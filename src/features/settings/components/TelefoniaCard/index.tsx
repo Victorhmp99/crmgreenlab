@@ -145,16 +145,15 @@ export function TelefoniaCard() {
             </li>
           </ol>
           <p className="mt-2" style={{ color: '#5a93c4' }}>
-            <strong>Celular ou tablet:</strong> a extensão é só de Chrome, mas dá pra usar o app{' '}
-            <strong>Linphone</strong> (grátis). Na aba Ramal do painel deles, marque{' '}
-            <strong>Registro externo</strong> e salve; no Linphone escolha{' '}
-            <em>usar conta SIP</em> com o ramal, a senha, o domínio que aparece nessa aba e
-            transporte <strong>TLS</strong>.
+            <strong>Celular ou tablet:</strong> a extensão é só de Chrome, mas dá pra usar um app
+            SIP (Zoiper ou Linphone, grátis). Na aba Ramal marque <strong>Registro externo</strong>{' '}
+            e salve; no app use o ramal, a senha e o domínio dessa aba{' '}
+            <strong>com <code>:9999</code> no final</strong> — ex:{' '}
+            <code>suaempresa.api4com.com:9999</code>.
             <br />
             <span style={{ color: '#4a7ba8' }}>
-              O TLS não é opcional: o servidor deles não aceita SIP sem criptografia. Por isso o
-              Zoiper grátis não serve — TLS nele é pago. O app precisa ficar aberto pra receber a
-              chamada.
+              A porta não é detalhe: sem ela o app tenta a 5060, que fica sem resposta, e o
+              registro falha com erro 408. O app precisa ficar aberto pra receber a chamada.
             </span>
           </p>
         </div>
