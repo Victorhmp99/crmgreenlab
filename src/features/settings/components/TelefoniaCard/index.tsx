@@ -145,10 +145,11 @@ export function TelefoniaCard() {
             </li>
           </ol>
           <p className="mt-2" style={{ color: '#5a93c4' }}>
-            <strong>Celular ou tablet:</strong> a extensão é só de Chrome no computador. Em
-            iPad/iPhone/Android, use um aplicativo SIP (Zoiper, Linphone) com o domínio, o ramal
-            e a senha que aparecem na aba Ramal — o app precisa ficar aberto pra receber a
-            chamada.
+            <strong>Celular ou tablet:</strong> hoje não funciona. A extensão é só de Chrome no
+            computador, e o SIP da API4COM usa WebSocket (WSS, porta 6443), que aplicativos como
+            Zoiper e Linphone não falam. Se precisar de mobilidade, pergunte ao suporte deles se
+            o ramal pode <strong>tocar num número de celular comum</strong> — aí funciona sem
+            instalar nada.
           </p>
         </div>
         )}
