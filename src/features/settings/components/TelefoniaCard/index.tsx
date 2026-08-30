@@ -145,11 +145,17 @@ export function TelefoniaCard() {
             </li>
           </ol>
           <p className="mt-2" style={{ color: '#5a93c4' }}>
-            <strong>Celular ou tablet:</strong> hoje não funciona. A extensão é só de Chrome no
-            computador, e o SIP da API4COM usa WebSocket (WSS, porta 6443), que aplicativos como
-            Zoiper e Linphone não falam. Se precisar de mobilidade, pergunte ao suporte deles se
-            o ramal pode <strong>tocar num número de celular comum</strong> — aí funciona sem
-            instalar nada.
+            <strong>Celular ou tablet:</strong> a extensão é só de Chrome, mas dá pra usar o app{' '}
+            <strong>Linphone</strong> (grátis). Na aba Ramal do painel deles, marque{' '}
+            <strong>Registro externo</strong> e salve; no Linphone escolha{' '}
+            <em>usar conta SIP</em> com o ramal, a senha, o domínio que aparece nessa aba e
+            transporte <strong>TLS</strong>.
+            <br />
+            <span style={{ color: '#4a7ba8' }}>
+              O TLS não é opcional: o servidor deles não aceita SIP sem criptografia. Por isso o
+              Zoiper grátis não serve — TLS nele é pago. O app precisa ficar aberto pra receber a
+              chamada.
+            </span>
           </p>
         </div>
         )}
