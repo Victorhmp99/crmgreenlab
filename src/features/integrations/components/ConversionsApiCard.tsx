@@ -1,6 +1,9 @@
 import { useState, type FormEvent } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Radio, Check, AlertTriangle, Clock, Info, ExternalLink, RefreshCw, Send } from 'lucide-react'
+import {
+  Radio, Check, AlertTriangle, Clock, Info, ExternalLink, RefreshCw, Send,
+  ChevronDown, KeyRound,
+} from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Spinner } from '@/components/ui/Spinner'
@@ -143,6 +146,29 @@ export function ConversionsApiCard({ tenantId, credentials }: {
     (s, f) => s + f.stages.filter((st) => st.meta_event).length, 0,
   )
 
+  /* ── O que fica recolhido ──────────────────────────────────────────────
+     A tela crescia até virar uma parede: explicação, passo a passo, três
+     campos e TODAS as colunas de TODOS os funis, tudo aberto ao mesmo tempo.
+     Quem já ligou não precisa de nada disso na frente — precisa do estado do
+     envio e do mapa das colunas.
+
+     A regra é a mesma em toda parte: aberto para quem ainda não ligou, que é
+     justamente quem precisa ler; recolhido depois. */
+  const [verPasso,       setVerPasso]       = useState(!ligado)
+  const [verCredenciais, setVerCredenciais] = useState(!ligado)
+  const [funisAbertos,   setFunisAbertos]   = useState<Record<string, boolean>>({})
+
+  const [sincronizado, setSincronizado] = useState<boolean | null>(null)
+  if (sincronizado !== ligado) {
+    setSincronizado(ligado)
+    setVerPasso(!ligado)
+    setVerCredenciais(!ligado)
+  }
+
+  /* Com um funil só, recolher não economiza nada e ainda cobra um clique — a
+     situação normal de clínica pequena. Com vários, tudo fechado. */
+  const funilAberto = (id: string) => funisAbertos[id] ?? funis.length === 1
+
   return (
     <div className="rounded-xl p-5 mb-6" style={{ background: '#141414', border: '1px solid #1e1e1e' }}>
       <div className="flex items-center gap-2 mb-1">
@@ -159,28 +185,41 @@ export function ConversionsApiCard({ tenantId, credentials }: {
         Ensina o Meta quem virou cliente de verdade, não só quem mandou mensagem
       </p>
 
-      {/* ── Pra que serve ─────────────────────────────────────────────── */}
-      <div className="rounded-lg p-3 mb-4 text-xs leading-relaxed"
-        style={{ background: '#171717', border: '1px solid #222', color: '#999' }}>
-        <p className="flex items-start gap-2">
-          <Info size={13} className="shrink-0 mt-0.5" style={{ color: '#666' }} />
-          <span>
-            Hoje sua campanha de WhatsApp só sabe <strong style={{ color: '#ccc' }}>quem mandou
-            mensagem</strong> — então ela procura mais gente que manda mensagem, não mais gente
-            que compra. Ligando isso, cada vez que você move o card no funil o CRM avisa o Meta,
-            e ele passa a procurar pessoas parecidas com quem{' '}
-            <strong style={{ color: '#ccc' }}>fechou de verdade</strong>.
-          </span>
-        </p>
-      </div>
+      {/* Só pra quem ainda não ligou: depois de funcionando, explicar o que a
+          integração faz é espaço gasto com quem já sabe. */}
+      {!ligado && (
+        <div className="rounded-lg p-3 mb-4 text-xs leading-relaxed"
+          style={{ background: '#171717', border: '1px solid #222', color: '#999' }}>
+          <p className="flex items-start gap-2">
+            <Info size={13} className="shrink-0 mt-0.5" style={{ color: '#666' }} />
+            <span>
+              Hoje sua campanha de WhatsApp só sabe <strong style={{ color: '#ccc' }}>quem mandou
+              mensagem</strong> — então ela procura mais gente que manda mensagem, não mais gente
+              que compra. Ligando isso, cada vez que você move o card no funil o CRM avisa o Meta,
+              e ele passa a procurar pessoas parecidas com quem{' '}
+              <strong style={{ color: '#ccc' }}>fechou de verdade</strong>.
+            </span>
+          </p>
+        </div>
+      )}
 
       {/* ── Passo a passo ─────────────────────────────────────────────── */}
-      {!ligado && (
-        <div className="rounded-xl px-4 py-3 text-xs mb-5"
-          style={{ background: 'rgba(64,160,255,0.08)', border: '1px solid rgba(64,160,255,0.15)', color: '#40a0ff' }}>
-          <p className="font-semibold mb-1.5 flex items-center gap-1.5">
+      {/* Continua disponível depois de ligado: é onde está a explicação do
+          passo do pixel, que é o que trava quando alguém troca de token. */}
+      <div className="rounded-xl text-xs mb-5 overflow-hidden"
+        style={{ background: 'rgba(64,160,255,0.08)', border: '1px solid rgba(64,160,255,0.15)' }}>
+        <button type="button" onClick={() => setVerPasso((v) => !v)}
+          className="w-full flex items-center justify-between gap-2 px-4 py-2.5 transition-colors"
+          style={{ color: '#40a0ff' }}>
+          <span className="font-semibold flex items-center gap-1.5">
             <ExternalLink size={12} /> Como ligar (leva ~5 minutos, é grátis)
-          </p>
+          </span>
+          <ChevronDown size={14}
+            style={{ transform: verPasso ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />
+        </button>
+
+        {verPasso && (
+        <div className="px-4 pb-3">
           <ol className="list-decimal ml-4 space-y-1" style={{ color: '#7bb8f0' }}>
             <li>
               Abra o <strong>Gerenciador de Eventos</strong> em{' '}
@@ -234,12 +273,35 @@ export function ConversionsApiCard({ tenantId, credentials }: {
             antes de ligar não é enviado.
           </p>
         </div>
+        )}
+      </div>
+
+      {/* Credenciais são de configuração: preenchidas uma vez e revisitadas só
+          quando um token vence. Ficavam ocupando o meio do card pra sempre. */}
+      {ligado && (
+        <button type="button" onClick={() => setVerCredenciais((v) => !v)}
+          className="w-full flex items-center justify-between gap-2 rounded-lg px-3 py-2 mb-4 transition-colors"
+          style={{ background: '#171717', border: '1px solid #222' }}>
+          <span className="flex items-center gap-2 text-xs" style={{ color: '#888' }}>
+            <KeyRound size={12} style={{ color: '#555' }} />
+            Credenciais
+            {credentials?.datasetId && (
+              <span style={{ color: '#555' }}>· dataset {credentials.datasetId}</span>
+            )}
+          </span>
+          <ChevronDown size={14} style={{
+            color: '#555',
+            transform: verCredenciais ? 'rotate(180deg)' : 'none',
+            transition: 'transform .15s',
+          }} />
+        </button>
       )}
 
       {/* autoComplete desligado nos dois: um campo de texto seguido de um
           type="password" faz o Chrome tratar o par como formulário de login e
           despejar e-mail e senha salvos por cima. Aconteceu de verdade — o
           campo de dataset apareceu preenchido com um endereço de e-mail. */}
+      {verCredenciais && (
       <form onSubmit={handleSalvar} autoComplete="off" className="flex items-end gap-3 flex-wrap mb-4">
         <div className="w-52">
           <Input
@@ -295,6 +357,7 @@ export function ConversionsApiCard({ tenantId, credentials }: {
           </button>
         )}
       </form>
+      )}
 
       {erro && (
         <p className="text-sm rounded-lg px-3 py-2 mb-4"
@@ -381,13 +444,42 @@ export function ConversionsApiCard({ tenantId, credentials }: {
           {funisLoading ? (
             <div className="flex justify-center py-6"><Spinner size="md" /></div>
           ) : (
-            <div className="flex flex-col gap-4">
-              {funis.map((funil) => (
-                <div key={funil.pipelineId}>
-                  <p className="text-[11px] font-medium mb-1.5" style={{ color: '#888' }}>
-                    {funil.pipelineName}
-                  </p>
-                  <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-2">
+              {funis.map((funil) => {
+                const marcadas = funil.stages.filter((st) => st.meta_event).length
+                const aberto   = funilAberto(funil.pipelineId)
+                return (
+                <div key={funil.pipelineId} className="rounded-lg overflow-hidden"
+                  style={{ border: '1px solid #1e1e1e' }}>
+                  {/* O resumo no cabeçalho é o que permite deixar tudo fechado:
+                      dá pra ver qual funil ainda não foi configurado sem abrir
+                      um por um. */}
+                  <button type="button"
+                    onClick={() => setFunisAbertos((a) => ({ ...a, [funil.pipelineId]: !aberto }))}
+                    className="w-full flex items-center justify-between gap-2 px-3 py-2 transition-colors"
+                    style={{ background: '#171717' }}>
+                    <span className="text-[11px] font-medium truncate" style={{ color: '#aaa' }}>
+                      {funil.pipelineName}
+                    </span>
+                    <span className="flex items-center gap-2 shrink-0">
+                      <span className="text-[10px] rounded-full px-2 py-0.5" style={{
+                        background: marcadas ? 'rgba(0,230,118,0.1)' : '#1a1a1a',
+                        color:      marcadas ? '#00e676' : '#555',
+                      }}>
+                        {marcadas
+                          ? `${marcadas} de ${funil.stages.length} marcadas`
+                          : 'nenhuma marcada'}
+                      </span>
+                      <ChevronDown size={13} style={{
+                        color: '#555',
+                        transform: aberto ? 'rotate(180deg)' : 'none',
+                        transition: 'transform .15s',
+                      }} />
+                    </span>
+                  </button>
+
+                  {aberto && (
+                  <div className="flex flex-col gap-1 p-2">
                     {funil.stages.map((stage) => (
                       <div key={stage.id}
                         className="flex items-center gap-3 px-3 py-1.5 rounded-lg"
@@ -409,8 +501,10 @@ export function ConversionsApiCard({ tenantId, credentials }: {
                       </div>
                     ))}
                   </div>
+                  )}
                 </div>
-              ))}
+                )
+              })}
             </div>
           )}
 
