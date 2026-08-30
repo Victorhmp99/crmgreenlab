@@ -231,13 +231,13 @@ export function TelefoniaCard() {
           </p>
           {/* A central aceita UM aparelho por ramal: registrar o celular derruba
               o webphone do computador. Quem precisa atender nos dois lugares
-              precisa mesmo de dois ramais — e isso custa, então é escolha de
-              cada empresa e o campo nasce vazio. */}
+              precisa mesmo de dois ramais. */}
           <p className="text-[11px] mb-3" style={{ color: '#555' }}>
             O ramal do <strong>celular</strong> é opcional. Só preencha se a pessoa precisar
             atender no computador <em>e</em> no telefone: cada aparelho exige um ramal próprio,
-            porque registrar um derruba o outro — e o segundo ramal é cobrado como usuário
-            adicional na API4COM.
+            porque registrar um derruba o outro. No painel da API4COM ele se cria em{' '}
+            <strong>Ramal → Novo Ramal</strong>, dentro do mesmo usuário. O CRM não descobre
+            ramais sozinho — o que vale é o que estiver digitado aqui.
           </p>
 
           <div className="flex items-center gap-3 px-3 pb-1">
