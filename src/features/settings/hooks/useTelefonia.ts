@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useAuthStore } from '@/store/authStore'
-import { fetchTelefoniaConfig } from '@/services/telefonia'
+import { fetchTelefoniaConfig, fetchMeuAparelho } from '@/services/telefonia'
 
 export function useTelefoniaConfig() {
   const tenantId = useAuthStore((s) => s.tenant?.id)
@@ -21,4 +21,19 @@ export function useTelefoniaConfig() {
 export function useTelefoniaAtiva(): boolean {
   const { data } = useTelefoniaConfig()
   return !!(data?.hasToken && data.ativo)
+}
+
+/**
+ * Em qual aparelho a chamada deve tocar, pra pessoa que está usando o CRM.
+ *
+ * Fica aqui junto do resto da telefonia porque muda pela mesma razão: a
+ * central só aceita um aparelho registrado por ramal.
+ */
+export function useMeuAparelho() {
+  const tenantId = useAuthStore((s) => s.tenant?.id)
+  return useQuery({
+    queryKey: ['meu-aparelho', tenantId],
+    queryFn:  () => fetchMeuAparelho(tenantId!),
+    enabled:  !!tenantId,
+  })
 }

@@ -60,8 +60,14 @@ export function TelefoniaCard() {
   })
 
   const gravarRamal = useMutation({
-    mutationFn: ({ id, ramal }: { id: string; ramal: string }) => salvarRamal(id, ramal),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['users'] }),
+    mutationFn: ({ id, ramal, movel }: { id: string; ramal: string; movel: boolean }) =>
+      salvarRamal(id, ramal, movel),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+      // A escolha de aparelho só aparece pra quem tem os dois ramais; sem
+      // recarregar isto, o seletor não surge até a próxima navegação.
+      queryClient.invalidateQueries({ queryKey: ['meu-aparelho'] })
+    },
   })
 
   function handleSalvar(e: FormEvent) {
@@ -219,10 +225,31 @@ export function TelefoniaCard() {
           <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#666' }}>
             Ramal de cada pessoa
           </p>
-          <p className="text-[11px] mb-3" style={{ color: '#555' }}>
+          <p className="text-[11px] mb-1" style={{ color: '#555' }}>
             Cada vendedor precisa do próprio ramal — é ele que toca quando alguém clica em Ligar,
             e é o que separa a gravação de cada um.
           </p>
+          {/* A central aceita UM aparelho por ramal: registrar o celular derruba
+              o webphone do computador. Quem precisa atender nos dois lugares
+              precisa mesmo de dois ramais — e isso custa, então é escolha de
+              cada empresa e o campo nasce vazio. */}
+          <p className="text-[11px] mb-3" style={{ color: '#555' }}>
+            O ramal do <strong>celular</strong> é opcional. Só preencha se a pessoa precisar
+            atender no computador <em>e</em> no telefone: cada aparelho exige um ramal próprio,
+            porque registrar um derruba o outro — e o segundo ramal é cobrado como usuário
+            adicional na API4COM.
+          </p>
+
+          <div className="flex items-center gap-3 px-3 pb-1">
+            <span className="flex-1" />
+            <span className="w-24 text-[10px] uppercase tracking-wide" style={{ color: '#555' }}>
+              Computador
+            </span>
+            <span className="w-24 text-[10px] uppercase tracking-wide" style={{ color: '#555' }}>
+              Celular
+            </span>
+          </div>
+
           <div className="flex flex-col gap-1.5">
             {usuarios.map((u) => (
               <div key={u.membershipId} className="flex items-center gap-3 px-3 py-2 rounded-lg"
@@ -231,12 +258,24 @@ export function TelefoniaCard() {
                   {u.fullName || u.email}
                 </span>
                 <input
-                  defaultValue={(u as { ramal?: string }).ramal ?? ''}
+                  defaultValue={u.ramal ?? ''}
                   placeholder="ramal"
                   onBlur={(e) => {
                     const novo = e.target.value.trim()
-                    if (novo !== ((u as { ramal?: string }).ramal ?? '')) {
-                      gravarRamal.mutate({ id: u.membershipId, ramal: novo })
+                    if (novo !== (u.ramal ?? '')) {
+                      gravarRamal.mutate({ id: u.membershipId, ramal: novo, movel: false })
+                    }
+                  }}
+                  className="w-24 text-xs rounded-lg px-2 py-1 outline-none"
+                  style={{ background: '#1a1a1a', border: '1px solid #262626', color: '#e8e8e8' }}
+                />
+                <input
+                  defaultValue={u.ramalMovel ?? ''}
+                  placeholder="opcional"
+                  onBlur={(e) => {
+                    const novo = e.target.value.trim()
+                    if (novo !== (u.ramalMovel ?? '')) {
+                      gravarRamal.mutate({ id: u.membershipId, ramal: novo, movel: true })
                     }
                   }}
                   className="w-24 text-xs rounded-lg px-2 py-1 outline-none"

@@ -68,10 +68,55 @@ export async function desligarTelefonia(tenantId: string): Promise<void> {
  * gestor receberia sucesso com zero linhas alteradas e o campo voltaria
  * vazio sem erro nenhum.
  */
-export async function salvarRamal(membershipId: string, ramal: string): Promise<void> {
+export async function salvarRamal(
+  membershipId: string,
+  ramal:        string,
+  movel = false,
+): Promise<void> {
   const { error } = await supabase.rpc('definir_ramal', {
     p_membership_id: membershipId,
     p_ramal:         ramal,
+    p_movel:         movel,
+  })
+
+  if (error) throw error
+}
+
+export type Aparelho = 'computador' | 'celular'
+
+export interface MeuAparelho {
+  aparelho:      Aparelho
+  temComputador: boolean
+  temCelular:    boolean
+}
+
+/**
+ * Onde a chamada deve tocar, e quais opções a pessoa realmente tem.
+ *
+ * A central aceita um aparelho por ramal — registrar o celular derruba o
+ * webphone. Por isso a escolha existe: não é preferência estética, é a única
+ * forma de atender fora da mesa sem perder o computador.
+ */
+export async function fetchMeuAparelho(tenantId: string): Promise<MeuAparelho | null> {
+  const { data, error } = await supabase.rpc('meu_aparelho', { p_tenant_id: tenantId })
+  if (error) throw error
+
+  const linha = (data as Array<{
+    aparelho: string; tem_computador: boolean; tem_celular: boolean
+  }> | null)?.[0]
+  if (!linha) return null
+
+  return {
+    aparelho:      linha.aparelho === 'celular' ? 'celular' : 'computador',
+    temComputador: linha.tem_computador,
+    temCelular:    linha.tem_celular,
+  }
+}
+
+export async function definirAparelho(tenantId: string, aparelho: Aparelho): Promise<void> {
+  const { error } = await supabase.rpc('definir_aparelho', {
+    p_tenant_id: tenantId,
+    p_aparelho:  aparelho,
   })
 
   if (error) throw error

@@ -18,6 +18,8 @@ export interface TenantUser {
   isOwner:               boolean
   /** Ramal na telefonia. Sem ele a pessoa não consegue discar pelo CRM. */
   ramal:                 string | null
+  /** Segundo ramal, do celular. Opcional — custa um usuário a mais no provedor. */
+  ramalMovel:            string | null
 }
 
 export interface TenantInvite {
@@ -44,6 +46,7 @@ export async function fetchTenantUsers(tenantId: string): Promise<TenantUser[]> 
     account_status: string; joined_at: string;
     tenant_name: string; tenant_id: string;
     max_companies_override: number | null; is_owner: boolean; ramal: string | null;
+    ramal_movel: string | null;
   }>).map((row) => ({
     membershipId:         row.membership_id,
     userId:               row.user_id,
@@ -57,6 +60,7 @@ export async function fetchTenantUsers(tenantId: string): Promise<TenantUser[]> 
     maxCompaniesOverride: row.max_companies_override ?? null,
     isOwner:              row.is_owner === true,
     ramal:                row.ramal ?? null,
+    ramalMovel:           row.ramal_movel ?? null,
   }))
 }
 

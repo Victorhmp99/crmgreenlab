@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { PhoneCall, Check, Phone, Loader2, Settings2 } from 'lucide-react'
+import { PhoneCall, Check, Phone, Loader2, Settings2, Monitor, Smartphone } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { usePermissions } from '@/hooks/usePermissions'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
 import { RESULTADOS, rotuloDoResultado, type ResultadoLigacao } from './resultados'
-import { discar } from '@/services/telefonia'
-import { useTelefoniaAtiva } from '@/features/settings/hooks/useTelefonia'
+import { discar, definirAparelho, type Aparelho } from '@/services/telefonia'
+import { useTelefoniaAtiva, useMeuAparelho } from '@/features/settings/hooks/useTelefonia'
 
 /**
  * Registro de ligação em um toque.
@@ -30,7 +30,15 @@ export function RegistroRapidoLigacao({ leadId, telefone }: { leadId: string; te
   const [registrado, setRegistrado] = useState<ResultadoLigacao | null>(null)
   const [erroDiscar, setErroDiscar]  = useState<string | null>(null)
   const telefoniaAtiva = useTelefoniaAtiva()
+  const { data: aparelho } = useMeuAparelho()
   const { isAdmin, isManager, isSuperAdmin } = usePermissions()
+
+  // A troca fica AQUI, colada no botão, e não numa tela de configuração: a
+  // pessoa decide onde quer atender no momento em que vai ligar, não antes.
+  const trocarAparelho = useMutation({
+    mutationFn: (destino: Aparelho) => definirAparelho(tenantId!, destino),
+    onSuccess:  () => queryClient.invalidateQueries({ queryKey: ['meu-aparelho'] }),
+  })
 
   // Com telefonia ligada, o resultado chega sozinho pelo webhook — os botões
   // manuais viram reserva, pra quem ligou pelo celular fora do sistema.
@@ -108,6 +116,31 @@ export function RegistroRapidoLigacao({ leadId, telefone }: { leadId: string; te
               ? <><Loader2 size={12} className="animate-spin" /> Chamando seu ramal…</>
               : <><Phone size={12} /> Ligar</>}
           </button>
+          {/* Só aparece pra quem tem os dois ramais. Sem o segundo, oferecer a
+              escolha seria um botão que não muda nada. */}
+          {aparelho?.temComputador && aparelho.temCelular && (
+            <div className="flex items-center rounded-lg overflow-hidden"
+              style={{ border: '1px solid #262626' }}>
+              {([
+                { valor: 'computador' as const, rotulo: 'PC',      Icone: Monitor },
+                { valor: 'celular'    as const, rotulo: 'Celular', Icone: Smartphone },
+              ]).map(({ valor, rotulo, Icone }) => (
+                <button
+                  key={valor}
+                  onClick={() => trocarAparelho.mutate(valor)}
+                  disabled={trocarAparelho.isPending}
+                  title={`Fazer a ligação tocar no ${rotulo === 'PC' ? 'computador' : 'celular'}`}
+                  className="flex items-center gap-1 px-2 py-1 text-[11px] transition-colors disabled:opacity-50"
+                  style={{
+                    background: aparelho.aparelho === valor ? 'rgba(0,230,118,0.12)' : 'transparent',
+                    color:      aparelho.aparelho === valor ? '#00e676' : '#666',
+                  }}
+                >
+                  <Icone size={11} /> {rotulo}
+                </button>
+              ))}
+            </div>
+          )}
           {ligar.isSuccess && !ligar.isPending && (
             <span className="text-[11px]" style={{ color: '#666' }}>
               Atenda no seu ramal — a ligação sai depois disso
