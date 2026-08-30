@@ -121,6 +121,27 @@ Deno.serve(async (req) => {
     const texto = await resposta.text()
 
     if (!resposta.ok) {
+      // Sem este registro a recusa só existe na tela de quem clicou, e não dá
+      // pra diagnosticar o problema de um cliente sem pedir print pra ele.
+      console.error('api4com recusou', resposta.status, 'ramal', ramal, texto.slice(0, 300))
+
+      // 422 é o que aparece quando o ramal não tem NENHUM aparelho conectado:
+      // a central não tem onde tocar. É a recusa mais comum e a mais confusa,
+      // porque "o provedor recusou" não sugere que basta abrir o aplicativo.
+      // Em celular isso acontece sozinho — o sistema suspende o app fora da
+      // tela e o registro cai junto.
+      //
+      // O texto do provedor continua no detalhe: se esta leitura do 422
+      // estiver errada, a pessoa ainda vê o motivo real em vez da minha
+      // suposição.
+      if (resposta.status === 422) {
+        return json({
+          error:   'Nenhum aparelho conectado no seu ramal',
+          detalhe: 'Abra o webphone no Chrome, ou o aplicativo SIP no celular, e tente de novo. '
+                 + `No celular o registro cai quando o app sai da tela. (provedor: ${texto.slice(0, 200)})`,
+        }, 502)
+      }
+
       // O motivo real vem no corpo. Devolver só "falhou" deixaria o vendedor
       // sem saber se é ramal errado, crédito acabado ou token vencido.
       return json({ error: 'O provedor recusou a chamada', detalhe: texto.slice(0, 300) }, 502)
