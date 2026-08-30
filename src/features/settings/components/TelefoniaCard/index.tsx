@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { PhoneCall, Copy, Check, Info } from 'lucide-react'
+import { PhoneCall, Copy, Check, Info, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { useAuthStore } from '@/store/authStore'
@@ -72,7 +72,9 @@ export function TelefoniaCard() {
       style={{ background: '#141414', border: '1px solid #1e1e1e' }}>
       <div className="flex items-center gap-2">
         <PhoneCall size={15} style={{ color: ligado ? '#00e676' : '#555' }} />
-        <h3 className="text-sm font-semibold" style={{ color: '#e8e8e8' }}>Telefonia</h3>
+        <h3 className="text-sm font-semibold" style={{ color: '#e8e8e8' }}>
+          Telefonia <span style={{ color: '#666' }}>(API4COM)</span>
+        </h3>
         {ligado && (
           <span className="text-[10px] rounded-full px-2 py-0.5"
             style={{ background: 'rgba(0,230,118,0.12)', color: '#00e676' }}>ligada</span>
@@ -83,6 +85,54 @@ export function TelefoniaCard() {
         Liga direto do card do lead. A gravação e o resultado voltam sozinhos, sem ninguém
         precisar anotar nada.
       </p>
+
+      {/* Passo a passo só quando ainda não está ligado: depois de configurado
+          vira ruído em cima do que a pessoa usa todo dia. */}
+      {!ligado && (
+        <div className="rounded-xl px-4 py-3 text-xs"
+          style={{ background: 'rgba(64,160,255,0.08)', border: '1px solid rgba(64,160,255,0.15)', color: '#40a0ff' }}>
+          <p className="font-semibold mb-1.5 flex items-center gap-1.5">
+            <ExternalLink size={12} /> Como ligar (leva ~10 minutos)
+          </p>
+          <ol className="list-decimal ml-4 space-y-1" style={{ color: '#7bb8f0' }}>
+            <li>
+              Crie a conta em{' '}
+              <a href="https://www.api4com.com" target="_blank" rel="noopener noreferrer"
+                className="underline" style={{ color: '#40a0ff' }}>api4com.com</a>{' '}
+              (tem teste grátis com crédito).
+            </li>
+            <li>
+              No painel deles, aba <strong>Ramal</strong>: anote o número do ramal (ex: 1000).
+              <br />
+              <span style={{ color: '#5a93c4' }}>
+                Cada vendedor precisa de um <strong>usuário</strong> na API4COM — o ramal nasce
+                junto com ele, e é cobrado por usuário.
+              </span>
+            </li>
+            <li>Gere o <strong>token de API</strong> no painel e cole no campo abaixo.</li>
+            <li>
+              Copie a URL que vai aparecer aqui e cole no painel deles, aba{' '}
+              <strong>Webhook</strong>.
+              <br />
+              <span style={{ color: '#5a93c4' }}>
+                Sem esse passo a ligação sai normalmente e <strong>nada é registrado</strong> —
+                é a falha mais fácil de não perceber.
+              </span>
+            </li>
+            <li>Preencha o ramal de cada pessoa na lista que aparece no fim deste bloco.</li>
+            <li>
+              Instale a <strong>extensão do webphone</strong> no Chrome e deixe conectada. É ela
+              que toca quando alguém clica em Ligar.
+            </li>
+          </ol>
+          <p className="mt-2" style={{ color: '#5a93c4' }}>
+            <strong>Celular ou tablet:</strong> a extensão é só de Chrome no computador. Em
+            iPad/iPhone/Android, use um aplicativo SIP (Zoiper, Linphone) com o domínio, o ramal
+            e a senha que aparecem na aba Ramal — o app precisa ficar aberto pra receber a
+            chamada.
+          </p>
+        </div>
+      )}
 
       <form onSubmit={handleSalvar} autoComplete="off" className="flex items-end gap-3 flex-wrap">
         <div className="flex-1 min-w-56">
