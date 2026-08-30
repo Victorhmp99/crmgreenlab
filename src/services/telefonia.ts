@@ -93,14 +93,26 @@ export async function discar(
   if (error) {
     // O invoke devolve só "non-2xx status code"; o motivo real está no corpo
     // e é o que diz se foi ramal, crédito ou token. Sem ler isso, o vendedor
-    // fica sem saber o que corrigir.
+    // fica sem saber o que corrigir — e foi o que aconteceu na primeira
+    // tentativa real: apareceu "não foi possível" sem dizer nada.
     let detalhe = ''
     try {
-      const corpo = await (error as { context?: Response }).context?.json()
-      detalhe = corpo?.error ?? corpo?.detalhe ?? ''
-    } catch { /* corpo ilegível — segue com a mensagem genérica */ }
+      const ctx = (error as { context?: Response }).context
+      if (ctx) {
+        const corpo = await ctx.clone().json().catch(() => null)
+        detalhe = corpo?.detalhe
+          ? `${corpo.error ?? 'Erro'}: ${corpo.detalhe}`
+          : (corpo?.error ?? await ctx.clone().text().catch(() => ''))
+      }
+    } catch { /* corpo ilegível */ }
 
-    return { ok: false, erro: detalhe || 'Não foi possível iniciar a ligação.' }
+    // Quando nem o corpo veio, o problema costuma ser antes do servidor
+    // (rede ou navegador bloqueando), e dizer isso ajuda mais que "falhou".
+    return {
+      ok:   false,
+      erro: detalhe
+        || `Não foi possível iniciar a ligação. A requisição não chegou ao servidor — verifique sua conexão. (${error.message})`,
+    }
   }
 
   if ((data as ResultadoDiscagem)?.ok === false) return data as ResultadoDiscagem

@@ -20,7 +20,13 @@ const API4COM_DIALER = 'https://api.api4com.com/api/v1/dialer'
 const CORS = {
   'Access-Control-Allow-Origin':  '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'authorization, content-type, apikey',
+  // x-client-info é enviado pelo cliente do Supabase em TODA requisição. Sem
+  // ele na lista, a checagem prévia responde 204 e o navegador bloqueia o
+  // POST em seguida — o log mostra o OPTIONS e nenhum POST, que foi
+  // exatamente o sintoma. Falha silenciosa: nada chega no servidor.
+  'Access-Control-Allow-Headers':
+    'authorization, x-client-info, apikey, content-type, x-supabase-api-version',
+  'Access-Control-Max-Age': '86400',
 }
 
 function json(body: unknown, status = 200) {
