@@ -100,7 +100,9 @@ Deno.serve(async (req) => {
       method: 'POST',
       headers: {
         'Content-Type':  'application/json',
-        'Authorization': `Bearer ${cred.token}`,
+        // Sem "Bearer": a Api4Com espera o token cru no header, e é
+        // sensível a maiúsculas. Com o prefixo, ela recusa com 401.
+        'Authorization': cred.token,
       },
       body: JSON.stringify({
         extension: ramal,
