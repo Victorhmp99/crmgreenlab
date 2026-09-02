@@ -1,11 +1,14 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ScanSearch, Check, Merge, AlertTriangle, FileText, Activity } from 'lucide-react'
+import { ScanSearch, Check, Merge, AlertTriangle, FileText, Activity, Trash2 } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Spinner } from '@/components/ui/Spinner'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { useAuthStore } from '@/store/authStore'
-import { buscarDuplicatas, mesclarLeads, type GrupoDuplicado } from '@/services/duplicatas'
+import {
+  buscarDuplicatas, mesclarLeads, buscarLeadsSemContato, excluirLeadsSemContato,
+  type GrupoDuplicado,
+} from '@/services/duplicatas'
 
 /**
  * Leads repetidos da empresa.
@@ -26,11 +29,34 @@ export function DuplicatasModal({ open, onClose }: { open: boolean; onClose: () 
   // devolve como o mais antigo, normalmente o que tem o histórico.
   const [mantidos, setMantidos] = useState<Record<string, string>>({})
   const [erro,     setErro]     = useState<string | null>(null)
+  const [aba,      setAba]      = useState<'repetidos' | 'lixo'>('repetidos')
+  const [marcados, setMarcados] = useState<Record<string, boolean>>({})
 
   const { data: grupos = [], isLoading } = useQuery({
     queryKey: ['leads-duplicados', tenantId],
     queryFn:  () => buscarDuplicatas(tenantId!),
     enabled:  !!tenantId && open,
+  })
+
+  const { data: semContato = [] } = useQuery({
+    queryKey: ['leads-sem-contato', tenantId],
+    queryFn:  () => buscarLeadsSemContato(tenantId!),
+    enabled:  !!tenantId && open,
+  })
+
+  const apagarLixo = useMutation({
+    mutationFn: (ids: string[]) => excluirLeadsSemContato(tenantId!, ids),
+    onSuccess: (r) => {
+      setMarcados({})
+      setErro(r.preservados > 0
+        // Recusa é informação, não falha: o banco se nega a apagar lead com
+        // contrato, e a pessoa precisa saber por que alguns ficaram.
+        ? `${r.apagados} apagados. ${r.preservados} preservados por terem contrato ou lançamento financeiro.`
+        : null)
+      queryClient.invalidateQueries({ queryKey: ['leads-sem-contato', tenantId] })
+      queryClient.invalidateQueries({ queryKey: ['leads'] })
+    },
+    onError: (e: Error) => setErro(e.message),
   })
 
   const juntar = useMutation({
@@ -69,17 +95,52 @@ export function DuplicatasModal({ open, onClose }: { open: boolean; onClose: () 
   return (
     <Modal open={open} onClose={onClose} size="xl"
       title="Leads repetidos"
-      description="Mesma pessoa cadastrada mais de uma vez — casados pelo final do telefone">
+      description="Mesma pessoa cadastrada mais de uma vez, e cadastros sem forma de contato">
 
-      {isLoading ? (
+      <div className="flex items-center gap-1 mb-4">
+        {([
+          ['repetidos', `Repetidos${grupos.length ? ` (${grupos.length})` : ''}`],
+          ['lixo',      `Sem contato${semContato.length ? ` (${semContato.length})` : ''}`],
+        ] as const).map(([valor, rotulo]) => (
+          <button key={valor} type="button" onClick={() => { setAba(valor); setErro(null) }}
+            className="text-xs rounded-lg px-3 py-1.5 transition-colors"
+            style={{
+              background: aba === valor ? '#1f1f1f' : 'transparent',
+              color:      aba === valor ? '#e8e8e8' : '#666',
+              border:     `1px solid ${aba === valor ? '#2c2c2c' : 'transparent'}`,
+            }}>
+            {rotulo}
+          </button>
+        ))}
+      </div>
+
+      {aba === 'lixo' ? (
+        <ListaSemContato
+          leads={semContato}
+          marcados={marcados}
+          onMarcar={(id) => setMarcados((m) => ({ ...m, [id]: !m[id] }))}
+          onApagar={async () => {
+            const ids = Object.keys(marcados).filter((k) => marcados[k])
+            if (!ids.length) return
+            const ok = await confirm({
+              title: `Excluir ${ids.length} lead(s) sem contato`,
+              message: 'Não dá pra desfazer. Quem tiver contrato ou lançamento financeiro é preservado automaticamente — o banco recusa apagar dado de receita.',
+              confirmLabel: 'Excluir', danger: true,
+            })
+            if (ok) apagarLixo.mutate(ids)
+          }}
+          apagando={apagarLixo.isPending}
+          erro={erro}
+        />
+      ) : isLoading ? (
         <div className="flex justify-center py-10"><Spinner size="md" /></div>
       ) : grupos.length === 0 ? (
         <div className="flex flex-col items-center gap-2 py-10 text-center">
           <ScanSearch size={24} style={{ color: '#2f6f4f' }} />
           <p className="text-sm" style={{ color: '#888' }}>Nenhum lead repetido nesta empresa.</p>
           <p className="text-xs" style={{ color: '#555' }}>
-            A comparação usa os 8 últimos dígitos do telefone, então o nono dígito e a
-            formatação não atrapalham.
+            A busca casa por telefone (8 últimos dígitos), e-mail ou nome completo — então
+            pega também quem foi cadastrado duas vezes com só um dos dois preenchido.
           </p>
         </div>
       ) : (
@@ -101,9 +162,9 @@ export function DuplicatasModal({ open, onClose }: { open: boolean; onClose: () 
                 style={{ border: '1px solid #1e1e1e' }}>
                 <div className="flex items-center justify-between gap-3 px-3 py-2"
                   style={{ background: '#171717' }}>
-                  <span className="text-xs" style={{ color: '#888' }}>
-                    {grupo.leads[0].telefone}
-                    <span style={{ color: '#555' }}> · {grupo.leads.length} cadastros</span>
+                  <span className="text-xs truncate" style={{ color: '#888' }}>
+                    {grupo.leads[0].nome || grupo.leads[0].telefone || 'sem nome'}
+                    <span style={{ color: '#555' }}> · {grupo.motivo} · {grupo.leads.length} cadastros</span>
                   </span>
                   <button
                     type="button"
@@ -186,5 +247,91 @@ export function DuplicatasModal({ open, onClose }: { open: boolean; onClose: () 
         </div>
       )}
     </Modal>
+  )
+}
+
+/**
+ * Cadastros sem telefone e sem e-mail.
+ *
+ * Não há como falar com eles: é lixo de base, quase sempre importação torta ou
+ * formulário pela metade. A lista mostra contrato e atividade porque apagar
+ * lead é CASCATA — e um lead sem telefone pode, ainda assim, ter contrato.
+ * O banco recusa apagar esses; a coluna existe pra pessoa entender por quê.
+ */
+function ListaSemContato({ leads, marcados, onMarcar, onApagar, apagando, erro }: {
+  leads:    Array<{ leadId: string; nome: string | null; criadoEm: string
+                    origem: string | null; etapa: string | null
+                    atividades: number; contratos: number }>
+  marcados: Record<string, boolean>
+  onMarcar: (id: string) => void
+  onApagar: () => void
+  apagando: boolean
+  erro:     string | null
+}) {
+  const total = leads.filter((l) => marcados[l.leadId]).length
+
+  if (leads.length === 0) {
+    return (
+      <div className="flex flex-col items-center gap-2 py-10 text-center">
+        <ScanSearch size={24} style={{ color: '#2f6f4f' }} />
+        <p className="text-sm" style={{ color: '#888' }}>
+          Nenhum lead sem telefone e sem e-mail.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {erro && (
+        <p className="text-sm rounded-lg px-3 py-2"
+          style={{ color: '#fbbf24', background: 'rgba(251,191,36,0.08)' }}>{erro}</p>
+      )}
+
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs" style={{ color: '#666' }}>
+          {leads.length} cadastro(s) sem nenhuma forma de contato.
+        </p>
+        <button type="button" onClick={onApagar} disabled={!total || apagando}
+          className="flex items-center gap-1.5 text-xs rounded-lg px-2.5 py-1 transition-colors disabled:opacity-40"
+          style={{ background: 'rgba(255,68,68,0.12)', color: '#ff6666' }}>
+          <Trash2 size={12} /> {apagando ? 'Excluindo…' : `Excluir ${total || ''}`}
+        </button>
+      </div>
+
+      <div className="flex flex-col gap-1">
+        {leads.map((l) => (
+          <label key={l.leadId}
+            className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer"
+            style={{ border: '1px solid #1e1e1e' }}>
+            <input type="checkbox" checked={!!marcados[l.leadId]}
+              onChange={() => onMarcar(l.leadId)} className="shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs truncate" style={{ color: '#ccc' }}>{l.nome || 'sem nome'}</p>
+              <p className="text-[11px] truncate" style={{ color: '#555' }}>
+                {new Date(l.criadoEm).toLocaleDateString('pt-BR')}
+                {l.origem && ` · ${l.origem}`}
+                {l.etapa  && ` · ${l.etapa}`}
+              </p>
+            </div>
+            <span className="flex items-center gap-2 shrink-0 text-[10px]">
+              {l.contratos > 0 && (
+                <span className="flex items-center gap-1 rounded-full px-2 py-0.5"
+                  title="Tem contrato — o banco não deixa apagar"
+                  style={{ background: 'rgba(0,230,118,0.1)', color: '#00e676' }}>
+                  <FileText size={10} /> {l.contratos}
+                </span>
+              )}
+              {l.atividades > 0 && (
+                <span className="flex items-center gap-1 rounded-full px-2 py-0.5"
+                  style={{ background: '#1a1a1a', color: '#777' }}>
+                  <Activity size={10} /> {l.atividades}
+                </span>
+              )}
+            </span>
+          </label>
+        ))}
+      </div>
+    </div>
   )
 }

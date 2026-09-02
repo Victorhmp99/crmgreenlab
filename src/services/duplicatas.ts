@@ -22,9 +22,20 @@ export interface LeadDuplicado {
 }
 
 export interface GrupoDuplicado {
-  /** Os 8 dígitos finais que fizeram os leads casarem. */
   chave: string
+  /** Por que casaram: mesmo telefone, mesmo e-mail ou mesmo nome. */
+  motivo: string
   leads: LeadDuplicado[]
+}
+
+export interface LeadSemContato {
+  leadId:     string
+  nome:       string | null
+  criadoEm:   string
+  origem:     string | null
+  etapa:      string | null
+  atividades: number
+  contratos:  number
 }
 
 export async function buscarDuplicatas(tenantId: string): Promise<GrupoDuplicado[]> {
@@ -32,7 +43,7 @@ export async function buscarDuplicatas(tenantId: string): Promise<GrupoDuplicado
   if (error) throw error
 
   const linhas = (data ?? []) as Array<{
-    chave: string; lead_id: string; nome: string | null; telefone: string | null
+    chave: string; motivo: string; lead_id: string; nome: string | null; telefone: string | null
     email: string | null; criado_em: string; etapa: string | null
     responsavel: string | null; atividades: number; contratos: number
   }>
@@ -42,7 +53,7 @@ export async function buscarDuplicatas(tenantId: string): Promise<GrupoDuplicado
   // de cada grupo ser o candidato natural a ser mantido.
   const grupos = new Map<string, GrupoDuplicado>()
   for (const l of linhas) {
-    if (!grupos.has(l.chave)) grupos.set(l.chave, { chave: l.chave, leads: [] })
+    if (!grupos.has(l.chave)) grupos.set(l.chave, { chave: l.chave, motivo: l.motivo, leads: [] })
     grupos.get(l.chave)!.leads.push({
       leadId:      l.lead_id,
       nome:        l.nome,
@@ -73,4 +84,43 @@ export async function mesclarLeads(
     p_remover:   remover,
   })
   if (error) throw error
+}
+
+/**
+ * Leads sem telefone e sem e-mail — não há como falar com eles.
+ *
+ * Vem separado das duplicatas de propósito: aqui não se escolhe qual fica, se
+ * decide o que jogar fora. Misturar as duas coisas na mesma lista faria alguém
+ * apagar sem querer o lead que queria manter.
+ */
+export async function buscarLeadsSemContato(tenantId: string): Promise<LeadSemContato[]> {
+  const { data, error } = await supabase.rpc('buscar_leads_sem_contato', { p_tenant_id: tenantId })
+  if (error) throw error
+
+  return ((data ?? []) as Array<{
+    lead_id: string; nome: string | null; criado_em: string; origem: string | null
+    etapa: string | null; atividades: number; contratos: number
+  }>).map((l) => ({
+    leadId:     l.lead_id,
+    nome:       l.nome,
+    criadoEm:   l.criado_em,
+    origem:     l.origem,
+    etapa:      l.etapa,
+    atividades: Number(l.atividades ?? 0),
+    contratos:  Number(l.contratos ?? 0),
+  }))
+}
+
+/** Devolve quantos foram apagados e quantos o banco recusou (têm contrato). */
+export async function excluirLeadsSemContato(
+  tenantId: string, ids: string[],
+): Promise<{ apagados: number; preservados: number }> {
+  const { data, error } = await supabase.rpc('excluir_leads_sem_contato', {
+    p_tenant_id: tenantId,
+    p_ids:       ids,
+  })
+  if (error) throw error
+
+  const linha = (data as Array<{ apagados: number; preservados: number }> | null)?.[0]
+  return { apagados: linha?.apagados ?? 0, preservados: linha?.preservados ?? 0 }
 }
