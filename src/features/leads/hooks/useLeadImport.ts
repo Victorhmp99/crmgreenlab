@@ -84,29 +84,49 @@ function parseCsvText(text: string): { headers: string[]; rows: CsvRow[] } {
 }
 
 // Extrai sheetId e gid de qualquer formato de URL do Google Sheets
-function parseSheetsUrl(url: string): { sheetId: string; gid: string } {
-  // Aceita /spreadsheets/d/ID/edit, /preview, /view, /pub, etc
-  const idMatch = url.match(/\/spreadsheets\/d\/(?:e\/)?([a-zA-Z0-9-_]+)/)
+function parseSheetsUrl(url: string): { sheetId: string; gid: string; publicado: boolean } {
+  // Aceita /spreadsheets/d/ID/edit, /preview, /view, /pub, etc.
+  // O `e/` é capturado à parte porque MUDA o caminho: planilha publicada na
+  // web vive em /d/e/<id>, e remontar sem o `e/` dá 404. Era esse o motivo de
+  // um link que funciona colado no navegador não funcionar aqui.
+  const idMatch = url.match(/\/spreadsheets\/d\/(e\/)?([a-zA-Z0-9-_]+)/)
   if (!idMatch) throw new Error('URL do Google Sheets inválida. Cole o link completo da planilha.')
-  const sheetId = idMatch[1]
+  const publicado = !!idMatch[1]
+  const sheetId = idMatch[2]
   // gid pode aparecer em #gid=, ?gid= ou &gid=
   const gidMatch = url.match(/[#&?]gid=(\d+)/)
   const gid = gidMatch ? gidMatch[1] : '0'
-  return { sheetId, gid }
+  return { sheetId, gid, publicado }
 }
 
 // Gera múltiplas URLs de export pra tentar em fallback
 export function buildSheetsCsvUrls(url: string): string[] {
-  const { sheetId, gid } = parseSheetsUrl(url)
-  return [
-    // 1. Export direto (funciona em planilhas "qualquer um com o link pode ver")
-    `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`,
-    // 2. Endpoint gviz (mais permissivo com CORS)
-    `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&gid=${gid}`,
-    // 3. Pub (planilhas publicadas na web)
-    `https://docs.google.com/spreadsheets/d/${sheetId}/pub?gid=${gid}&single=true&output=csv`,
-  ]
+  const { sheetId, gid, publicado } = parseSheetsUrl(url)
+
+  /* Se a pessoa já colou um link que devolve CSV (o "Publicar na web" entrega
+     um pronto), usar como veio é o caminho mais curto e o único que não pode
+     estar errado — remontar a URL só cria oportunidade de errar. */
+  const jaEhCsv = /[?&](output|format)=csv/i.test(url)
+  const base = publicado
+    ? `https://docs.google.com/spreadsheets/d/e/${sheetId}`
+    : `https://docs.google.com/spreadsheets/d/${sheetId}`
+
+  const candidatos: string[] = []
+  if (jaEhCsv) candidatos.push(url)
+
+  if (publicado) {
+    // Planilha publicada só responde no /pub; export e gviz dão 404 nela.
+    candidatos.push(`${base}/pub?gid=${gid}&single=true&output=csv`)
+  } else {
+    candidatos.push(
+      `${base}/export?format=csv&gid=${gid}`,
+      `${base}/gviz/tq?tqx=out:csv&gid=${gid}`,
+      `${base}/pub?gid=${gid}&single=true&output=csv`,
+    )
+  }
+  return [...new Set(candidatos)]
 }
+
 
 // Compat: ainda exporta o nome antigo
 export function sheetsUrlToCsvUrl(url: string): string {
@@ -140,6 +160,20 @@ async function fetchSheetsCsv(url: string): Promise<string> {
     } catch (e) {
       errors.push((e as Error).message)
     }
+  }
+
+  /* "Failed to fetch" em TODAS as tentativas não é problema de
+     compartilhamento: é o navegador barrando a saída antes de a requisição
+     existir. Culpar o compartilhamento aqui mandou o usuário revisar a
+     planilha três vezes enquanto o bloqueio era do lado do site. */
+  const bloqueado = errors.length > 0 && errors.every((e) => /failed to fetch|networkerror/i.test(e))
+
+  if (bloqueado) {
+    throw new Error(
+      'O navegador bloqueou o acesso ao Google Sheets. Isso é configuração do site, ' +
+      'não da sua planilha — avise o suporte. ' +
+      'Enquanto isso, baixe a planilha como CSV e use a opção de arquivo.',
+    )
   }
 
   throw new Error(
