@@ -292,8 +292,33 @@ export function KanbanBoard({ stages, cards, pipelineId, onAddLead, onRemoveCard
             .eq('id', movedCard.lead.id)
         }
 
-        // 2. Reordena coluna destino para garantir posições sequenciais únicas
-        const destReorders = finalCol.cards.map((c, i) => ({ id: c.card.id, position: i }))
+        /* 2. Reordena coluna destino para garantir posições sequenciais únicas.
+
+           Quando o card veio de OUTRA coluna e a regra está ligada, ele entra
+           em primeiro — independente de onde foi solto. Sem isto a renumeração
+           desfazia o trabalho do gatilho meio segundo depois: o banco colocava
+           o card no topo e esta linha o devolvia pra posição do arrasto, então
+           de fora parecia que a regra não funcionava.
+
+           Reordenar DENTRO da mesma coluna continua respeitando a ordem local:
+           ali a pessoa está justamente escolhendo a posição. */
+        const trocouDeColuna = sourceCol.stage.id !== destCol.stage.id
+        const cardsDestino   = (trocouDeColuna && regras?.ordenarPorEdicao)
+          ? [
+              ...finalCol.cards.filter((c) => c.card.id === activeId),
+              ...finalCol.cards.filter((c) => c.card.id !== activeId),
+            ]
+          : finalCol.cards
+
+        // Mostra em primeiro JÁ, sem esperar a ida e volta do servidor. Sem
+        // isto o card fica um instante onde foi solto e dá a impressão de que
+        // a regra não pegou — que foi exatamente a leitura de quem testou.
+        if (trocouDeColuna && regras?.ordenarPorEdicao) {
+          setLocalColumns((atual) => (atual ?? []).map((col) =>
+            col.stage.id === destCol.stage.id ? { ...col, cards: cardsDestino } : col))
+        }
+
+        const destReorders = cardsDestino.map((c, i) => ({ id: c.card.id, position: i }))
         await reorder.mutateAsync(destReorders)
 
         // 3. Reordena coluna origem também (preenche gap deixado)
