@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ScanSearch, Check, Merge, AlertTriangle, FileText, Activity, Trash2 } from 'lucide-react'
+import { ScanSearch, Check, Merge, AlertTriangle, FileText, Activity, Trash2, X } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Spinner } from '@/components/ui/Spinner'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { useAuthStore } from '@/store/authStore'
 import {
   buscarDuplicatas, mesclarLeads, buscarLeadsSemContato, excluirLeadsSemContato,
-  type GrupoDuplicado,
+  ignorarGrupo, excluirLeadDuplicado, type GrupoDuplicado,
 } from '@/services/duplicatas'
 
 /**
@@ -57,6 +57,26 @@ export function DuplicatasModal({ open, onClose }: { open: boolean; onClose: () 
       queryClient.invalidateQueries({ queryKey: ['leads'] })
     },
     onError: (e: Error) => setErro(e.message),
+  })
+
+  /* "Não é duplicata" é tão necessário quanto "juntar": o casamento por nome
+     acerta o Ricardo repetido, mas também encontra dois Maria Silva
+     diferentes. Sem poder dispensar, o falso positivo voltaria pra sempre e a
+     tela deixaria de ser olhada. */
+  const dispensar = useMutation({
+    mutationFn: (chave: string) => ignorarGrupo(tenantId!, chave),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['leads-duplicados', tenantId] }),
+    onError:   (e: Error) => setErro(e.message),
+  })
+
+  const apagarUm = useMutation({
+    mutationFn: (leadId: string) => excluirLeadDuplicado(tenantId!, leadId),
+    onSuccess: () => {
+      setErro(null)
+      queryClient.invalidateQueries({ queryKey: ['leads-duplicados', tenantId] })
+      queryClient.invalidateQueries({ queryKey: ['leads'] })
+    },
+    onError:   (e: Error) => setErro(e.message),
   })
 
   const juntar = useMutation({
@@ -166,15 +186,27 @@ export function DuplicatasModal({ open, onClose }: { open: boolean; onClose: () 
                     {grupo.leads[0].nome || grupo.leads[0].telefone || 'sem nome'}
                     <span style={{ color: '#555' }}> · {grupo.motivo} · {grupo.leads.length} cadastros</span>
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => confirmarJuncao(grupo)}
-                    disabled={juntar.isPending}
-                    className="flex items-center gap-1.5 text-xs rounded-lg px-2.5 py-1 transition-colors disabled:opacity-50"
-                    style={{ background: 'rgba(0,230,118,0.12)', color: '#00e676' }}
-                  >
-                    <Merge size={12} /> Juntar
-                  </button>
+                  <span className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => dispensar.mutate(grupo.chave)}
+                      disabled={dispensar.isPending}
+                      title="Some da lista pra sempre — use quando forem pessoas diferentes"
+                      className="flex items-center gap-1 text-[11px] rounded-lg px-2 py-1 transition-colors disabled:opacity-50"
+                      style={{ background: '#1a1a1a', color: '#777' }}
+                    >
+                      <X size={11} /> Não é duplicata
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => confirmarJuncao(grupo)}
+                      disabled={juntar.isPending}
+                      className="flex items-center gap-1.5 text-xs rounded-lg px-2.5 py-1 transition-colors disabled:opacity-50"
+                      style={{ background: 'rgba(0,230,118,0.12)', color: '#00e676' }}
+                    >
+                      <Merge size={12} /> Juntar
+                    </button>
+                  </span>
                 </div>
 
                 <div className="flex flex-col">
@@ -214,6 +246,28 @@ export function DuplicatasModal({ open, onClose }: { open: boolean; onClose: () 
                         {/* Contrato é o que pesa na decisão: juntar move o
                             dinheiro, mas ver antes evita escolher às cegas. */}
                         <span className="flex items-center gap-2 shrink-0 text-[10px]">
+                          {/* Só no que NÃO fica: oferecer "apagar" no escolhido
+                              seria convite pro engano. */}
+                          {!fica && (
+                            <button
+                              type="button"
+                              onClick={async (e) => {
+                                e.preventDefault()
+                                const ok = await confirm({
+                                  title:   `Apagar ${lead.nome || 'este cadastro'}`,
+                                  message: 'Some de vez, sem juntar nada. Se ele tiver contrato ou lançamento financeiro, o banco recusa — nesse caso use Juntar, que preserva o histórico.',
+                                  confirmLabel: 'Apagar', danger: true,
+                                })
+                                if (ok) apagarUm.mutate(lead.leadId)
+                              }}
+                              disabled={apagarUm.isPending}
+                              title="Apagar só este cadastro"
+                              className="rounded p-1 transition-colors disabled:opacity-40"
+                              style={{ color: '#7a5555' }}
+                            >
+                              <Trash2 size={11} />
+                            </button>
+                          )}
                           {lead.contratos > 0 && (
                             <span className="flex items-center gap-1 rounded-full px-2 py-0.5"
                               title={`${lead.contratos} contrato(s) — vão junto pro cadastro que ficar`}

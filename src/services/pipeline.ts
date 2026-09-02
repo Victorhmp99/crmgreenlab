@@ -100,6 +100,17 @@ export async function trazerCardParaTopo(leadId: string): Promise<void> {
   if (error) console.warn('[pipeline] não consegui subir o card:', error.message)
 }
 
+/**
+ * Move o card pra etapa de contato, se o funil tiver essa regra ligada.
+ *
+ * Como a subida, falha em silêncio: automação que derruba o registro da
+ * ligação seria pior que automação que não aconteceu.
+ */
+export async function registrarContatoNoFunil(leadId: string): Promise<void> {
+  const { error } = await supabase.rpc('registrar_contato_no_funil', { p_lead_id: leadId })
+  if (error) console.warn('[pipeline] não consegui mover o card pro contato:', error.message)
+}
+
 // ── Mover card entre colunas ──────────────────────────────────────────────────
 
 export async function moveCard(

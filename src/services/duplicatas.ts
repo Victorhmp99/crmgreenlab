@@ -124,3 +124,32 @@ export async function excluirLeadsSemContato(
   const linha = (data as Array<{ apagados: number; preservados: number }> | null)?.[0]
   return { apagados: linha?.apagados ?? 0, preservados: linha?.preservados ?? 0 }
 }
+
+/**
+ * Marca um grupo como "não é duplicata" — ele some da lista pra sempre.
+ *
+ * Sem isso, o casamento por nome viraria ruído permanente: dois "Maria Silva"
+ * diferentes voltariam toda vez, e a tela deixaria de ser olhada.
+ */
+export async function ignorarGrupo(
+  tenantId: string, chave: string, ignorar = true,
+): Promise<void> {
+  const { error } = await supabase.rpc('ignorar_grupo_duplicado', {
+    p_tenant_id: tenantId,
+    p_chave:     chave,
+    p_ignorar:   ignorar,
+  })
+  if (error) throw error
+}
+
+/**
+ * Apaga UM lead do grupo. O banco recusa quem tem contrato ou lançamento
+ * financeiro — nesse caso o caminho é "Juntar", que preserva o histórico.
+ */
+export async function excluirLeadDuplicado(tenantId: string, leadId: string): Promise<void> {
+  const { error } = await supabase.rpc('excluir_lead_duplicado', {
+    p_tenant_id: tenantId,
+    p_lead_id:   leadId,
+  })
+  if (error) throw error
+}

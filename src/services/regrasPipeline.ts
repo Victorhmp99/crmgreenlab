@@ -15,12 +15,16 @@ import { supabase } from '@/lib/supabase'
 export interface RegrasPipeline {
   exigirContratoParaGanhar: boolean
   exigirMotivoPerda:        boolean
+  /** Card sobe pro topo quando o lead recebe ligação ou edição. */
+  ordenarPorEdicao:         boolean
+  /** Etapa pra onde o card vai ao registrar contato. Nulo = não move nada. */
+  etapaContatoId:           string | null
 }
 
 export async function fetchRegrasPipeline(pipelineId: string): Promise<RegrasPipeline> {
   const { data, error } = await supabase
     .from('pipelines')
-    .select('exigir_contrato_para_ganhar, exigir_motivo_perda')
+    .select('exigir_contrato_para_ganhar, exigir_motivo_perda, ordenar_por_edicao, etapa_contato_id')
     .eq('id', pipelineId)
     .maybeSingle()
 
@@ -29,6 +33,8 @@ export async function fetchRegrasPipeline(pipelineId: string): Promise<RegrasPip
   return {
     exigirContratoParaGanhar: data?.exigir_contrato_para_ganhar ?? false,
     exigirMotivoPerda:        data?.exigir_motivo_perda ?? false,
+    ordenarPorEdicao:         data?.ordenar_por_edicao ?? false,
+    etapaContatoId:           data?.etapa_contato_id ?? null,
   }
 }
 
@@ -41,6 +47,8 @@ export async function salvarRegrasPipeline(
     .update({
       exigir_contrato_para_ganhar: regras.exigirContratoParaGanhar,
       exigir_motivo_perda:         regras.exigirMotivoPerda,
+      ordenar_por_edicao:          regras.ordenarPorEdicao,
+      etapa_contato_id:            regras.etapaContatoId,
     })
     .eq('id', pipelineId)
 

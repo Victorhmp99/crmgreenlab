@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
 import { RESULTADOS, rotuloDoResultado, type ResultadoLigacao } from './resultados'
 import { discar, definirAparelho, type Aparelho } from '@/services/telefonia'
-import { trazerCardParaTopo } from '@/services/pipeline'
+import { trazerCardParaTopo, registrarContatoNoFunil } from '@/services/pipeline'
 import { useTelefoniaAtiva, useMeuAparelho } from '@/features/settings/hooks/useTelefonia'
 
 /**
@@ -82,6 +82,9 @@ export function RegistroRapidoLigacao({ leadId, telefone }: { leadId: string; te
       // Ligou pro lead: o card sobe pro topo da coluna. Sem isso ele fica
       // enterrado no meio e quem acabou de trabalhar aquele lead precisa
       // procurá-lo de novo na próxima vez.
+      // As duas obedecem a regras do funil: se estiverem desligadas, o banco
+      // não faz nada. Chamar sempre mantém a tela ignorante da configuração.
+      await registrarContatoNoFunil(leadId)
       await trazerCardParaTopo(leadId)
       queryClient.invalidateQueries({ queryKey: ['lead-activities', leadId] })
       queryClient.invalidateQueries({ queryKey: ['funnel-metrics', tenantId] })
