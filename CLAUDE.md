@@ -32,8 +32,18 @@ Futuro: NestJS no backend quando escalar
 Super Admin Master → Admins (revendedores white label, podem revender 
 para outros Admins ou Gestores) → Gestores (empresas) → Vendedores
 
-## Email do Super Admin Master
-vhvictor2015@gmail.com — hardcoded como fallback de segurança
+## Super Admins (tabela `super_admins`, type='master')
+- assessoriagreenlab@gmail.com — conta principal
+- vhvictor2015@gmail.com — reserva contra ficar trancado para fora (02/09/2026)
+
+Não existe e-mail embutido em função nenhuma: quem manda é a tabela. Antes só
+havia UMA conta, e perder o acesso a ela deixaria a plataforma sem administrador.
+
+O super admin **administra** (empresas, usuários, papéis, exclusão) mas **não lê**
+dado de cliente: as políticas de SELECT em `leads` e afins exigem ser membro da
+empresa. Só o DELETE aceita super admin, porque excluir empresa precisa disso.
+É de propósito — o dono da plataforma não navega no histórico de pacientes das
+clínicas.
 
 ## O que já está implementado
 - Login e autenticação
