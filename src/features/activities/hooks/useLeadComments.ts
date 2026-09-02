@@ -21,6 +21,9 @@ export function useLeadCommentMutations(leadId: string | null) {
 
   function invalidate() {
     if (leadId) queryClient.invalidateQueries({ queryKey: ['lead-comments', leadId] })
+    // O card sobe por gatilho no banco; sem recarregar o quadro aqui, a nova
+    // ordem só apareceria no próximo F5.
+    queryClient.invalidateQueries({ queryKey: ['pipeline-cards'] })
   }
 
   const create = useMutation({

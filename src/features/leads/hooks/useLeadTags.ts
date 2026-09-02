@@ -31,6 +31,9 @@ export function useTagMutations(leadId: string | null) {
 
   function invalidate() {
     queryClient.invalidateQueries({ queryKey: ['tag-definitions', tenantId] })
+    // O card sobe por gatilho no banco; sem recarregar o quadro aqui, a
+    // nova ordem só apareceria no próximo F5.
+    queryClient.invalidateQueries({ queryKey: ['pipeline-cards'] })
     queryClient.invalidateQueries({ queryKey: ['lead-tags',       leadId]   })
     queryClient.invalidateQueries({ queryKey: ['leads',           tenantId] })
   }

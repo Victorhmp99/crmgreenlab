@@ -10,6 +10,9 @@ export function useActivityMutations() {
   // Invalida tudo que pode depender de disparos (lista, timeline, stats, funil, reports)
   function invalidateAll(leadId?: string) {
     queryClient.invalidateQueries({ queryKey: ['activities',                tenant?.id] })
+    // O card sobe por gatilho no banco; sem recarregar o quadro aqui, a
+    // nova ordem só apareceria no próximo F5.
+    queryClient.invalidateQueries({ queryKey: ['pipeline-cards'] })
     if (leadId) {
       queryClient.invalidateQueries({ queryKey: ['lead-activities',         leadId] })
     }
