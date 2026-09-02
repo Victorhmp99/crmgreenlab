@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
 import { RESULTADOS, rotuloDoResultado, type ResultadoLigacao } from './resultados'
 import { discar, definirAparelho, type Aparelho } from '@/services/telefonia'
+import { trazerCardParaTopo } from '@/services/pipeline'
 import { useTelefoniaAtiva, useMeuAparelho } from '@/features/settings/hooks/useTelefonia'
 
 /**
@@ -48,7 +49,11 @@ export function RegistroRapidoLigacao({ leadId, telefone }: { leadId: string; te
       if (!r.ok) throw new Error(r.erro ?? 'Falha ao iniciar a ligação')
       return r
     },
-    onSuccess: () => setErroDiscar(null),
+    onSuccess: async () => {
+      setErroDiscar(null)
+      await trazerCardParaTopo(leadId)
+      queryClient.invalidateQueries({ queryKey: ['pipeline-cards'] })
+    },
     onError:   (e: Error) => setErroDiscar(e.message),
   })
 
@@ -72,10 +77,15 @@ export function RegistroRapidoLigacao({ leadId, telefone }: { leadId: string; te
       if (error) throw error
       return resultado
     },
-    onSuccess: (resultado) => {
+    onSuccess: async (resultado) => {
       setRegistrado(resultado)
+      // Ligou pro lead: o card sobe pro topo da coluna. Sem isso ele fica
+      // enterrado no meio e quem acabou de trabalhar aquele lead precisa
+      // procurá-lo de novo na próxima vez.
+      await trazerCardParaTopo(leadId)
       queryClient.invalidateQueries({ queryKey: ['lead-activities', leadId] })
       queryClient.invalidateQueries({ queryKey: ['funnel-metrics', tenantId] })
+      queryClient.invalidateQueries({ queryKey: ['pipeline-cards'] })
       // Some depois de um tempo pra dar pra registrar outra tentativa no
       // mesmo lead — ligar de novo mais tarde é o normal, não a exceção.
       setTimeout(() => setRegistrado(null), 4000)

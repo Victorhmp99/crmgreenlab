@@ -1,3 +1,4 @@
+import { trazerCardParaTopo } from '@/services/pipeline'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '@/store/authStore'
 import { createLead, updateLead, deleteLead, deleteLeadsBulk, type LeadFormData } from '@/services/leads'
@@ -34,7 +35,13 @@ export function useLeadMutations() {
 
   const update = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<LeadFormData> }) =>
-      updateLead(id, data),
+      updateLead(id, data).then(async (lead) => {
+        // Editou o lead: ele volta pro topo da coluna. É o mesmo princípio do
+        // registro de ligação — quem acabou de mexer não deveria ter que
+        // procurar o card de novo.
+        await trazerCardParaTopo(id)
+        return lead
+      }),
     onSuccess: invalidate,
   })
 

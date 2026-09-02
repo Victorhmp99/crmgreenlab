@@ -81,6 +81,25 @@ export async function fetchPipelineCards(tenantId: string): Promise<KanbanCardDa
     }))
 }
 
+/**
+ * Leva o card do lead pro topo da coluna.
+ *
+ * Chamado quando alguém MEXE no lead — registrou ligação, editou, moveu pelo
+ * card. Sem isso o lead que você acabou de trabalhar some no meio da coluna e
+ * o quadro deixa de refletir o que está acontecendo agora.
+ *
+ * NÃO é chamado no arrastar: ali a pessoa escolheu onde soltar, e sobrepor
+ * isso seria tirar o controle que ela acabou de exercer.
+ *
+ * Falha de propósito em silêncio: subir o card é conveniência, e derrubar o
+ * salvamento de um lead porque a reordenação não deu certo seria pior que o
+ * card ficar onde estava.
+ */
+export async function trazerCardParaTopo(leadId: string): Promise<void> {
+  const { error } = await supabase.rpc('trazer_card_para_topo', { p_lead_id: leadId })
+  if (error) console.warn('[pipeline] não consegui subir o card:', error.message)
+}
+
 // ── Mover card entre colunas ──────────────────────────────────────────────────
 
 export async function moveCard(
