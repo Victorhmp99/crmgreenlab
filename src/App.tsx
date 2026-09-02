@@ -4,6 +4,7 @@ import { TenantProvider } from '@/providers/TenantProvider'
 import { ThemeProvider } from '@/providers/ThemeProvider'
 import { ConfirmProvider } from '@/components/ui/ConfirmDialog'
 import { AppRouter } from '@/routes'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -21,7 +22,11 @@ export default function App() {
         <TenantProvider>
           <ThemeProvider>
             <ConfirmProvider>
-              <AppRouter />
+              {/* Dentro dos provedores: assim o erro de uma tela não derruba
+                  sessão nem tema, e recarregar volta pro mesmo lugar. */}
+              <ErrorBoundary>
+                <AppRouter />
+              </ErrorBoundary>
             </ConfirmProvider>
           </ThemeProvider>
         </TenantProvider>
