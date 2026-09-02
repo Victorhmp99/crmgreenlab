@@ -200,13 +200,45 @@ export async function fetchFunnelBreakdown(tenantId: string): Promise<FunnelStag
 
 // ── Performance por campanha de origem ───────────────────────────────────────
 
-export async function fetchCampaignPerformance(tenantId: string): Promise<CampaignPerformance[]> {
-  const { data, error } = await supabase
+/**
+ * Converte o período escolhido (datas puras, yyyy-mm-dd) nos limites que a
+ * consulta entende.
+ *
+ * Monta pelos componentes, em hora LOCAL: '2026-08-30' como texto seria lido
+ * como meia-noite UTC, e no Brasil (UTC-3) o dia começaria às 21h do dia
+ * anterior — lead cadastrado à noite cairia no dia errado, ou fora do período.
+ *
+ * O fim vai até 23:59:59.999 do último dia. Com `lte` na data crua, tudo que
+ * aconteceu DEPOIS da meia-noite do último dia ficava de fora: o dia final do
+ * relatório vinha praticamente vazio e ninguém desconfiava.
+ *
+ * Sem uma das pontas, devolve null e o período simplesmente não é aplicado —
+ * é o que acontece quando a pessoa limpa o campo com o X.
+ */
+function limitesDoPeriodo(de?: string, ate?: string): { inicio: string; fim: string } | null {
+  const puro = /^(\d{4})-(\d{2})-(\d{2})$/
+  const a = de  ? puro.exec(de)  : null
+  const b = ate ? puro.exec(ate) : null
+  if (!a || !b) return null
+
+  const inicio = new Date(Number(a[1]), Number(a[2]) - 1, Number(a[3]), 0, 0, 0, 0)
+  const fim    = new Date(Number(b[1]), Number(b[2]) - 1, Number(b[3]), 23, 59, 59, 999)
+  return { inicio: inicio.toISOString(), fim: fim.toISOString() }
+}
+
+export async function fetchCampaignPerformance(
+  tenantId: string, de?: string, ate?: string,
+): Promise<CampaignPerformance[]> {
+  const periodo = limitesDoPeriodo(de, ate)
+
+  let q = supabase
     .from('leads')
     .select('source_campaign, source, status')
     .eq('tenant_id', tenantId)
     .not('source_campaign', 'is', null)
+  if (periodo) q = q.gte('created_at', periodo.inicio).lte('created_at', periodo.fim)
 
+  const { data, error } = await q
   if (error) throw error
 
   const map = new Map<string, { leads: number; conversions: number }>()
@@ -232,12 +264,18 @@ export async function fetchCampaignPerformance(tenantId: string): Promise<Campai
 
 // ── Distribuição por origem (source) ─────────────────────────────────────────
 
-export async function fetchSourceBreakdown(tenantId: string): Promise<LeadSourceBreakdown[]> {
-  const { data, error } = await supabase
+export async function fetchSourceBreakdown(
+  tenantId: string, de?: string, ate?: string,
+): Promise<LeadSourceBreakdown[]> {
+  const periodo = limitesDoPeriodo(de, ate)
+
+  let q = supabase
     .from('leads')
     .select('source, status')
     .eq('tenant_id', tenantId)
+  if (periodo) q = q.gte('created_at', periodo.inicio).lte('created_at', periodo.fim)
 
+  const { data, error } = await q
   if (error) throw error
 
   // Todas as origens possíveis (sempre mostradas, mesmo com 0)
@@ -396,7 +434,9 @@ async function fetchLeadCategorization(tenantId: string): Promise<{
 // Cada coluna é uma categoria INDEPENDENTE (não cumulativa).
 // Lead conta uma vez por pipeline em que tem card. Mesmo lead em 2 pipelines
 // conta nas duas (por isso somar todas != total do funil).
-export async function fetchPipelineBreakdown(tenantId: string): Promise<PipelineBreakdown[]> {
+export async function fetchPipelineBreakdown(
+  tenantId: string, de?: string, ate?: string,
+): Promise<PipelineBreakdown[]> {
   // Lista todas as pipelines do tenant
   const { data: pipelines, error: pErr } = await supabase
     .from('pipelines')
@@ -410,7 +450,7 @@ export async function fetchPipelineBreakdown(tenantId: string): Promise<Pipeline
   // "passos do funil" configurados).
   const results = await Promise.all(
     (pipelines ?? []).map(async (p) => {
-      const funnel = await fetchPipelineFunnel(tenantId, p.id)
+      const funnel = await fetchPipelineFunnel(tenantId, p.id, de, ate)
       return {
         pipelineId:   p.id,
         pipelineName: p.name,
@@ -675,7 +715,7 @@ function stageRole(name: string, stageType: string | null): StageRole {
 }
 
 export async function fetchPipelineFunnel(
-  tenantId: string, pipelineId: string,
+  tenantId: string, pipelineId: string, de?: string, ate?: string,
 ): Promise<PipelineFunnelData> {
   const empty: PipelineFunnelData = {
     stages: [], entered: 0, active: 0, won: 0, wonValue: 0, lost: 0, archived: 0, convRate: 0,
@@ -701,15 +741,33 @@ export async function fetchPipelineFunnel(
   const flowIdxByName = new Map(flowStages.map((s, i) => [norm(s.name), i]))
   const lastFlow     = flowStages.length - 1
 
-  const { data: cards, error: cErr } = await supabase
+  /* Com período, o filtro vai na data do LEAD (não do card): o funil responde
+     "dos leads que entraram neste período, onde eles estão", que é a pergunta
+     que se faz olhando o relatório. Filtrar pela movimentação do card diria
+     outra coisa — quem mexeu no card no período — e misturaria lead velho que
+     alguém arrastou ontem.
+     O `!inner` é obrigatório pra poder filtrar por coluna da tabela embutida;
+     não muda o resultado sem filtro, porque todo card tem lead (chave
+     estrangeira obrigatória). */
+  const periodo = limitesDoPeriodo(de, ate)
+
+  let qCards = supabase
     .from('pipeline_cards')
-    .select('lead_id, stage_id, leads(status, value)')
+    .select('lead_id, stage_id, leads!inner(status, value, created_at)')
     .eq('tenant_id', tenantId)
     .in('stage_id', stageIds)
+  if (periodo) {
+    qCards = qCards
+      .gte('leads.created_at', periodo.inicio)
+      .lte('leads.created_at', periodo.fim)
+  }
+
+  const { data: cards, error: cErr } = await qCards
   if (cErr) throw cErr
+  type LeadDoCard = { status: string; value: number | null; created_at?: string }
   type CardRow = {
     lead_id: string; stage_id: string
-    leads: { status: string; value: number | null } | { status: string; value: number | null }[] | null
+    leads: LeadDoCard | LeadDoCard[] | null
   }
   const cardList = (cards ?? []) as CardRow[]
 

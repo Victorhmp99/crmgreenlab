@@ -60,9 +60,9 @@ export function ReportsPage() {
   const periodoLabel = `${formatDate(dateFrom)} a ${formatDate(dateTo)}`
 
   const { data: sellers   = [], isLoading: sellersLoading }   = useSellerPerformance(dateFrom, dateTo)
-  const { data: campaigns = [], isLoading: campaignsLoading } = useCampaignPerformance()
-  const { data: sources   = [], isLoading: sourcesLoading }   = useSourceBreakdown()
-  const { data: pipelines = [], isLoading: pipelinesLoading } = usePipelineBreakdown()
+  const { data: campaigns = [], isLoading: campaignsLoading } = useCampaignPerformance(dateFrom, dateTo)
+  const { data: sources   = [], isLoading: sourcesLoading }   = useSourceBreakdown(dateFrom, dateTo)
+  const { data: pipelines = [], isLoading: pipelinesLoading } = usePipelineBreakdown(dateFrom, dateTo)
 
   // Funil preciso por pipeline (etapas reais + etapa atual de cada lead)
   const { data: pipelinesList = [] } = usePipelines()
@@ -70,7 +70,7 @@ export function ReportsPage() {
   useEffect(() => {
     if (!funnelPipelineId && pipelinesList.length > 0) setFunnelPipelineId(pipelinesList[0].id)
   }, [pipelinesList, funnelPipelineId])
-  const { data: funnelData, isLoading: funnelDataLoading } = usePipelineFunnel(funnelPipelineId || null)
+  const { data: funnelData, isLoading: funnelDataLoading } = usePipelineFunnel(funnelPipelineId || null, dateFrom, dateTo)
 
   const tenantId = useAuthStore((s) => s.tenant?.id)
   const { data: ligacoes } = useQuery({

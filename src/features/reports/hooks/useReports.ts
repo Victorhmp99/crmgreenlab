@@ -31,21 +31,23 @@ export function useFunnelBreakdown() {
   })
 }
 
-export function useCampaignPerformance() {
+export function useCampaignPerformance(de?: string, ate?: string) {
   const tenantId = useAuthStore((s) => s.tenant?.id)
   return useQuery({
-    queryKey:  ['report-campaigns', tenantId],
-    queryFn:   () => fetchCampaignPerformance(tenantId!),
+    // O período entra na CHAVE: sem isso o react-query devolveria o resultado
+    // do período anterior e a tela não mudaria ao trocar a data.
+    queryKey:  ['report-campaigns', tenantId, de, ate],
+    queryFn:   () => fetchCampaignPerformance(tenantId!, de, ate),
     enabled:   !!tenantId,
     staleTime: 1000 * 60 * 5,
   })
 }
 
-export function useSourceBreakdown() {
+export function useSourceBreakdown(de?: string, ate?: string) {
   const tenantId = useAuthStore((s) => s.tenant?.id)
   return useQuery({
-    queryKey:  ['report-sources', tenantId],
-    queryFn:   () => fetchSourceBreakdown(tenantId!),
+    queryKey:  ['report-sources', tenantId, de, ate],
+    queryFn:   () => fetchSourceBreakdown(tenantId!, de, ate),
     enabled:   !!tenantId,
     staleTime: 1000 * 60 * 5,
   })
@@ -61,11 +63,11 @@ export function useChannelBreakdown() {
   })
 }
 
-export function usePipelineBreakdown() {
+export function usePipelineBreakdown(de?: string, ate?: string) {
   const tenantId = useAuthStore((s) => s.tenant?.id)
   return useQuery({
-    queryKey:  ['report-pipelines', tenantId],
-    queryFn:   () => fetchPipelineBreakdown(tenantId!),
+    queryKey:  ['report-pipelines', tenantId, de, ate],
+    queryFn:   () => fetchPipelineBreakdown(tenantId!, de, ate),
     enabled:   !!tenantId,
     staleTime: 1000 * 60,
   })
@@ -81,11 +83,11 @@ export function useConversionFunnelMetrics() {
   })
 }
 
-export function usePipelineFunnel(pipelineId: string | null) {
+export function usePipelineFunnel(pipelineId: string | null, de?: string, ate?: string) {
   const tenantId = useAuthStore((s) => s.tenant?.id)
   return useQuery({
-    queryKey:  ['report-pipeline-funnel', tenantId, pipelineId],
-    queryFn:   () => fetchPipelineFunnel(tenantId!, pipelineId!),
+    queryKey:  ['report-pipeline-funnel', tenantId, pipelineId, de, ate],
+    queryFn:   () => fetchPipelineFunnel(tenantId!, pipelineId!, de, ate),
     enabled:   !!tenantId && !!pipelineId,
     staleTime: 1000 * 60,
   })
