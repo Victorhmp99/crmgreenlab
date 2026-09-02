@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { createPortal } from 'react-dom'
 import {
   X, Phone, Mail, Pencil, DollarSign, Megaphone, Tag as TagIcon,
@@ -37,6 +38,36 @@ interface LeadDrawerProps {
 type Tab = 'data' | 'activities' | 'organization' | 'contract'
 
 export function LeadDrawer({ lead, onClose, onEdit, initialTab }: LeadDrawerProps) {
+  const queryClient = useQueryClient()
+
+  /**
+   * Marca "conversa aberta no WhatsApp" na linha do tempo do lead.
+   *
+   * É o gatilho no banco que decide o resto: subir o card e, se o funil tiver
+   * etapa de contato configurada, mover pra ela. Aqui só registramos o fato.
+   *
+   * Falha em silêncio de propósito: o WhatsApp abre de qualquer jeito. Perder o
+   * registro é ruim, mas impedir a pessoa de falar com o cliente é pior.
+   */
+  async function registrarWhatsapp(leadId: string) {
+    const tid = useAuthStore.getState().tenant?.id
+    const usr = useAuthStore.getState().user
+    if (!tid) return
+
+    const { error } = await supabase.from('lead_activities').insert({
+      tenant_id:   tid,
+      lead_id:     leadId,
+      user_id:     usr?.id ?? null,
+      type:        'whatsapp',
+      description: 'Conversa aberta no WhatsApp',
+      metadata:    { user_email: usr?.email ?? null, origem: 'botao_whatsapp' },
+    })
+    if (error) { console.warn('[lead] não registrei o WhatsApp:', error.message); return }
+
+    queryClient.invalidateQueries({ queryKey: ['lead-activities', leadId] })
+    queryClient.invalidateQueries({ queryKey: ['pipeline-cards'] })
+  }
+
   const tenantId = useAuthStore((s) => s.tenant?.id)
   const { isManager, isSuperAdmin } = usePermissions()
   const { hasFeature } = useFeatures()
@@ -228,8 +259,18 @@ export function LeadDrawer({ lead, onClose, onEdit, initialTab }: LeadDrawerProp
                     <div className="flex flex-col gap-1.5">
                       <div className="flex items-center gap-2">
                         <a href={`tel:${lead.phone}`} style={{ color: '#e8e8e8' }}>{formatPhone(lead.phone)}</a>
+                        {/* Registra a abertura da conversa ANTES de sair pro
+                            WhatsApp. Sem isso o contato mais comum da operação
+                            não deixava rastro nenhum: não entrava na linha do
+                            tempo, não subia o card e não movia etapa — só o
+                            registro de ligação contava, e ninguém liga tanto
+                            quanto manda mensagem.
+                            Não espera a gravação: segurar a abertura do
+                            WhatsApp por causa de um registro seria trocar o
+                            que a pessoa quer pelo que o sistema quer. */}
                         <a href={`https://wa.me/55${lead.phone.replace(/\D/g, '')}`}
                           target="_blank" rel="noopener noreferrer"
+                          onClick={() => registrarWhatsapp(lead.id)}
                           className="text-xs font-medium flex items-center gap-1"
                           style={{ color: '#00e676' }}>
                           <span>●</span> WhatsApp

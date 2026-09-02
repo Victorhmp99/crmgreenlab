@@ -7,7 +7,6 @@ import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
 import { RESULTADOS, rotuloDoResultado, type ResultadoLigacao } from './resultados'
 import { discar, definirAparelho, type Aparelho } from '@/services/telefonia'
-import { trazerCardParaTopo, registrarContatoNoFunil } from '@/services/pipeline'
 import { useTelefoniaAtiva, useMeuAparelho } from '@/features/settings/hooks/useTelefonia'
 
 /**
@@ -49,9 +48,8 @@ export function RegistroRapidoLigacao({ leadId, telefone }: { leadId: string; te
       if (!r.ok) throw new Error(r.erro ?? 'Falha ao iniciar a ligação')
       return r
     },
-    onSuccess: async () => {
+    onSuccess: () => {
       setErroDiscar(null)
-      await trazerCardParaTopo(leadId)
       queryClient.invalidateQueries({ queryKey: ['pipeline-cards'] })
     },
     onError:   (e: Error) => setErroDiscar(e.message),
@@ -82,10 +80,8 @@ export function RegistroRapidoLigacao({ leadId, telefone }: { leadId: string; te
       // Ligou pro lead: o card sobe pro topo da coluna. Sem isso ele fica
       // enterrado no meio e quem acabou de trabalhar aquele lead precisa
       // procurá-lo de novo na próxima vez.
-      // As duas obedecem a regras do funil: se estiverem desligadas, o banco
-      // não faz nada. Chamar sempre mantém a tela ignorante da configuração.
-      await registrarContatoNoFunil(leadId)
-      await trazerCardParaTopo(leadId)
+      // Subir o card e mover de etapa agora são gatilho no banco, disparado
+      // pela própria gravação da atividade. Aqui só recarregamos a tela.
       queryClient.invalidateQueries({ queryKey: ['lead-activities', leadId] })
       queryClient.invalidateQueries({ queryKey: ['funnel-metrics', tenantId] })
       queryClient.invalidateQueries({ queryKey: ['pipeline-cards'] })
