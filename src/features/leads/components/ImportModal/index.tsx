@@ -32,6 +32,10 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
   const [step, setStep]             = useState<Step>('source')
   const [sourceType, setSourceType] = useState<SourceType>('file')
   const [sheetsUrl, setSheetsUrl]   = useState('')
+  // Buscar a planilha leva segundos. Sem sinal de espera, a pessoa clica de
+  // novo achando que não pegou — e o botão usava o estado da IMPORTAÇÃO, que
+  // nem tinha começado ainda.
+  const [carregandoPlanilha, setCarregandoPlanilha] = useState(false)
   const fileInputRef                = useRef<HTMLInputElement>(null)
 
   const {
@@ -48,14 +52,19 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    await loadFromFile(file)
-    setStep('mapping')
+    // Avança pelo RETORNO, nunca por `parseError`: aquele estado só existe no
+    // próximo render, e conferi-lo aqui deixava passar a falha.
+    if (await loadFromFile(file)) setStep('mapping')
   }
 
   async function handleLoadSheets() {
     if (!sheetsUrl.trim()) return
-    await loadFromSheetsUrl(sheetsUrl.trim())
-    if (!parseError) setStep('mapping')
+    setCarregandoPlanilha(true)
+    try {
+      if (await loadFromSheetsUrl(sheetsUrl.trim())) setStep('mapping')
+    } finally {
+      setCarregandoPlanilha(false)
+    }
   }
 
   async function handleImport() {
@@ -142,7 +151,7 @@ export function ImportModal({ open, onClose }: ImportModalProps) {
             </div>
           )}
 
-          <Button onClick={handleLoadSheets} loading={importMutation.isPending} className="w-full">
+          <Button onClick={handleLoadSheets} loading={carregandoPlanilha} className="w-full">
             <ArrowRight size={16} />
             Carregar planilha
           </Button>

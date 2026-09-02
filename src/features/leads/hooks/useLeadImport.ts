@@ -181,7 +181,7 @@ function parseValue(raw: string | undefined): number | null {
   if (!raw) return null
   // Aceita "R$ 1.500,50", "1500,50", "1500.50", "1500"
   const cleaned = raw
-    .replace(/[^\d.,\-]/g, '')   // remove R$, espaços, etc
+    .replace(/[^\d.,-]/g, '')   // remove R$, espaços, etc
     .replace(/\.(?=\d{3})/g, '') // remove separadores de milhar (1.500 → 1500)
     .replace(',', '.')           // vírgula decimal → ponto
   const n = parseFloat(cleaned)
@@ -308,19 +308,32 @@ export function useLeadImport() {
     setParseError(null)
   }, [])
 
-  async function loadFromFile(file: File) {
+  /* Devolve se conseguiu ler. Quem chama NÃO pode olhar `parseError` logo
+     depois: aquele valor é o do render anterior, e na primeira tentativa vale
+     sempre null — a tela avançava pro mapeamento mesmo com a leitura falhada,
+     mostrando zero coluna e zero linha, e o erro nunca aparecia porque a tela
+     já tinha saído daquele passo. Era o "coloco o link e não puxa nada". */
+  async function loadFromFile(file: File): Promise<boolean> {
     setParseError(null)
-    const text = await file.text()
-    const { headers, rows } = parseCsvText(text)
-    setCsvHeaders(headers)
-    setCsvRows(rows)
-    setMapping({
-      ...autoDetectStdMapping(headers),
-      customFields: autoDetectCustomMapping(headers, customDefs),
-    })
+    try {
+      const text = await file.text()
+      const { headers, rows } = parseCsvText(text)
+      if (headers.length === 0) throw new Error('Não encontrei cabeçalhos na primeira linha do arquivo.')
+      if (rows.length === 0)    throw new Error('O arquivo tem cabeçalho mas nenhuma linha de dados.')
+      setCsvHeaders(headers)
+      setCsvRows(rows)
+      setMapping({
+        ...autoDetectStdMapping(headers),
+        customFields: autoDetectCustomMapping(headers, customDefs),
+      })
+      return true
+    } catch (err) {
+      setParseError(err instanceof Error ? err.message : 'Erro desconhecido')
+      return false
+    }
   }
 
-  async function loadFromSheetsUrl(url: string) {
+  async function loadFromSheetsUrl(url: string): Promise<boolean> {
     setParseError(null)
     try {
       const text = await fetchSheetsCsv(url)
@@ -328,14 +341,21 @@ export function useLeadImport() {
       if (headers.length === 0) {
         throw new Error('Não consegui detectar colunas na planilha. Verifique se a primeira linha contém os cabeçalhos.')
       }
+      // Planilha só com cabeçalho passava adiante e virava um mapeamento vazio,
+      // que é indistinguível de "não funcionou".
+      if (rows.length === 0) {
+        throw new Error('A planilha tem cabeçalhos mas nenhuma linha de dados abaixo deles.')
+      }
       setCsvHeaders(headers)
       setCsvRows(rows)
       setMapping({
         ...autoDetectStdMapping(headers),
         customFields: autoDetectCustomMapping(headers, customDefs),
       })
+      return true
     } catch (err) {
       setParseError(err instanceof Error ? err.message : 'Erro desconhecido')
+      return false
     }
   }
 
