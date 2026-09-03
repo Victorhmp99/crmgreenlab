@@ -322,7 +322,7 @@ export function KanbanColumn({
       {/* Área droppável — tamanho fixo da coluna, scroll interno se passar */}
       <div
         ref={setDropRef}
-        className="flex flex-col gap-2.5 flex-1 rounded-xl p-2 min-h-32 transition-all overflow-y-auto"
+        className="flex flex-col gap-2.5 flex-1 rounded-xl p-2 min-h-32 transition-all overflow-y-auto [@media(max-height:520px)]:gap-1.5 [@media(max-height:520px)]:p-1.5"
         style={{
           background: isOver ? 'rgba(0,230,118,0.05)' : '#0d0d0d',
           border: isOver ? '2px dashed rgba(0,230,118,0.3)' : '1px solid #1a1a1a',

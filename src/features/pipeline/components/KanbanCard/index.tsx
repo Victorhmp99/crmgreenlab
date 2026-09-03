@@ -77,30 +77,31 @@ export function KanbanCard({ data, onRemove, onSelect, isDraggingOverlay = false
       </div>
 
       {/* Conteúdo */}
-      {/* Em tela baixa o card encolhe: com 153px de altura ele sozinho
-          preenchia os ~150px visiveis da coluna em paisagem, e por isso "so
-          pegava um card". Menos respiro faz caber mais de um. */}
-      <div className="p-3.5 pl-8 [@media(max-height:520px)]:p-2 [@media(max-height:520px)]:pl-7">
-        <p className="font-semibold text-sm leading-tight truncate pr-4" style={{ color: '#e8e8e8' }}>
+      {/* Em tela baixa o card vira NOME + TELEFONE (+ valor, quando ha) e mais
+          nada. Em celular deitado a coluna tem ~175px pra mostrar lead: com o
+          card cheio, de 153px, so cabia um. Assim ele fica em ~50px e cabem
+          tres. O que sai daqui continua no card ao tocar nele. */}
+      <div className="p-3.5 pl-8 [@media(max-height:520px)]:p-1.5 [@media(max-height:520px)]:pl-7">
+        <p className="font-semibold text-sm leading-tight truncate pr-4 [@media(max-height:520px)]:text-[13px]" style={{ color: '#e8e8e8' }}>
           {lead.name}
         </p>
 
         {lead.company_name && (
-          <div className="flex items-center gap-1 mt-0.5">
+          <div className="flex items-center gap-1 mt-0.5 [@media(max-height:520px)]:hidden">
             <Building2 size={11} className="shrink-0" style={{ color: '#555' }} />
             <span className="text-xs truncate" style={{ color: '#888' }}>{lead.company_name}</span>
           </div>
         )}
 
         {lead.phone && (
-          <div className="flex items-center gap-1 mt-1.5">
+          <div className="flex items-center gap-1 mt-1.5 [@media(max-height:520px)]:mt-0.5">
             <Phone size={11} className="shrink-0" style={{ color: '#444' }} />
             <span className="text-xs" style={{ color: '#666' }}>{formatPhone(lead.phone)}</span>
           </div>
         )}
 
         {lead.value != null && Number(lead.value) > 0 && (
-          <div className="flex items-center gap-1 mt-1.5">
+          <div className="flex items-center gap-1 mt-1.5 [@media(max-height:520px)]:mt-0.5">
             <DollarSign size={11} className="shrink-0" style={{ color: '#00e676' }} />
             <span className="text-xs font-semibold tabular-nums" style={{ color: '#00e676' }}>
               {formatCurrency(Number(lead.value))}
@@ -108,7 +109,9 @@ export function KanbanCard({ data, onRemove, onSelect, isDraggingOverlay = false
           </div>
         )}
 
-        <div className="flex items-center justify-between mt-2.5">
+        {/* Origem e "ha quantos dias" custam uma fileira inteira — 28px dos
+            ~80 do card. Em tela baixa isso e metade de um card a mais. */}
+        <div className="flex items-center justify-between mt-2.5 [@media(max-height:520px)]:hidden">
           <LeadSourceBadge source={lead.source} />
           <span className="text-[10px] font-medium rounded-full px-1.5 py-0.5"
             style={
