@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef} from 'react'
 import { ArrowLeft, Settings, RefreshCw, Pencil, Search } from 'lucide-react'
 import { KanbanBoard } from '../components/KanbanBoard'
 import { PipelineGrid } from '../components/PipelineGrid'
 import { PipelineToolsPanel } from '../components/PipelineToolsPanel'
 import { DuplicatasModal } from '@/features/leads/components/DuplicatasModal'
+import { useTelaCompacta } from '@/hooks/useTelaCompacta'
 import { RegrasMovimentacaoModal } from '../components/RegrasMovimentacaoModal'
 import { PipelineCreationWizard } from '../components/PipelineCreationWizard'
 import { DeletePipelineModal } from '../components/DeletePipelineModal'
@@ -66,6 +67,26 @@ export function PipelinePage() {
 
   // ── Estado de modais ──────────────────────────────────────────────────────
   const [showDuplicatas, setShowDuplicatas] = useState(false)
+  const areaQuadroRef = useRef<HTMLDivElement>(null)
+  const telaCompacta  = useTelaCompacta()
+
+  /* No celular cabe UMA coluna na tela. Sem um atalho, descobrir que existem
+     outras exige arrastar o quadro pro lado no escuro — e foi por isso que a
+     pipeline "não deixava explorar". Aqui as etapas viram fichas: dá pra ver
+     quantas são, quantos leads tem cada uma, e pular direto. */
+  function irParaEtapa(indice: number) {
+    const area   = areaQuadroRef.current
+    const trilho = area?.querySelector<HTMLElement>('.flex.gap-4')
+    const alvo   = trilho?.children[indice] as HTMLElement | undefined
+    if (!area || !trilho || !alvo) return
+
+    /* Posição calculada e salto direto, sem `behavior: 'smooth'`.
+       A rolagem suave é ignorada em parte dos navegadores — e quando é, não
+       avisa: não lança erro, simplesmente não anda. O recurso inteiro parecia
+       quebrado por causa disso. Salto instantâneo funciona em todo lugar, e
+       num celular ir direto pra etapa é melhor que esperar animação. */
+    area.scrollLeft = alvo.offsetLeft - trilho.offsetLeft
+  }
   const [showRegras,     setShowRegras]     = useState(false)
   const [showTools,            setShowTools]            = useState(false)
   const [showAutomations,      setShowAutomations]      = useState(false)
@@ -256,7 +277,7 @@ export function PipelinePage() {
               }}
               title="Buscar lead nas pipelines">
               <Search size={14} />
-              Buscar
+              <span className="hidden sm:inline">Buscar</span>
             </button>
             <PipelineSearchPopover
               open={showSearch}
@@ -287,7 +308,7 @@ export function PipelinePage() {
             }}
             title="Editar pipeline">
             <Pencil size={14} />
-            Editar
+            <span className="hidden sm:inline">Editar</span>
           </button>
 
           {/* ⚙️ Ferramentas */}
@@ -307,7 +328,7 @@ export function PipelinePage() {
             }}
             title="Ferramentas da pipeline">
             <Settings size={14} />
-            Ferramentas
+            <span className="hidden sm:inline">Ferramentas</span>
           </button>
 
           {/* + Novo Lead */}
@@ -351,7 +372,9 @@ export function PipelinePage() {
           {stages.length} etapa{stages.length !== 1 ? 's' : ''} ·{' '}
           <span style={{ color: '#555' }}>
             <span className="hidden md:inline">arraste pela alça para mover · clique para abrir</span>
-            <span className="md:hidden">segure a alça ⋮ e arraste para mover · toque para abrir</span>
+            {/* Curto de proposito: a versao longa quebrava em duas linhas e
+                custava 18px de altura numa tela que ja esta apertada. */}
+            <span className="md:hidden">segure a alça ⋮ para mover</span>
           </span>
         </p>
       )}
@@ -362,7 +385,32 @@ export function PipelinePage() {
           <Spinner size="lg" />
         </div>
       ) : (
-        <div className="flex-1 min-h-0 overflow-x-auto overscroll-x-contain" style={{ scrollbarWidth: 'thin' }}>
+        <>
+        {telaCompacta && stages.length > 1 && (
+          <div className="flex gap-1.5 overflow-x-auto pb-2 shrink-0" style={{ scrollbarWidth: 'none' }}>
+            {stages.map((etapa, i) => {
+              const quantos = cards.filter((c) => c.card.stage_id === etapa.id).length
+              return (
+                <button
+                  key={etapa.id}
+                  type="button"
+                  onClick={() => irParaEtapa(i)}
+                  className="flex items-center gap-1.5 shrink-0 rounded-full pl-2 pr-2.5 py-1 text-[11px] transition-colors"
+                  style={{ background: '#161616', border: '1px solid #242424', color: '#bbb' }}
+                >
+                  <span className="h-2 w-2 rounded-full shrink-0"
+                    style={{ background: etapa.color ?? '#555' }} />
+                  <span className="max-w-[8.5rem] truncate">{etapa.name}</span>
+                  <span className="tabular-nums" style={{ color: quantos ? '#00e676' : '#555' }}>
+                    {quantos}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        )}
+
+        <div ref={areaQuadroRef} className="flex-1 min-h-0 overflow-x-auto overscroll-x-contain" style={{ scrollbarWidth: 'thin' }}>
           <div className="h-full min-h-[500px]">
             {selectedPipelineId && (
               <KanbanBoard
@@ -379,6 +427,7 @@ export function PipelinePage() {
             )}
           </div>
         </div>
+        </>
       )}
 
       {/* ── Painel de ferramentas ─────────────────────────────────────────── */}

@@ -38,7 +38,11 @@ export function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen login-bg relative overflow-hidden">
+    /* `overflow-hidden` cortava o conteudo sem deixar rolar: em celular
+       deitado (375px de altura) o formulario passava da tela e o botao de
+       entrar ficava inalcancavel. Esconder so o transbordo HORIZONTAL mantem
+       os orbes decorativos sem barra lateral e libera a rolagem vertical. */
+    <div className="min-h-screen login-bg relative overflow-x-hidden">
       {/* Grid de fundo */}
       <div className="absolute inset-0 login-grid pointer-events-none" />
 
@@ -57,36 +61,44 @@ export function LoginPage() {
       <div className="login-scan" />
 
       {/* Conteúdo */}
-      <div className="relative z-10 min-h-screen flex items-center justify-center p-6">
-        <div className="w-full max-w-6xl grid lg:grid-cols-2 gap-12 items-center">
+      <div className="relative z-10 min-h-screen flex items-center justify-center p-4 py-8 sm:p-6">
+        {/* Duas colunas tambem em tela LARGA E BAIXA (celular deitado): ali
+            sobra largura e falta altura, e empilhar jogava o botao de entrar
+            630px abaixo numa tela de 375px. Lado a lado, cabe sem rolar. */}
+        <div className="w-full max-w-6xl grid lg:grid-cols-2 [@media(min-width:640px)_and_(max-height:520px)]:grid-cols-2 gap-6 sm:gap-12 items-center">
           {/* Lado esquerdo: logo + slogan */}
           <div className="flex flex-col items-center lg:items-start text-center lg:text-left">
             {/* Logo + Intelligence Platform */}
-            <div className="flex flex-col items-center lg:items-start mb-8">
-              <div className="relative mb-3">
-                <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Green Hub" className="h-28 w-28 object-contain" />
+            <div className="flex flex-col items-center lg:items-start mb-5 sm:mb-8">
+              <div className="relative mb-4 sm:mb-3">
+                <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Green Hub" className="h-20 w-20 sm:h-28 sm:w-28 [@media(max-height:520px)]:h-14 [@media(max-height:520px)]:w-14 object-contain" />
                 <div className="absolute inset-0 blur-xl opacity-50 pointer-events-none">
-                  <img src={`${import.meta.env.BASE_URL}logo.png`} alt="" className="h-28 w-28 object-contain" />
+                  <img src={`${import.meta.env.BASE_URL}logo.png`} alt="" className="h-20 w-20 sm:h-28 sm:w-28 [@media(max-height:520px)]:h-14 [@media(max-height:520px)]:w-14 object-contain" />
                 </div>
               </div>
+              {/* Verde escuro a 70% em cima do halo da logo (que tambem e
+                  verde) ficava ilegivel. Verde claro e opaco separa do fundo
+                  sem mudar a identidade. */}
               <p className="text-xs tracking-[0.3em] uppercase"
-                style={{ color: '#00c853', opacity: 0.7 }}>
+                style={{ color: '#9dffc6', opacity: 0.95 }}>
                 Intelligence Platform
               </p>
             </div>
 
             {/* Slogan principal */}
             <div className="max-w-md">
-              <h2 className="text-3xl lg:text-4xl font-bold leading-tight mb-3"
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight mb-2 sm:mb-3"
                 style={{ color: '#e8e8e8' }}>
                 Bem-vindo à{' '}
                 <span className="neon-flicker" style={{ color: '#00ff88' }}>Green Hub</span>
               </h2>
-              <p className="text-base leading-relaxed mb-2"
+              <p className="text-sm sm:text-base leading-relaxed mb-2 [@media(max-height:520px)]:hidden"
                 style={{ color: '#aaa' }}>
                 Inteligência, automação e controle em um só lugar.
               </p>
-              <p className="text-base leading-relaxed"
+              {/* Escondido no celular: quem abre o app no telefone quer
+                  entrar, e o proprio cartao ao lado ja diz "Acessar painel". */}
+              <p className="hidden sm:block text-base leading-relaxed"
                 style={{ color: '#888' }}>
                 Acesse sua conta e transforme dados em decisões estratégicas.
               </p>
@@ -95,13 +107,13 @@ export function LoginPage() {
 
           {/* Lado direito: form */}
           <div className="w-full max-w-md mx-auto lg:mx-0">
-            <div className="rounded-2xl p-8 login-card backdrop-blur-sm"
+            <div className="rounded-2xl p-5 sm:p-8 login-card backdrop-blur-sm"
               style={{
                 background: 'rgba(8, 16, 12, 0.7)',
                 border: '1px solid rgba(0, 230, 118, 0.2)',
               }}>
-              <div className="mb-6">
-                <h3 className="text-2xl font-bold" style={{ color: '#e8e8e8' }}>
+              <div className="mb-5 sm:mb-6">
+                <h3 className="text-xl sm:text-2xl font-bold" style={{ color: '#e8e8e8' }}>
                   Acessar painel
                 </h3>
                 <p className="text-sm mt-1" style={{ color: '#666' }}>
