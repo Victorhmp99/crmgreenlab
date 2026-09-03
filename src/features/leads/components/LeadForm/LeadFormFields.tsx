@@ -10,6 +10,7 @@ import { useActiveLeadFields } from '@/features/lead-fields/hooks/useLeadFieldDe
 import {
   CustomFieldsRenderer, validateCustomFields,
 } from '@/features/lead-fields/components/CustomFieldsRenderer'
+import { ResponsavelField } from './ResponsavelField'
 import { STATUS_OPTIONS } from '../LeadStatusBadge'
 import { SOURCE_OPTIONS } from '../LeadSourceBadge'
 import type { Lead } from '@/types'
@@ -60,6 +61,7 @@ export function LeadFormFields({
   const [customValues, setCustomValues] = useState<Record<string, unknown>>({})
   const [customErrors, setCustomErrors] = useState<Record<string, string>>({})
   const [saveError,    setSaveError]    = useState<string | null>(null)
+  const [responsavel,  setResponsavel]  = useState<string | null>(null)
 
   const {
     register, handleSubmit, reset,
@@ -89,10 +91,13 @@ export function LeadFormFields({
       })
       setCustomValues((lead.custom_fields as Record<string, unknown>) ?? {})
       setCustomErrors({})
+      setResponsavel(lead.assigned_to ?? null)
     } else if (open && !lead) {
       reset({ status: 'active', source: 'manual', value: '', channel_id: '' })
       setCustomValues({})
       setCustomErrors({})
+      // Lead novo nasce sem escolha: `createLead` poe no nome de quem criou.
+      setResponsavel(null)
     }
   }, [open, lead, reset])
 
@@ -132,6 +137,9 @@ export function LeadFormFields({
       notes:           data.notes || undefined,
       tags,
       custom_fields:   customValues,
+      // So vai junto na EDICAO. Na criacao, `createLead` ja poe no nome de
+      // quem criou quando nao vem nada — mandar null aqui apagaria isso.
+      ...(isEditing && { assigned_to: responsavel ?? '' }),
     }
 
     try {
@@ -198,6 +206,8 @@ export function LeadFormFields({
         <Select label="Status" options={STATUS_OPTIONS} error={errors.status?.message} {...register('status')} />
         <Select label="Origem" options={SOURCE_OPTIONS} error={errors.source?.message} {...register('source')} />
       </div>
+
+      <ResponsavelField valor={responsavel} onChange={setResponsavel} ehLeadNovo={!isEditing} />
 
       <Select
         label="Canal (Inbound/Outbound/etc)"

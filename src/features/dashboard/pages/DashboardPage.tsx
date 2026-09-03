@@ -105,7 +105,13 @@ export function DashboardPage() {
   const { user, tenant } = useAuth()
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo]     = useState('')
-  const { data, isLoading, refetch, dataUpdatedAt } = useDashboardMetrics(dateFrom || undefined, dateTo || undefined)
+  // Gestor vende também: sem isso ele só enxergava o consolidado e não tinha
+  // como ver a conversão dele. Vendedor não tem escolha — o banco força
+  // 'meus' pra ele, então o botão nem aparece.
+  const [escopo, setEscopo] = useState<'meus' | 'empresa'>('empresa')
+  const { data, isLoading, refetch, dataUpdatedAt } = useDashboardMetrics(
+    dateFrom || undefined, dateTo || undefined, escopo,
+  )
   const { data: dashGoals } = useDashboardGoals()
   const { hidden, toggle, mask, maskCurrency } = usePrivacyMode()
   const { isManager, isSuperAdmin } = usePermissions()
@@ -235,7 +241,7 @@ export function DashboardPage() {
           <div className="flex items-center justify-between flex-wrap gap-3 mb-3">
             <div>
               <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#666' }}>
-                {canSeeFinancial ? 'Carteira' : 'Meus números'}
+                {!canSeeFinancial ? 'Meus números' : escopo === 'meus' ? 'Meus números' : 'Carteira'}
               </h3>
               <p className="text-[11px] mt-0.5" style={{ color: '#444' }}>
                 Período: {dateFrom || dateTo
@@ -243,7 +249,25 @@ export function DashboardPage() {
                   : 'todo o histórico'}
               </p>
             </div>
-            <div className="flex items-end gap-2">
+            <div className="flex items-end gap-2 flex-wrap">
+              {canSeeFinancial && (
+                <div className="flex items-center rounded-lg overflow-hidden h-10"
+                  style={{ border: '1px solid #2a2a2a' }}>
+                  {([
+                    { valor: 'empresa' as const, rotulo: 'Empresa' },
+                    { valor: 'meus'    as const, rotulo: 'Meus'    },
+                  ]).map(({ valor, rotulo }) => (
+                    <button key={valor} type="button" onClick={() => setEscopo(valor)}
+                      className="px-3 h-full text-xs transition-colors"
+                      style={{
+                        background: escopo === valor ? 'rgba(0,230,118,0.12)' : 'transparent',
+                        color:      escopo === valor ? '#00e676' : '#666',
+                      }}>
+                      {rotulo}
+                    </button>
+                  ))}
+                </div>
+              )}
               <DatePicker value={dateFrom} onChange={setDateFrom} placeholder="Data início" className="w-36" />
               <DatePicker value={dateTo} onChange={setDateTo} placeholder="Data fim" className="w-36" />
               {(dateFrom || dateTo) && (
@@ -272,7 +296,7 @@ export function DashboardPage() {
             />
             {/* Receita é o caixa da empresa (lançamentos e contratos), não a
                 soma de leads de alguém — some pra quem não é gestor. */}
-            {canSeeFinancial && (
+            {canSeeFinancial && escopo === 'empresa' && (
               <KpiCard
                 label="Receita"
                 value={isLoading ? '—' : maskCurrency(formatCurrency(Number(data?.financial.receita ?? 0)))}

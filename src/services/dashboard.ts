@@ -100,6 +100,9 @@ export async function fetchDashboardMetrics(
   tenantId: string,
   from?: string,
   to?: string,
+  /** 'meus' = só os leads de quem está olhando. Vendedor é sempre 'meus',
+      decidido no banco — mandar 'empresa' daqui não muda nada. */
+  escopo?: 'meus' | 'empresa',
 ): Promise<DashboardMetrics> {
   const now        = new Date()
   const todayStart = startOfDay(now)
@@ -159,6 +162,7 @@ export async function fetchDashboardMetrics(
       p_tenant_id: tenantId,
       p_from:      from ?? null,
       p_to:        to ?? null,
+      p_escopo:    escopo ?? null,
     }),
 
     supabase.from('leads').select('source')

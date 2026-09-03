@@ -66,13 +66,13 @@ function buildDemoMetrics(): DashboardMetrics {
   }
 }
 
-export function useDashboardMetrics(from?: string, to?: string) {
+export function useDashboardMetrics(from?: string, to?: string, escopo?: 'meus' | 'empresa') {
   const tenantId = useAuthStore((s) => s.tenant?.id)
   const isDemo   = import.meta.env.VITE_DEMO_MODE === 'true'
 
   return useQuery({
-    queryKey:  ['dashboard-metrics', tenantId, from, to],
-    queryFn:   isDemo ? buildDemoMetrics : () => fetchDashboardMetrics(tenantId!, from, to),
+    queryKey:  ['dashboard-metrics', tenantId, from, to, escopo],
+    queryFn:   isDemo ? buildDemoMetrics : () => fetchDashboardMetrics(tenantId!, from, to, escopo),
     enabled:   !!tenantId,
     staleTime: 0,  // sempre rebusca quando algo muda
     refetchOnWindowFocus: !isDemo,
