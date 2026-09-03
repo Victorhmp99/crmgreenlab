@@ -47,7 +47,7 @@ export function Header({ title, onAbrirMenu }: HeaderProps) {
   }
 
   return (
-    <header className="h-14 sm:h-16 border-b flex items-center justify-between px-3 sm:px-6 shrink-0 relative z-10"
+    <header className="h-14 sm:h-16 [@media(max-height:520px)]:h-12 border-b flex items-center justify-between px-3 sm:px-6 shrink-0 relative z-10"
       style={{ background: '#0d0d0d', borderColor: '#1e1e1e' }}>
       <div className="flex items-center gap-2 sm:gap-3 min-w-0">
         {/* Aparece só quando a barra lateral é gaveta. Quem decide é a mesma

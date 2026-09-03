@@ -472,7 +472,11 @@ export function PipelinePage() {
               inteiro virava um bloco maior que a area e obrigava a rolar por
               dentro pra ver qualquer card. Em tela baixa ele passa a usar a
               altura que ha. */}
-          <div className="h-full min-h-[260px] [@media(min-height:620px)]:min-h-[500px]">
+          {/* Em tela baixa a coluna usa a altura que HA. Exigindo 260px num
+              espaco de ~190px ela ficava mais alta que a area e saia cortada
+              embaixo — o card aparecia pela metade e nao havia fim visivel.
+              Sem minimo, ela termina onde a tela termina e rola por dentro. */}
+          <div className="h-full min-h-0 [@media(min-height:620px)]:min-h-[500px]">
             {selectedPipelineId && (
               <KanbanBoard
                 stages={stages}

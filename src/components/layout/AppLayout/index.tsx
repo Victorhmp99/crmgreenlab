@@ -77,7 +77,10 @@ export function AppLayout({ children }: AppLayoutProps) {
           className={cn(
             // 24px de padding em cada lado custa 48px de largura útil no
             // celular — no quadro isso é meia coluna.
-            'flex-1 p-3 sm:p-6 overflow-y-auto',
+            /* Em tela baixa o padding volta a ser pequeno mesmo em largura
+               grande: em paisagem os 24px de cima e de baixo custam 48px de
+               altura util, que ali e um terco de um card. */
+            'flex-1 p-3 sm:p-6 [@media(max-height:520px)]:p-2 overflow-y-auto',
             /* A pipeline precisa de coluna flexivel pro quadro ocupar a altura
                que sobra. Mas ela vinha com `overflow-hidden` e SEM rolagem
                vertical: o quadro tem altura minima de 500px, entao em celular
