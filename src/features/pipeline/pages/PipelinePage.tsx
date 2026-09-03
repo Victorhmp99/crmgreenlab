@@ -274,7 +274,7 @@ export function PipelinePage() {
 
 
   return (
-    <div className="flex flex-col gap-3 h-full min-h-0">
+    <div className="flex flex-col gap-3 [@media(max-height:520px)]:gap-1.5 h-full min-h-0">
 
       {/* ── Toolbar do board ──────────────────────────────────────────────── */}
       <div className="flex items-center justify-between gap-3 shrink-0 flex-wrap">
@@ -466,7 +466,13 @@ export function PipelinePage() {
           </div>
         )}
 
-        <div ref={areaQuadroRef} className="flex-1 min-h-0 overflow-x-auto overscroll-x-contain" style={{ scrollbarWidth: 'thin' }}>
+        {/* `overflow-y-hidden` e proposital: pedindo so `overflow-x-auto`, o
+            navegador computa o eixo Y como `auto` tambem, e essa area vira um
+            rolador vertical MORTO (conteudo do tamanho exato dela). No toque
+            ele fica no caminho do dedo, captura o gesto e nao rola nada — a
+            coluna parecia travada. Fechando o eixo Y aqui, o gesto chega em
+            quem tem o que rolar: o corpo da coluna. */}
+        <div ref={areaQuadroRef} className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden overscroll-x-contain" style={{ scrollbarWidth: 'thin' }}>
           {/* 500px de altura minima e bom em tela alta (evita colunas
               espremidas), mas em celular deitado sobram ~310px: o quadro
               inteiro virava um bloco maior que a area e obrigava a rolar por

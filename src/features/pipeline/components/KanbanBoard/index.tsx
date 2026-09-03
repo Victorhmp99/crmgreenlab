@@ -358,7 +358,9 @@ export function KanbanBoard({ stages, cards, pipelineId, onAddLead, onRemoveCard
     >
       {/* SortableContext horizontal para colunas */}
       <SortableContext items={columnSortIds} strategy={horizontalListSortingStrategy}>
-        <div className="flex gap-4 h-full pb-4">
+        {/* O respiro de baixo vale em tela alta; em celular deitado sao 16px
+            dos ~190px que a coluna tem pra mostrar lead. */}
+        <div className="flex gap-4 h-full pb-4 [@media(max-height:520px)]:pb-1">
           {displayColumns.map((column) => (
             <KanbanColumn
               key={column.stage.id}

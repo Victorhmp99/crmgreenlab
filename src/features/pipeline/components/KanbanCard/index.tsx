@@ -77,7 +77,10 @@ export function KanbanCard({ data, onRemove, onSelect, isDraggingOverlay = false
       </div>
 
       {/* Conteúdo */}
-      <div className="p-3.5 pl-8">
+      {/* Em tela baixa o card encolhe: com 153px de altura ele sozinho
+          preenchia os ~150px visiveis da coluna em paisagem, e por isso "so
+          pegava um card". Menos respiro faz caber mais de um. */}
+      <div className="p-3.5 pl-8 [@media(max-height:520px)]:p-2 [@media(max-height:520px)]:pl-7">
         <p className="font-semibold text-sm leading-tight truncate pr-4" style={{ color: '#e8e8e8' }}>
           {lead.name}
         </p>
@@ -117,8 +120,10 @@ export function KanbanCard({ data, onRemove, onSelect, isDraggingOverlay = false
           </span>
         </div>
 
+        {/* Etiquetas somem em tela baixa: e a linha menos essencial pra
+            reconhecer o lead, e vale mais que caiba outro card. */}
         {(lead.tags ?? []).length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-2">
+          <div className="flex flex-wrap gap-1 mt-2 [@media(max-height:520px)]:hidden">
             {(lead.tags ?? []).slice(0, 3).map((tag) => {
               const color = colorByName.get(tag) ?? '#666'
               return (
