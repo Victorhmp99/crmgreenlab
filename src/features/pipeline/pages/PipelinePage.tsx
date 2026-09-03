@@ -4,7 +4,6 @@ import { KanbanBoard } from '../components/KanbanBoard'
 import { PipelineGrid } from '../components/PipelineGrid'
 import { PipelineToolsPanel } from '../components/PipelineToolsPanel'
 import { DuplicatasModal } from '@/features/leads/components/DuplicatasModal'
-import { useTelaCompacta } from '@/hooks/useTelaCompacta'
 import { RegrasMovimentacaoModal } from '../components/RegrasMovimentacaoModal'
 import { PipelineCreationWizard } from '../components/PipelineCreationWizard'
 import { DeletePipelineModal } from '../components/DeletePipelineModal'
@@ -68,7 +67,14 @@ export function PipelinePage() {
   // ── Estado de modais ──────────────────────────────────────────────────────
   const [showDuplicatas, setShowDuplicatas] = useState(false)
   const areaQuadroRef = useRef<HTMLDivElement>(null)
-  const telaCompacta  = useTelaCompacta()
+
+  /* O atalho de etapas aparece quando as colunas NAO CABEM na largura — que e
+     exatamente quando alguem precisa dele. Antes dependia de medida de
+     aparelho ("é celular?"), o que e chute sobre tela alheia: bastava um
+     tamanho fora do previsto pro atalho sumir justamente onde fazia falta.
+     Aqui a pergunta e sobre o que esta na tela, e a resposta nao depende de
+     saber que aparelho e. */
+  const [precisaAtalho, setPrecisaAtalho] = useState(false)
 
   /* No celular cabe UMA coluna na tela. Sem um atalho, descobrir que existem
      outras exige arrastar o quadro pro lado no escuro — e foi por isso que a
@@ -114,6 +120,7 @@ export function PipelinePage() {
   const stages = isDemo && selectedPipelineId
     ? (DEMO_STAGES_MAP[selectedPipelineId] ?? [])
     : fetchedStages
+
 
   const cards = isDemo && selectedPipelineId
     ? (DEMO_CARDS_MAP[selectedPipelineId] ?? []).filter((c) =>
@@ -182,6 +189,55 @@ export function PipelinePage() {
     setTimeout(() => setSuccessMsg(null), 4000)
   }
 
+  const isLoading = stagesLoading
+
+  /* Observa a largura real do quadro: o atalho so aparece quando as colunas
+     nao cabem.
+
+     Fica ANTES do `return` da tela de lista, e nao pode descer dali: hook
+     depois de um return antecipado roda numa tela e nao roda na outra, a
+     contagem muda entre elas e o React derruba a pagina inteira. Foi o que
+     aconteceu — a tela caiu na rede de protecao com "Rendered more hooks than
+     during the previous render". */
+  useEffect(() => {
+    const area = areaQuadroRef.current
+    if (!area) return
+
+    const conferir = () => setPrecisaAtalho(area.scrollWidth > area.clientWidth + 4)
+
+    /* Mede DEPOIS da pintura. Medindo no mesmo ciclo, as colunas ainda nao
+       foram posicionadas: `clientWidth` vem pequeno, a conta da "nao cabe", e
+       o atalho ficava preso ligado mesmo numa tela larga onde tudo cabe. */
+    conferir()
+    const quadro = requestAnimationFrame(conferir)
+    const atraso = setTimeout(conferir, 250)
+
+    const observador = new ResizeObserver(conferir)
+    observador.observe(area)
+    // O trilho tambem muda de largura quando entra ou sai etapa.
+    const trilho = area.querySelector('.flex.gap-4')
+    if (trilho) observador.observe(trilho)
+
+    /* O evento de janela vai junto: em alguns navegadores o ResizeObserver nao
+       dispara ao girar/redimensionar, e ai o atalho ficaria preso no estado
+       anterior. Duas fontes pro mesmo calculo custam nada e evitam depender de
+       uma API so — foi o que aconteceu com a rolagem suave. */
+    window.addEventListener('resize', conferir)
+    window.addEventListener('orientationchange', conferir)
+
+    return () => {
+      cancelAnimationFrame(quadro)
+      clearTimeout(atraso)
+      observador.disconnect()
+      window.removeEventListener('resize', conferir)
+      window.removeEventListener('orientationchange', conferir)
+    }
+    /* `isLoading` e `cards.length` entram nas dependencias porque o elemento
+       medido SO EXISTE depois que a carga termina. Sem eles o efeito rodava
+       cedo, encontrava a referencia vazia, desistia — e nunca voltava: o
+       atalho ficava congelado no valor que tivesse. */
+  }, [selectedPipelineId, stages.length, view, isLoading, cards.length])
+
   // ── Grid view ─────────────────────────────────────────────────────────────
   if (view === 'grid') {
     return (
@@ -215,7 +271,7 @@ export function PipelinePage() {
   }
 
   // ── Board view ────────────────────────────────────────────────────────────
-  const isLoading = stagesLoading
+
 
   return (
     <div className="flex flex-col gap-3 h-full min-h-0">
@@ -386,7 +442,7 @@ export function PipelinePage() {
         </div>
       ) : (
         <>
-        {telaCompacta && stages.length > 1 && (
+        {precisaAtalho && stages.length > 1 && (
           <div className="flex gap-1.5 overflow-x-auto pb-2 shrink-0" style={{ scrollbarWidth: 'none' }}>
             {stages.map((etapa, i) => {
               const quantos = cards.filter((c) => c.card.stage_id === etapa.id).length
