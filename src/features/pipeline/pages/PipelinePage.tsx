@@ -367,7 +367,7 @@ export function PipelinePage() {
 
       {/* Subtítulo */}
       {selectedPipelineId && !pipelinesLoading && (
-        <p className="text-xs -mt-1 shrink-0" style={{ color: '#444' }}>
+        <p className="text-xs -mt-1 shrink-0 [@media(max-height:520px)]:hidden" style={{ color: '#444' }}>
           {cards.length} lead{cards.length !== 1 ? 's' : ''} ·{' '}
           {stages.length} etapa{stages.length !== 1 ? 's' : ''} ·{' '}
           <span style={{ color: '#555' }}>
@@ -411,7 +411,12 @@ export function PipelinePage() {
         )}
 
         <div ref={areaQuadroRef} className="flex-1 min-h-0 overflow-x-auto overscroll-x-contain" style={{ scrollbarWidth: 'thin' }}>
-          <div className="h-full min-h-[500px]">
+          {/* 500px de altura minima e bom em tela alta (evita colunas
+              espremidas), mas em celular deitado sobram ~310px: o quadro
+              inteiro virava um bloco maior que a area e obrigava a rolar por
+              dentro pra ver qualquer card. Em tela baixa ele passa a usar a
+              altura que ha. */}
+          <div className="h-full min-h-[260px] [@media(min-height:620px)]:min-h-[500px]">
             {selectedPipelineId && (
               <KanbanBoard
                 stages={stages}

@@ -77,8 +77,14 @@ export function AppLayout({ children }: AppLayoutProps) {
           className={cn(
             // 24px de padding em cada lado custa 48px de largura útil no
             // celular — no quadro isso é meia coluna.
-            'flex-1 overflow-hidden p-3 sm:p-6',
-            pathname === '/pipeline' ? 'flex flex-col' : 'overflow-y-auto',
+            'flex-1 p-3 sm:p-6 overflow-y-auto',
+            /* A pipeline precisa de coluna flexivel pro quadro ocupar a altura
+               que sobra. Mas ela vinha com `overflow-hidden` e SEM rolagem
+               vertical: o quadro tem altura minima de 500px, entao em celular
+               deitado (375px) ele era cortado e nao havia como rolar — nem no
+               quadro, nem na lista de pipelines. Mantem a coluna e devolve a
+               rolagem: em tela alta nada muda, porque o conteudo cabe. */
+            pathname === '/pipeline' && 'flex flex-col',
           )}
           style={{ background: 'var(--bg)' }}
         >
