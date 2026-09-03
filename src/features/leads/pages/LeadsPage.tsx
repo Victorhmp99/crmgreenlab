@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { UserPlus, Upload, Download, CheckSquare } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { BulkActionBar } from '@/components/ui/BulkActionBar'
+import { BulkDeleteConfirm } from '@/components/ui/BulkDeleteConfirm'
 import { LeadFiltersBar } from '../components/LeadFilters'
 import { LeadTable } from '../components/LeadTable'
 import { LeadForm } from '../components/LeadForm'
@@ -175,7 +176,7 @@ export function LeadsPage() {
 
       {/* Confirmação de exclusão em massa */}
       {confirmBulk && (
-        <BulkConfirmModal
+        <BulkDeleteConfirm
           count={selectedIds.size}
           label="lead"
           onCancel={() => setConfirmBulk(false)}
@@ -183,47 +184,6 @@ export function LeadsPage() {
           loading={removeMany.isPending}
         />
       )}
-    </div>
-  )
-}
-
-// ── Modal de confirmação reutilizável ──────────────────────────────────────
-
-function BulkConfirmModal({ count, label, onCancel, onConfirm, loading }: {
-  count: number; label: string; onCancel: () => void; onConfirm: () => void; loading: boolean
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-4"
-      style={{ background: 'rgba(0,0,0,0.7)' }}
-      onClick={onCancel}>
-      <div className="w-full max-w-md rounded-2xl p-6 flex flex-col gap-4"
-        onClick={(e) => e.stopPropagation()}
-        style={{ background: '#141414', border: '1px solid #2a2a2a' }}>
-        <div>
-          <h3 className="text-lg font-semibold" style={{ color: '#ff4444' }}>
-            Excluir {count} {label}{count !== 1 ? 's' : ''}?
-          </h3>
-          <p className="text-sm mt-1" style={{ color: '#888' }}>
-            Esta ação não pode ser desfeita. Todos os {label}s selecionados serão excluídos permanentemente.
-          </p>
-        </div>
-        <div className="flex justify-end gap-2">
-          <button onClick={onCancel} disabled={loading}
-            className="rounded-lg px-4 py-2 text-sm transition-colors disabled:opacity-40"
-            style={{ color: '#aaa', border: '1px solid #2a2a2a' }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = '#1a1a1a')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
-            Cancelar
-          </button>
-          <button onClick={onConfirm} disabled={loading}
-            className="rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-40"
-            style={{ background: 'rgba(255,68,68,0.15)', color: '#ff4444', border: '1px solid rgba(255,68,68,0.4)' }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,68,68,0.25)')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255,68,68,0.15)')}>
-            {loading ? 'Excluindo...' : `Excluir ${count}`}
-          </button>
-        </div>
-      </div>
     </div>
   )
 }

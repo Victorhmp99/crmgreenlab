@@ -18,6 +18,7 @@ export interface Tenant {
   active: boolean
   created_at: string
   features?: string[]   // funções liberadas por empresa (feature flags controladas pelo super admin)
+  owner_user_id?: string | null  // quem criou a empresa — só ele pode excluí-la
 }
 
 export interface TenantSettings {

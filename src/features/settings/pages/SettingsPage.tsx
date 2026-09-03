@@ -6,6 +6,7 @@ import { Save, Palette, Building2, CheckCircle, ShieldAlert, Trash2 } from 'luci
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { useAuth } from '@/hooks/useAuth'
+import { useAuthStore } from '@/store/authStore'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useTenantStore } from '@/store/tenantStore'
 import { supabase } from '@/lib/supabase'
@@ -34,6 +35,11 @@ const COLOR_PRESETS = [
 export function SettingsPage() {
   const { tenant }                = useAuth()
   const { isAdmin, isManager, isSuperAdmin } = usePermissions()
+  const usuario                   = useAuthStore((s) => s.user)
+  // Excluir a empresa e do DONO, nao de qualquer admin. O banco ja recusa
+  // (migration 071); esconder o botao evita a pessoa descobrir isso na hora
+  // de apertar, depois de digitar o nome da empresa.
+  const souODono = !!tenant?.owner_user_id && tenant.owner_user_id === usuario?.id
   const settings                  = useTenantStore((s) => s.settings)
   const setSettings               = useTenantStore((s) => s.setSettings)
   const [saved, setSaved]         = useState(false)
@@ -293,8 +299,8 @@ export function SettingsPage() {
           Restringir a admin fazia cada cliente depender de nós pra ligar. */}
       {(isManager || isAdmin || isSuperAdmin) && <TelefoniaCard />}
 
-      {/* ── Zona de perigo (admin only) ──────────────────────────────────── */}
-      {(isAdmin || isSuperAdmin) && (
+      {/* ── Zona de perigo (só o dono da empresa) ────────────────────────── */}
+      {(souODono || isSuperAdmin) && (
         <section className="rounded-xl p-5 flex flex-col gap-4"
           style={{ background: '#140808', border: '1px solid rgba(255,68,68,0.2)' }}>
           <div className="flex items-center gap-2 mb-1">

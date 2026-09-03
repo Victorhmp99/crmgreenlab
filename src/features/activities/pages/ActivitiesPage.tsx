@@ -3,6 +3,7 @@ import { Zap, ChevronLeft, ChevronRight, CheckSquare, Square } from 'lucide-reac
 import { Button } from '@/components/ui/Button'
 import { Spinner } from '@/components/ui/Spinner'
 import { BulkActionBar } from '@/components/ui/BulkActionBar'
+import { BulkDeleteConfirm } from '@/components/ui/BulkDeleteConfirm'
 import { ActivityItem } from '../components/ActivityItem'
 import { ActivityFiltersBar } from '../components/ActivityFilters'
 import { ActivityForm } from '../components/ActivityForm'
@@ -200,34 +201,14 @@ export function ActivitiesPage() {
       <ActivityForm open={showForm} onClose={() => setShowForm(false)} />
 
       {confirmBulk && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4"
-          style={{ background: 'rgba(0,0,0,0.7)' }}
-          onClick={() => setConfirmBulk(false)}>
-          <div className="w-full max-w-md rounded-2xl p-6 flex flex-col gap-4"
-            onClick={(e) => e.stopPropagation()}
-            style={{ background: '#141414', border: '1px solid #2a2a2a' }}>
-            <div>
-              <h3 className="text-lg font-semibold" style={{ color: '#ff4444' }}>
-                Excluir {selectedIds.size} movimentaç{selectedIds.size !== 1 ? 'ões' : 'ão'}?
-              </h3>
-              <p className="text-sm mt-1" style={{ color: '#888' }}>
-                Esta ação não pode ser desfeita. As movimentações serão excluídas permanentemente.
-              </p>
-            </div>
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setConfirmBulk(false)} disabled={removeMany.isPending}
-                className="rounded-lg px-4 py-2 text-sm transition-colors disabled:opacity-40"
-                style={{ color: '#aaa', border: '1px solid #2a2a2a' }}>
-                Cancelar
-              </button>
-              <button onClick={handleBulkDelete} disabled={removeMany.isPending}
-                className="rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-40"
-                style={{ background: 'rgba(255,68,68,0.15)', color: '#ff4444', border: '1px solid rgba(255,68,68,0.4)' }}>
-                {removeMany.isPending ? 'Excluindo...' : `Excluir ${selectedIds.size}`}
-              </button>
-            </div>
-          </div>
-        </div>
+        <BulkDeleteConfirm
+          count={selectedIds.size}
+          label="movimentação"
+          labelPlural="movimentações"
+          onCancel={() => setConfirmBulk(false)}
+          onConfirm={handleBulkDelete}
+          loading={removeMany.isPending}
+        />
       )}
     </div>
   )
