@@ -137,7 +137,9 @@ export function DashboardPage() {
             {tenant?.name ?? 'Green Hub'}
           </p>
         </div>
-        <div className="flex items-center gap-3 shrink-0">
+        {/* Quebra linha no celular: com `shrink-0` e sem wrap, o ultimo botao
+            saia da tela e ficava inalcancavel, porque a barra nao rola. */}
+        <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap sm:shrink-0">
           <button
             onClick={toggle}
             title={hidden ? 'Mostrar valores' : 'Ocultar valores'}

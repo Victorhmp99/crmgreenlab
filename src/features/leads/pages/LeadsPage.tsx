@@ -89,7 +89,9 @@ export function LeadsPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        {/* Quebra linha no celular: com `shrink-0` e sem wrap, o ultimo botao
+            saia da tela e ficava inalcancavel, porque a barra nao rola. */}
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap sm:shrink-0">
           {canBulkDelete && !selectionMode && (
             <Button variant="secondary" onClick={() => setSelectionMode(true)}>
               <CheckSquare size={15} />

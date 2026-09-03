@@ -336,7 +336,11 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         {/* Botão colapsar */}
         <button
           onClick={onToggle}
-          className="absolute -right-3 top-20 h-6 w-6 rounded-full flex items-center justify-center z-10 border transition-colors"
+          // `-right-3` faz o botao sair 12px pra fora da barra. Com a barra
+          // virando gaveta no celular, essa metade ficava visivel na borda da
+          // tela mesmo com o menu fechado. E controle de desktop: recolher pra
+          // 64px de icones nao faz sentido em tela pequena.
+          className="hidden [@media(min-width:768px)_and_(min-height:500px)]:flex absolute -right-3 top-20 h-6 w-6 rounded-full items-center justify-center z-10 border transition-colors"
           style={{ background: '#141414', borderColor: '#2a2a2a', color: '#555' }}
           onMouseEnter={(e) => {
             ;(e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--tenant-primary)'

@@ -231,7 +231,10 @@ export function PipelinePage() {
         </div>
 
         {/* Direita: ações */}
-        <div className="flex items-center gap-2 shrink-0">
+        {/* Sem `flex-wrap` os quatro botoes somavam mais que a largura do
+            celular e o ultimo saia da tela — inalcancavel, porque a barra nao
+            rola. Deixar quebrar linha custa altura e resolve. */}
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap sm:shrink-0">
           {/* 🔍 Buscar lead */}
           <div className="relative">
             <button

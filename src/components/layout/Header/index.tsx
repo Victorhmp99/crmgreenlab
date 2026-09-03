@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { createPortal } from 'react-dom'
-import { Bell, Settings as SettingsIcon, LogOut, Check, Mail, Trash2 } from 'lucide-react'
+import { Bell, Settings as SettingsIcon, LogOut, Check, Mail, Trash2, Menu } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthStore } from '@/store/authStore'
 import { getInitials } from '@/lib/utils'
@@ -10,9 +10,13 @@ import {
 } from '@/features/notifications/hooks/useNotifications'
 import type { Notification as AppNotification } from '@/services/notifications'
 
-interface HeaderProps { title: string }
+interface HeaderProps {
+  title: string
+  /** Abre a gaveta do menu. Só aparece no celular. */
+  onAbrirMenu?: () => void
+}
 
-export function Header({ title }: HeaderProps) {
+export function Header({ title, onAbrirMenu }: HeaderProps) {
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
   const membership = useAuthStore((s) => s.membership)
@@ -43,13 +47,28 @@ export function Header({ title }: HeaderProps) {
   }
 
   return (
-    <header className="h-16 border-b flex items-center justify-between px-6 shrink-0 relative z-10"
+    <header className="h-14 sm:h-16 border-b flex items-center justify-between px-3 sm:px-6 shrink-0 relative z-10"
       style={{ background: '#0d0d0d', borderColor: '#1e1e1e' }}>
-      <div className="flex items-center gap-3">
-        <h1 className="text-base font-semibold tracking-wide" style={{ color: '#e8e8e8' }}>
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+        {/* Aparece só quando a barra lateral é gaveta. Quem decide é a mesma
+            consulta de largura E altura do AppLayout — passar por classe de
+            largura deixaria o botão visível em celular deitado com a barra
+            também aberta, dois controles pro mesmo menu. */}
+        {onAbrirMenu && (
+          <button
+            type="button"
+            onClick={onAbrirMenu}
+            aria-label="Abrir menu"
+            className="h-9 w-9 -ml-1 rounded-lg flex items-center justify-center shrink-0"
+            style={{ color: '#888' }}
+          >
+            <Menu size={20} />
+          </button>
+        )}
+        <h1 className="text-sm sm:text-base font-semibold tracking-wide truncate" style={{ color: '#e8e8e8' }}>
           {title}
         </h1>
-        <span className="h-1 w-1 rounded-full" style={{ background: 'var(--tenant-primary)' }} />
+        <span className="h-1 w-1 rounded-full shrink-0" style={{ background: 'var(--tenant-primary)' }} />
       </div>
 
       <div className="flex items-center gap-2">

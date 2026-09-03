@@ -71,7 +71,9 @@ export function RevenuePage() {
           <h2 className="text-xl font-semibold" style={{ color: '#e8e8e8' }}>Revenue Center</h2>
           <p className="text-sm mt-0.5" style={{ color: '#555' }}>Financeiro e projeções</p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        {/* Quebra linha no celular: com `shrink-0` e sem wrap, o ultimo botao
+            saia da tela e ficava inalcancavel, porque a barra nao rola. */}
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap sm:shrink-0">
           <Button variant="secondary" onClick={() => setShowCatalog(true)}>
             <LayoutGrid size={15} />
             Catálogo

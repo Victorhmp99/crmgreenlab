@@ -120,7 +120,7 @@ export function KanbanColumn({
     <div
       ref={setColumnRef}
       style={style}
-      className={cn('flex flex-col w-72 shrink-0 transition-opacity', isColumnDragging && !isDraggingOverlay && 'opacity-40')}
+      className={cn('flex flex-col w-[85vw] max-w-[20rem] sm:w-72 shrink-0 transition-opacity', isColumnDragging && !isDraggingOverlay && 'opacity-40')}
     >
       {/* Header */}
       <div className="flex items-center gap-1.5 mb-2.5 px-1 group">
@@ -388,7 +388,7 @@ export function KanbanColumn({
 
 export function KanbanColumnOverlay({ column }: { column: ColumnData }) {
   return (
-    <div className="flex flex-col w-72 shrink-0 opacity-90">
+    <div className="flex flex-col w-[85vw] max-w-[20rem] sm:w-72 shrink-0 opacity-90">
       <div className="flex items-center gap-2 mb-2.5 px-1">
         <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: column.stage.color }} />
         <span className="text-sm font-semibold" style={{ color: '#e8e8e8' }}>{column.stage.name}</span>
