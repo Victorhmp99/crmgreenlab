@@ -110,7 +110,11 @@ export function DashboardPage() {
   const { hidden, toggle, mask, maskCurrency } = usePrivacyMode()
   const { isManager, isSuperAdmin } = usePermissions()
 
-  // Vendedor não vê valores financeiros (receita, previsão, ticket médio) — só gestor/admin/super admin.
+  // Vendedor vê a carteira DELE; gestor vê a da empresa. Quem decide o recorte
+  // é o banco (`get_pipeline_financial_metrics` devolve `escopo`), não esta
+  // tela — esconder card nunca protegeu nada, o número chegava no navegador
+  // do mesmo jeito. Aqui só mudam o título e o card de Receita, que é caixa
+  // da empresa e não pertence a lead nenhum.
   const canSeeFinancial = isManager || isSuperAdmin
 
   // Filtra metas ativas (período atual)
@@ -226,13 +230,12 @@ export function DashboardPage() {
         </div>
       </div>
 
-      {/* ── Carteira (financeiro) — só gestor/admin/super admin ──────────── */}
-      {canSeeFinancial && (
-        <div>
+      {/* ── Carteira — da empresa pro gestor, minha pro vendedor ─────────── */}
+      <div>
           <div className="flex items-center justify-between flex-wrap gap-3 mb-3">
             <div>
               <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#666' }}>
-                Carteira
+                {canSeeFinancial ? 'Carteira' : 'Meus números'}
               </h3>
               <p className="text-[11px] mt-0.5" style={{ color: '#444' }}>
                 Período: {dateFrom || dateTo
@@ -267,13 +270,17 @@ export function DashboardPage() {
               icon={DollarSign}
               color="#00e676"
             />
-            <KpiCard
-              label="Receita"
-              value={isLoading ? '—' : maskCurrency(formatCurrency(Number(data?.financial.receita ?? 0)))}
-              sublabel="Dinheiro de fato recebido"
-              icon={Wallet}
-              color="#40a0ff"
-            />
+            {/* Receita é o caixa da empresa (lançamentos e contratos), não a
+                soma de leads de alguém — some pra quem não é gestor. */}
+            {canSeeFinancial && (
+              <KpiCard
+                label="Receita"
+                value={isLoading ? '—' : maskCurrency(formatCurrency(Number(data?.financial.receita ?? 0)))}
+                sublabel="Dinheiro de fato recebido"
+                icon={Wallet}
+                color="#40a0ff"
+              />
+            )}
             <KpiCard
               label="Perdidos"
               value={isLoading ? '—' : mask(data?.financial.lost_count ?? 0)}
@@ -289,8 +296,7 @@ export function DashboardPage() {
               color="#a78bfa"
             />
           </div>
-        </div>
-      )}
+      </div>
 
       {/* ── Grid principal: Agenda + Tarefas + Conversão ──────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
