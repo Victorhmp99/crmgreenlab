@@ -91,7 +91,11 @@ export function LeadTable({
 
   const role         = useAuthStore((s) => s.membership?.role)
   const isSuperAdmin = useAuthStore((s) => s.isSuperAdmin)
-  const canDeleteLead = role === 'admin' || role === 'manager' || isSuperAdmin
+  // Todo membro ve a lixeira: o vendedor pode excluir lead cadastrado nas
+  // ultimas 12h (migration 077), e quem julga e o banco — que recusa com o
+  // motivo escrito. Esconder o botao dele faria a regra nova nao servir pra
+  // nada, e o `role` daqui nem sabe a idade do lead.
+  const canDeleteLead = !!role || isSuperAdmin
 
   const { data: tagDefs = [] } = useTagDefinitions()
   const tagColorMap = new Map<string, string>()

@@ -29,6 +29,7 @@ export function LeadsPage() {
   // Modo seleção em massa
   const [selectionMode, setSelectionMode] = useState(false)
   const [selectedIds, setSelectedIds]     = useState<Set<string>>(new Set())
+  const [erroBulk,    setErroBulk]        = useState<string | null>(null)
   const [confirmBulk, setConfirmBulk]     = useState(false)
 
   const role         = useAuthStore((s) => s.membership?.role)
@@ -70,11 +71,19 @@ export function LeadsPage() {
     setSelectedIds(new Set())
   }
 
+  // O banco recusa exclusao com motivo escrito (cota do gestor, prazo do
+  // vendedor). Sem este try/catch a promessa quebrava sem tratamento e o modal
+  // so ficava parado — a pessoa clicava de novo achando que nao pegou.
   async function handleBulkDelete() {
     const ids = Array.from(selectedIds)
-    await removeMany.mutateAsync(ids)
-    exitSelection()
-    setConfirmBulk(false)
+    setErroBulk(null)
+    try {
+      await removeMany.mutateAsync(ids)
+      exitSelection()
+      setConfirmBulk(false)
+    } catch (e) {
+      setErroBulk(e instanceof Error ? e.message : 'Nao foi possivel excluir.')
+    }
   }
 
   return (
@@ -179,7 +188,8 @@ export function LeadsPage() {
         <BulkDeleteConfirm
           count={selectedIds.size}
           label="lead"
-          onCancel={() => setConfirmBulk(false)}
+          erro={erroBulk}
+          onCancel={() => { setConfirmBulk(false); setErroBulk(null) }}
           onConfirm={handleBulkDelete}
           loading={removeMany.isPending}
         />

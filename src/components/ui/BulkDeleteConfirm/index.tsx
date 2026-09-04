@@ -15,7 +15,7 @@ import { AlertTriangle } from 'lucide-react'
 
 const PALAVRA = 'deletar'
 
-export function BulkDeleteConfirm({ count, label, labelPlural, onCancel, onConfirm, loading }: {
+export function BulkDeleteConfirm({ count, label, labelPlural, onCancel, onConfirm, loading, erro }: {
   count:        number
   /** Singular, minúsculo: "lead", "movimentação" */
   label:        string
@@ -24,6 +24,8 @@ export function BulkDeleteConfirm({ count, label, labelPlural, onCancel, onConfi
   onCancel:     () => void
   onConfirm:    () => void
   loading:      boolean
+  /** Motivo da recusa, quando o banco barra a exclusão (cota, prazo, cargo). */
+  erro?:        string | null
 }) {
   const [digitado, setDigitado] = useState('')
   const podeExcluir = digitado.trim().toLowerCase() === PALAVRA && !loading
@@ -71,6 +73,13 @@ export function BulkDeleteConfirm({ count, label, labelPlural, onCancel, onConfi
             }}
           />
         </div>
+
+        {erro && (
+          <div className="rounded-lg px-3 py-2 text-sm"
+            style={{ background: 'rgba(255,68,68,0.1)', border: '1px solid rgba(255,68,68,0.25)', color: '#ff4444' }}>
+            {erro}
+          </div>
+        )}
 
         <div className="flex justify-end gap-2">
           <button onClick={onCancel} disabled={loading}
