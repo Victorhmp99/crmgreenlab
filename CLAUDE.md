@@ -32,6 +32,12 @@ Futuro: NestJS no backend quando escalar
 Super Admin Master → Admins (revendedores white label, podem revender 
 para outros Admins ou Gestores) → Gestores (empresas) → Vendedores
 
+## Papéis
+Só existem quatro cargos: **super admin** (dono do servidor), **admin**,
+**gestor** e **vendedor**. O cargo DENTRO da empresa decide o que a pessoa vê e
+faz naquela empresa — ser super admin da plataforma não vale como cargo de
+empresa. Detalhe em [SEGURANCA.md](SEGURANCA.md).
+
 ## Super Admins (tabela `super_admins`, type='master')
 - assessoriagreenlab@gmail.com — conta principal
 - vhvictor2015@gmail.com — reserva contra ficar trancado para fora (02/09/2026)
@@ -84,9 +90,17 @@ clínicas.
 # REGRAS OBRIGATÓRIAS DE DESENVOLVIMENTO
 
 ## Segurança
+
+**Leia [SEGURANCA.md](SEGURANCA.md) antes de mexer em permissão, exclusão ou
+qualquer função do banco.** Lá está quem pode o quê, onde cada regra mora e como
+conferir. Duas armadilhas que já custaram caro e estão explicadas lá: função
+`SECURITY DEFINER` roda ACIMA do RLS (é nela que a permissão precisa estar), e
+função nova nasce ABERTA no Supabase (toda migration que cria função termina com
+`REVOKE` explícito).
+
 - Toda query deve filtrar por tenant_id
 - RLS ativo em todas as tabelas
-- Soft delete em todas as deleções (campo deleted_at)
+- Soft delete em todas as deleções (campo deleted_at) — **regra escrita mas NUNCA implementada**: hoje exclusão de lead é `DELETE` de verdade e não há lixeira (ver SEGURANCA.md)
 - Operações críticas são atômicas
 - Admin nunca vê dados de tenants não vinculados a ele
 - Frontend nunca é a única camada de proteção
