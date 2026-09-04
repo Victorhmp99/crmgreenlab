@@ -182,36 +182,56 @@ nem o modo demo (que desliga a autenticação em desenvolvimento).
 
 ---
 
-## Pendências conhecidas
+## Pendências e decisões
 
-Em ordem de risco.
+Decidido com o Victor em 03/09/2026.
 
-**1. `check-whatsapp` está no ar, aberta e sem uso.**
-Endpoint público, sem segredo nenhum do lado de quem chama, que responde se um
-telefone tem WhatsApp consultando a sessão do CRC. É um oráculo de enumeração
-apontado para a conta de WhatsApp — o tipo de volume que derruba ou bane a
-sessão. A checagem foi descartada em 15/08/2026, então isto é código morto
-exposto. **Ação: excluir a function.** Aguarda confirmação de que nenhum funil
-ainda a chama.
+**1. `check-whatsapp` — FECHADA, falta excluir.** Era endpoint público, sem
+exigir segredo de quem chamava, que respondia se um telefone tem WhatsApp
+consultando a sessão do CRC: um oráculo de enumeração apontado para a conta de
+WhatsApp, que é o volume que derruba ou bane a sessão. A checagem foi descartada
+em 15/08/2026 e a function ficou no ar.
 
-**2. Proteção contra senha vazada desligada.**
-Só dá para ligar no painel do Supabase: Authentication → Policies → *Leaked
-password protection*. Ação sua, não dá para fazer por migration.
+Em 03/09 o corpo foi substituído por um 410 e `verify_jwt` ligado — anônimo
+recebe 401, e o segredo do CRC saiu do código publicado. Conferido com `curl`.
 
-**3. O segredo do `notify-telegram` é público na prática.**
+Falta a exclusão de verdade, que **exige a conta do dono do projeto**: painel do
+Supabase → Edge Functions → `check-whatsapp` → Delete. As tabelas que ela citava
+(`whatsapp_check_cache`, `whatsapp_check_limits`) nunca chegaram a existir — o
+cache falhava calado e ela batia no CRC toda vez.
+
+**2. Proteção contra senha vazada — desligada, decidido fazer depois.**
+Painel do Supabase → Authentication → Policies → *Leaked password protection*.
+Não dá para ligar por migration; é ação no painel.
+
+**3. Segredo do `notify-telegram` público — risco aceito.**
 A function exige um `secret`, mas quem chama é o formulário do funil, no
-navegador — então o segredo está no JS público do site. Dá para extrair e mandar
+navegador: o segredo está no JS público do site. Dá para extrair e mandar
 mensagem de até 2000 caracteres para os chats cadastrados. Não vaza dado e não
-alcança chat arbitrário (a lista de destinatários é fixa no servidor), mas é
-spam garantido se alguém achar. Resolver exige mandar a notificação pelo
-servidor, o que muda a decisão de origem das notificações dos funis.
+alcança chat arbitrário — a lista de destinatários é fixa no servidor. Decisão:
+manter como está. Se um dia virar spam, a saída é mandar a notificação pelo
+servidor, o que muda a origem das notificações dos funis.
 
-**4. Três functions estão no ar sem código no repositório.**
-`notify-telegram`, `check-whatsapp` e `sync-meta-ads` existem no Supabase mas
-não em `supabase/functions/`. Ninguém revisa nem consegue reimplantar o que não
-está versionado.
+**4. Functions no ar sem código no repositório — risco avaliado, decidido manter.**
+`notify-telegram` e `sync-meta-ads` existem no Supabase e não em
+`supabase/functions/`. **Não é risco de segurança**: o código roda no servidor e
+não fica exposto. O risco é operacional — mexer ou reimplantar sem ter a fonte.
+E é recuperável: `get_edge_function` devolve o código a qualquer momento.
 
-**5. Não existe lixeira.** Exclusão de lead é `DELETE` de verdade: sai o lead e,
-por cascata, atividades, comentários, etiquetas e tarefas. Não há `deleted_at`
-em tabela nenhuma, embora o `CLAUDE.md` mande usar soft delete. `leads_excluidos`
-guarda só quem apagou o quê e quando — não dá para restaurar a partir dele.
+Há inclusive um motivo para NÃO versionar `notify-telegram` como está: o token
+do bot do Telegram está embutido no fonte, e commitar isso colocaria segredo no
+git. Se um dia for versionada, o token precisa sair para variável de ambiente
+antes.
+
+**5. Não existe lixeira — decidido fazer depois.**
+Exclusão de lead é `DELETE` de verdade: sai o lead e, por cascata, atividades,
+comentários, etiquetas e tarefas. Não há `deleted_at` em tabela nenhuma, embora
+o `CLAUDE.md` mande usar soft delete. `leads_excluidos` guarda só quem apagou o
+quê e quando — não dá para restaurar a partir dele.
+
+Quando for fazer: coluna `deleted_at` em `leads`, exclusão vira marcação, toda
+consulta de lead passa a filtrar `deleted_at is null`, e uma tela de lixeira com
+restaurar e prazo. Mexe em toda consulta de lead do sistema, e esquecer um filtro
+faz lead apagado reaparecer em relatório. Também muda o peso das regras de
+exclusão: "apagar" viraria "mandar pra lixeira", e a cota de 25% do gestor passa
+a proteger menos, porque dá para desfazer.
