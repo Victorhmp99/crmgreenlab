@@ -69,12 +69,16 @@ export function LeadDrawer({ lead, onClose, onEdit, initialTab }: LeadDrawerProp
   }
 
   const tenantId = useAuthStore((s) => s.tenant?.id)
-  const { isManager, isSuperAdmin } = usePermissions()
+  const { isManager } = usePermissions()
   const { hasFeature } = useFeatures()
   // Precisa do cargo E da função "financeiro" liberada no plano da empresa.
   // Sem a função, o valor do lead continua editável pelo "Editar lead" —
   // só contratos/produtos é que ficam de fora.
-  const canSeeContract = (isManager || isSuperAdmin) && hasFeature('financeiro')
+  // Ser super admin da PLATAFORMA nao vale como cargo DENTRO da empresa: quem
+  // entra como vendedor de uma empresa ve como vendedor. Sem isto, uma conta
+  // de plataforma que tambem e vendedora em algum cliente lia contrato e
+  // financeiro daquele cliente.
+  const canSeeContract = isManager && hasFeature('financeiro')
   const [visible,  setVisible]  = useState(false)
   const [tab,      setTab]      = useState<Tab>(initialTab ?? 'data')
   const [showActivityForm, setShowActivityForm] = useState(false)
@@ -141,7 +145,10 @@ export function LeadDrawer({ lead, onClose, onEdit, initialTab }: LeadDrawerProp
       const userId = lead.assigned_to
       tasks.push(
         Promise.resolve(
-          supabase.from('user_profiles').select('full_name, email').eq('user_id', userId).maybeSingle(),
+          // `user_profiles` nunca existiu: a tabela e `profiles`, com a chave em
+          // `id`. A consulta falhava calada (o erro nao era lido) e o painel
+          // dizia "Nao atribuido" pra TODO lead, mesmo com vendedor definido.
+          supabase.from('profiles').select('full_name, email').eq('id', userId).maybeSingle(),
         ).then(({ data }) => {
           const p = data as { full_name: string | null; email: string } | null
           if (p) setAssignedName(p.full_name ?? p.email)

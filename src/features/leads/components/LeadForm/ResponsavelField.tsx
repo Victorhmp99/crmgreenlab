@@ -23,9 +23,11 @@ export function ResponsavelField({ valor, onChange, ehLeadNovo }: {
   onChange:   (novo: string | null) => void
   ehLeadNovo: boolean
 }) {
-  const { isManager, isSuperAdmin } = usePermissions()
+  const { isManager } = usePermissions()
   const eu = useAuthStore((s) => s.user?.id) ?? null
-  const podeDistribuir = isManager || isSuperAdmin
+  // Cargo dentro da empresa, nao a condicao de super admin da plataforma —
+  // e a mesma regra de `get_tenant_users`, que alimenta a lista abaixo.
+  const podeDistribuir = isManager
 
   // `get_tenant_users` é restrita a gestor/admin: pedir a lista sendo vendedor
   // devolveria "Unauthorized" e sujaria o console sem motivo.

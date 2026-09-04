@@ -114,14 +114,17 @@ export function DashboardPage() {
   )
   const { data: dashGoals } = useDashboardGoals()
   const { hidden, toggle, mask, maskCurrency } = usePrivacyMode()
-  const { isManager, isSuperAdmin } = usePermissions()
+  const { isManager } = usePermissions()
 
   // Vendedor vê a carteira DELE; gestor vê a da empresa. Quem decide o recorte
   // é o banco (`get_pipeline_financial_metrics` devolve `escopo`), não esta
   // tela — esconder card nunca protegeu nada, o número chegava no navegador
   // do mesmo jeito. Aqui só mudam o título e o card de Receita, que é caixa
   // da empresa e não pertence a lead nenhum.
-  const canSeeFinancial = isManager || isSuperAdmin
+  // Cargo DENTRO da empresa decide, e so ele. Super admin da plataforma que
+  // tambem e vendedor de um cliente ve como vendedor daquele cliente — o
+  // contrario deixava o numero da empresa aparecer pra quem era vendedor la.
+  const canSeeFinancial = isManager
 
   // Filtra metas ativas (período atual)
   const today      = new Date().toISOString().slice(0, 10)
