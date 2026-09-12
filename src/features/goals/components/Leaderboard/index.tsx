@@ -1,4 +1,5 @@
-import { Trophy, Zap, Users, CheckCircle } from 'lucide-react'
+import { Trophy, Zap, Users, CheckCircle, DollarSign } from 'lucide-react'
+import { formatCurrency } from '@/lib/utils'
 import { Spinner } from '@/components/ui/Spinner'
 import { useLeaderboard } from '../../hooks/useGoals'
 
@@ -71,10 +72,15 @@ export function Leaderboard({ startDate, endDate }: LeaderboardProps) {
             </div>
 
             {/* Métricas */}
-            <div className="grid grid-cols-3 gap-2 text-center">
+            {/* Faturamento so vem pra gestor (o banco manda null pra vendedor):
+                numero em reais do colega e assunto de gestao. */}
+            <div className={`grid ${entry.revenue != null ? 'grid-cols-4' : 'grid-cols-3'} gap-2 text-center`}>
               <StatMini icon={Users}       label="Leads"    value={entry.leads} />
-              <StatMini icon={Zap}         label="Disparos" value={entry.calls} />
-              <StatMini icon={CheckCircle} label="Fechados" value={entry.deals} color="#00e676" />
+              <StatMini icon={Zap}         label="Contatos" value={entry.calls} />
+              <StatMini icon={CheckCircle} label="Vendas"   value={entry.deals} color="#00e676" />
+              {entry.revenue != null && (
+                <StatMini icon={DollarSign} label="Faturado" value={formatCurrency(entry.revenue)} color="#a78bfa" />
+              )}
             </div>
           </div>
         )
@@ -89,7 +95,7 @@ export function Leaderboard({ startDate, endDate }: LeaderboardProps) {
 
 function StatMini({
   icon: Icon, label, value, color = '#888',
-}: { icon: React.ElementType; label: string; value: number; color?: string }) {
+}: { icon: React.ElementType; label: string; value: number | string; color?: string }) {
   return (
     <div className="flex flex-col items-center gap-0.5">
       <Icon size={13} style={{ color: '#444' }} />

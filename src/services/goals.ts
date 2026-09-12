@@ -7,10 +7,12 @@ export interface GoalProgress {
   leadsActual:    number
   callsActual:    number
   dealsActual:    number
+  revenueActual:  number
   leadsPercent:   number
   callsPercent:   number
   dealsPercent:   number
-  overallPercent: number  // média ponderada dos itens com meta definida
+  revenuePercent: number
+  overallPercent: number  // média dos itens com meta definida
 }
 
 export interface GoalWithProgress extends Goal {
@@ -24,9 +26,10 @@ export interface CreateGoalData {
   period:         GoalPeriod
   start_date:     string
   end_date:       string
-  leads_target?:  number | null
-  calls_target?:  number | null
-  deals_target?:  number | null
+  leads_target?:   number | null
+  calls_target?:   number | null
+  deals_target?:   number | null
+  revenue_target?: number | null
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -36,67 +39,25 @@ function pct(actual: number, target: number | null): number {
   return Math.min(Math.round((actual / target) * 100), 100)
 }
 
-function overall(g: Goal, progress: Omit<GoalProgress, 'leadsPercent' | 'callsPercent' | 'dealsPercent' | 'overallPercent'>): number {
+type Realizado = Pick<GoalProgress, 'leadsActual' | 'callsActual' | 'dealsActual' | 'revenueActual'>
+
+function overall(g: Goal, r: Realizado): number {
   const items: number[] = []
-  if (g.leads_target) items.push(pct(progress.leadsActual, g.leads_target))
-  if (g.calls_target) items.push(pct(progress.callsActual, g.calls_target))
-  if (g.deals_target) items.push(pct(progress.dealsActual, g.deals_target))
+  if (g.leads_target)   items.push(pct(r.leadsActual,   g.leads_target))
+  if (g.calls_target)   items.push(pct(r.callsActual,   g.calls_target))
+  if (g.deals_target)   items.push(pct(r.dealsActual,   g.deals_target))
+  if (g.revenue_target) items.push(pct(r.revenueActual, Number(g.revenue_target)))
   return items.length ? Math.round(items.reduce((a, b) => a + b, 0) / items.length) : 0
 }
 
-// ── Buscar progresso real de uma meta ─────────────────────────────────────────
-
-async function fetchProgress(tenantId: string, goal: Goal): Promise<GoalProgress> {
-  const [leadsRes, callsRes, dealsRes] = await Promise.all([
-    // Leads captados pelo usuário no período
-    goal.leads_target
-      ? supabase.from('leads').select('*', { count: 'exact', head: true })
-          .eq('tenant_id', tenantId)
-          .eq('assigned_to', goal.user_id)
-          .gte('created_at', goal.start_date)
-          .lte('created_at', goal.end_date + 'T23:59:59')
-      : Promise.resolve({ count: 0 }),
-
-    // Disparos do usuário no período — DEDUP por lead.
-    // Ou seja, 10 ligações pro mesmo lead = 1 disparo na meta.
-    // Inclui call/whatsapp/email/meeting/note + stage_change. Exclui 'import'.
-    goal.calls_target
-      ? supabase.from('lead_activities').select('lead_id')
-          .eq('tenant_id', tenantId)
-          .eq('user_id', goal.user_id)
-          .neq('type', 'import')
-          .gte('created_at', goal.start_date)
-          .lte('created_at', goal.end_date + 'T23:59:59')
-      : Promise.resolve({ data: [] as Array<{ lead_id: string }> }),
-
-    // Leads convertidos pelo usuário no período
-    goal.deals_target
-      ? supabase.from('leads').select('*', { count: 'exact', head: true })
-          .eq('tenant_id', tenantId)
-          .eq('assigned_to', goal.user_id)
-          .eq('status', 'converted')
-          .gte('updated_at', goal.start_date)
-          .lte('updated_at', goal.end_date + 'T23:59:59')
-      : Promise.resolve({ count: 0 }),
-  ])
-
-  const leadsActual = leadsRes.count ?? 0
-  // callsRes vem com .data (não .count) porque agora deduplica por lead
-  const callsActual = callsRes && 'data' in callsRes
-    ? new Set(((callsRes.data ?? []) as Array<{ lead_id: string }>).map((r) => r.lead_id)).size
-    : 0
-  const dealsActual = dealsRes.count ?? 0
-
-
-
+function montarProgresso(g: Goal, r: Realizado): GoalProgress {
   return {
-    leadsActual,
-    callsActual,
-    dealsActual,
-    leadsPercent:   pct(leadsActual, goal.leads_target),
-    callsPercent:   pct(callsActual, goal.calls_target),
-    dealsPercent:   pct(dealsActual, goal.deals_target),
-    overallPercent: overall(goal, { leadsActual, callsActual, dealsActual }),
+    ...r,
+    leadsPercent:   pct(r.leadsActual,   g.leads_target),
+    callsPercent:   pct(r.callsActual,   g.calls_target),
+    dealsPercent:   pct(r.dealsActual,   g.deals_target),
+    revenuePercent: pct(r.revenueActual, g.revenue_target != null ? Number(g.revenue_target) : null),
+    overallPercent: overall(g, r),
   }
 }
 
@@ -137,18 +98,32 @@ export async function fetchGoalsWithProgress(
     userFullName:   row.user_full_name,
   } as Omit<GoalWithProgress, 'progress'>))
 
-  // Progresso em paralelo (lote de até 5 para não sobrecarregar)
-  const results: GoalWithProgress[] = []
-  const BATCH = 5
-  for (let i = 0; i < goals.length; i += BATCH) {
-    const batch = goals.slice(i, i + BATCH)
-    const progresses = await Promise.all(
-      batch.map((g) => fetchProgress(tenantId, g as Goal)),
-    )
-    batch.forEach((g, idx) => results.push({ ...g, progress: progresses[idx] } as GoalWithProgress))
+  // O realizado vem do banco, numa chamada só e com a MESMA régua do Dashboard
+  // (migration 079). Antes eram três consultas por meta, no navegador, com uma
+  // regra própria de venda — e o faturamento nunca era calculado.
+  const { data: prog, error: progErr } = await supabase.rpc('progresso_das_metas', {
+    p_tenant_id:   tenantId,
+    p_only_active: onlyActive,
+  })
+  if (progErr) throw progErr
+
+  const porMeta = new Map<string, Realizado>()
+  for (const r of (prog ?? []) as Array<{
+    goal_id: string; leads_actual: number; calls_actual: number; deals_actual: number; revenue_actual: number | string
+  }>) {
+    porMeta.set(r.goal_id, {
+      leadsActual:   r.leads_actual,
+      callsActual:   r.calls_actual,
+      dealsActual:   r.deals_actual,
+      revenueActual: Number(r.revenue_actual ?? 0),
+    })
   }
 
-  return results
+  const vazio: Realizado = { leadsActual: 0, callsActual: 0, dealsActual: 0, revenueActual: 0 }
+  return goals.map((g) => ({
+    ...g,
+    progress: montarProgresso(g as Goal, porMeta.get(g.id) ?? vazio),
+  } as GoalWithProgress))
 }
 
 // ── Metas atribuídas ao usuário ──────────────────────────────────────────────
@@ -189,9 +164,10 @@ export async function createGoal(tenantId: string, createdBy: string, data: Crea
       period:        data.period,
       start_date:    data.start_date,
       end_date:      data.end_date,
-      leads_target:  data.leads_target ?? null,
-      calls_target:  data.calls_target ?? null,
-      deals_target:  data.deals_target ?? null,
+      leads_target:   data.leads_target ?? null,
+      calls_target:   data.calls_target ?? null,
+      deals_target:   data.deals_target ?? null,
+      revenue_target: data.revenue_target ?? null,
     })
     .select()
     .single()
@@ -210,7 +186,7 @@ export async function deleteGoal(id: string): Promise<void> {
   if (error) throw error
 }
 
-// ── Leaderboard da equipe no período corrente ─────────────────────────────────
+// ── Ranking da equipe no período ─────────────────────────────────────────────
 
 export interface LeaderboardEntry {
   userId:      string
@@ -219,7 +195,9 @@ export interface LeaderboardEntry {
   leads:       number
   calls:       number
   deals:       number
-  totalScore:  number   // leads + calls + deals (ponderado)
+  /** Só vem pra gestor. Vendedor recebe null e a tela não mostra a coluna. */
+  revenue:     number | null
+  totalScore:  number   // leads + contatos + vendas*3, calculado no banco
 }
 
 export async function fetchLeaderboard(
@@ -227,57 +205,28 @@ export async function fetchLeaderboard(
   startDate: string,
   endDate:   string,
 ): Promise<LeaderboardEntry[]> {
-  // Busca usuários ativos via RPC (bypassa RLS e já traz email/nome)
-  const { data: users, error } = await supabase.rpc('get_tenant_users', { p_tenant_id: tenantId })
+  // Antes chamava `get_tenant_users` (restrita a gestor): pra vendedor a aba
+  // vinha vazia sem erro nenhum. O ranking agora é uma função do banco que
+  // todo membro executa — com os reais só pra gestor (migration 079).
+  const { data, error } = await supabase.rpc('ranking_do_periodo', {
+    p_tenant_id: tenantId,
+    p_from:      startDate.slice(0, 10),
+    p_to:        endDate.slice(0, 10),
+  })
   if (error) throw error
 
-  // Leaderboard exibe só Gestores e Vendedores — Admins não recebem metas
-  const activeUsers = ((users ?? []) as Array<{
-    user_id: string; email: string | null; full_name: string | null;
-    role: string; active: boolean; account_status: string;
-  }>).filter((u) =>
-    u.active
-    && u.account_status === 'active'
-    && (u.role === 'manager' || u.role === 'seller'),
-  )
-
-  if (!activeUsers.length) return []
-
-  const entries = await Promise.all(
-    activeUsers.map(async (u) => {
-      const userId = u.user_id
-
-      const [leadsRes, callsRes, dealsRes] = await Promise.all([
-        supabase.from('leads').select('*', { count: 'exact', head: true })
-          .eq('tenant_id', tenantId).eq('assigned_to', userId)
-          .gte('created_at', startDate).lte('created_at', endDate + 'T23:59:59'),
-
-        supabase.from('lead_activities').select('lead_id')
-          .eq('tenant_id', tenantId).eq('user_id', userId)
-          .neq('type', 'import')
-          .gte('created_at', startDate).lte('created_at', endDate + 'T23:59:59'),
-
-        supabase.from('leads').select('*', { count: 'exact', head: true })
-          .eq('tenant_id', tenantId).eq('assigned_to', userId)
-          .eq('status', 'converted')
-          .gte('updated_at', startDate).lte('updated_at', endDate + 'T23:59:59'),
-      ])
-
-      const leads = leadsRes.count ?? 0
-      const calls = new Set(((callsRes.data ?? []) as Array<{ lead_id: string }>).map((r) => r.lead_id)).size
-      const deals = dealsRes.count ?? 0
-
-      return {
-        userId,
-        email:      u.email    ?? '—',
-        fullName:   u.full_name ?? null,
-        leads,
-        calls,
-        deals,
-        totalScore: leads + calls + (deals * 3),  // fechamentos valem 3x
-      }
-    }),
-  )
-
-  return entries.sort((a, b) => b.totalScore - a.totalScore)
+  return ((data ?? []) as Array<{
+    user_id: string; email: string; full_name: string | null;
+    leads: number; contatos: number; vendas: number;
+    faturamento: number | string | null; pontos: number
+  }>).map((r) => ({
+    userId:     r.user_id,
+    email:      r.email,
+    fullName:   r.full_name,
+    leads:      r.leads,
+    calls:      r.contatos,
+    deals:      r.vendas,
+    revenue:    r.faturamento == null ? null : Number(r.faturamento),
+    totalScore: r.pontos,
+  }))
 }

@@ -37,7 +37,7 @@ export function GoalCard({ goal, onEdit, onDelete }: GoalCardProps) {
   const active         = isActive(goal)
   const { progress }   = goal
   const displayName    = goal.userFullName ?? goal.userEmail ?? '—'
-  const hasAnyTarget   = !!(goal.leads_target || goal.calls_target || goal.deals_target)
+  const hasAnyTarget   = !!(goal.leads_target || goal.calls_target || goal.deals_target || goal.revenue_target)
 
   return (
     <div
@@ -128,12 +128,16 @@ export function GoalCard({ goal, onEdit, onDelete }: GoalCardProps) {
               target={goal.leads_target} percent={progress.leadsPercent} color="#40a0ff" />
           )}
           {goal.calls_target && (
-            <ProgressBar label="Disparos realizados" actual={progress.callsActual}
+            <ProgressBar label="Contatos" actual={progress.callsActual}
               target={goal.calls_target} percent={progress.callsPercent} color="#fbbf24" />
           )}
           {goal.deals_target && (
-            <ProgressBar label="Fechamentos" actual={progress.dealsActual}
+            <ProgressBar label="Vendas" actual={progress.dealsActual}
               target={goal.deals_target} percent={progress.dealsPercent} color="#00e676" />
+          )}
+          {goal.revenue_target && (
+            <ProgressBar label="Faturamento" actual={progress.revenueActual}
+              target={Number(goal.revenue_target)} percent={progress.revenuePercent} color="#a78bfa" moeda />
           )}
         </div>
       ) : (

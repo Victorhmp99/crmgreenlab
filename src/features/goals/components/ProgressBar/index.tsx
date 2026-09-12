@@ -1,3 +1,5 @@
+import { formatCurrency } from '@/lib/utils'
+
 interface ProgressBarProps {
   label:   string
   actual:  number
@@ -5,10 +7,13 @@ interface ProgressBarProps {
   percent: number
   color?:  string   // CSS color value
   unit?:   string
+  /** Mostra realizado e alvo em reais (barra de faturamento). */
+  moeda?:  boolean
 }
 
-export function ProgressBar({ label, actual, target, percent, color = '#00e676', unit }: ProgressBarProps) {
+export function ProgressBar({ label, actual, target, percent, color = '#00e676', unit, moeda }: ProgressBarProps) {
   const isComplete = percent >= 100
+  const mostrar = (n: number) => moeda ? formatCurrency(n) : `${n}${unit ? ` ${unit}` : ''}`
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -16,8 +21,8 @@ export function ProgressBar({ label, actual, target, percent, color = '#00e676',
         <span className="font-medium" style={{ color: '#aaa' }}>{label}</span>
         <span className="font-semibold tabular-nums"
           style={{ color: isComplete ? '#00e676' : '#e8e8e8' }}>
-          {actual}{unit ? ` ${unit}` : ''}{' '}
-          <span className="font-normal" style={{ color: '#555' }}>/ {target}{unit ? ` ${unit}` : ''}</span>
+          {mostrar(actual)}{' '}
+          <span className="font-normal" style={{ color: '#555' }}>/ {mostrar(target)}</span>
         </span>
       </div>
 

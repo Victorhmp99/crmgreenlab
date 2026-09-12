@@ -22,9 +22,10 @@ const schema = z.object({
   period:       z.enum(['daily', 'weekly', 'monthly', 'quarterly']),
   start_date:   z.string().min(1, 'Data de início obrigatória'),
   end_date:     z.string().min(1, 'Data de término obrigatória'),
-  leads_target: numOrNull,
-  calls_target: numOrNull,
-  deals_target: numOrNull,
+  leads_target:   numOrNull,
+  calls_target:   numOrNull,
+  deals_target:   numOrNull,
+  revenue_target: numOrNull,
 })
 
 interface FormData {
@@ -32,9 +33,10 @@ interface FormData {
   period:       GoalPeriod
   start_date:   string
   end_date:     string
-  leads_target: number | null | undefined
-  calls_target: number | null | undefined
-  deals_target: number | null | undefined
+  leads_target:   number | null | undefined
+  calls_target:   number | null | undefined
+  deals_target:   number | null | undefined
+  revenue_target: number | null | undefined
 }
 
 const PERIOD_OPTIONS: { value: GoalPeriod; label: string }[] = [
@@ -103,11 +105,12 @@ export function GoalForm({ open, onClose, goal }: GoalFormProps) {
         user_id: goal.user_id, period: goal.period,
         start_date: goal.start_date, end_date: goal.end_date,
         leads_target: goal.leads_target, calls_target: goal.calls_target, deals_target: goal.deals_target,
+        revenue_target: goal.revenue_target != null ? Number(goal.revenue_target) : null,
       })
     } else if (open && !goal) {
       const p: GoalPeriod = 'monthly'
       const start = suggestStartDate(p)
-      reset({ period: p, start_date: start, end_date: autoEndDate(p, start), leads_target: null, calls_target: null, deals_target: null })
+      reset({ period: p, start_date: start, end_date: autoEndDate(p, start), leads_target: null, calls_target: null, deals_target: null, revenue_target: null })
     }
   }, [open, goal, reset])
 
@@ -115,9 +118,10 @@ export function GoalForm({ open, onClose, goal }: GoalFormProps) {
     const payload = {
       user_id: data.user_id, period: data.period as GoalPeriod,
       start_date: data.start_date, end_date: data.end_date,
-      leads_target: data.leads_target || null,
-      calls_target: data.calls_target || null,
-      deals_target: data.deals_target || null,
+      leads_target:   data.leads_target || null,
+      calls_target:   data.calls_target || null,
+      deals_target:   data.deals_target || null,
+      revenue_target: data.revenue_target || null,
     }
     if (isEditing) await update.mutateAsync({ id: goal.id, data: payload })
     else await create.mutateAsync(payload)
@@ -182,10 +186,12 @@ export function GoalForm({ open, onClose, goal }: GoalFormProps) {
           <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#555' }}>
             Metas (deixe em branco para não monitorar)
           </p>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <Input label="Leads" type="number" min={0} placeholder="—" hint="Captados" {...register('leads_target')} />
-            <Input label="Disparos" type="number" min={0} placeholder="—" hint="Contatos feitos" {...register('calls_target')} />
-            <Input label="Fechamentos" type="number" min={0} placeholder="—" hint="Conversões" {...register('deals_target')} />
+            <Input label="Contatos" type="number" min={0} placeholder="—" hint="Leads tocados" {...register('calls_target')} />
+            <Input label="Vendas" type="number" min={0} placeholder="—" hint="Fechamentos" {...register('deals_target')} />
+            {/* Existia na tabela desde o inicio e nunca teve campo nem calculo. */}
+            <Input label="Faturamento (R$)" type="number" min={0} step="0.01" placeholder="—" hint="Valor vendido" {...register('revenue_target')} />
           </div>
         </div>
 
