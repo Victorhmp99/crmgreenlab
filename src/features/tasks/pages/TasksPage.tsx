@@ -10,6 +10,8 @@ import { Spinner } from '@/components/ui/Spinner'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
+import { BulkDeleteConfirm } from '@/components/ui/BulkDeleteConfirm'
+import { usePermissions } from '@/hooks/usePermissions'
 import { useTasks, useTaskMutations } from '../hooks/useTasks'
 import { TaskForm } from '../components/TaskForm'
 import type { LeadTaskWithMeta } from '@/services/leadTasks'
@@ -41,6 +43,14 @@ export function TasksPage() {
 
   const { update: updateTaskM, remove: removeTaskM, removeMany } = useTaskMutations()
   const confirm = useConfirm()
+  const { isManager, isSuperAdmin } = usePermissions()
+  // "Limpar tudo" apaga tarefa PENDENTE em massa. Antes era um OK simples, e
+  // aparecia pra todo mundo. Agora pede a palavra (mesma regra da exclusao em
+  // massa de leads) e so gestor ve — vendedor nao tem por que apagar o
+  // periodo inteiro da empresa, e o banco ja so deixaria apagar as dele.
+  const podeLimparTudo = isManager || isSuperAdmin
+  const [limpando, setLimpando] = useState<'concluidas' | 'todas' | null>(null)
+  const [erroLimpar, setErroLimpar] = useState<string | null>(null)
 
   // Calcula intervalo de filtragem do servidor com base na view
   const range = useMemo(() => {
@@ -94,29 +104,17 @@ export function TasksPage() {
     setAnchorDate(new Date())
   }
 
-  // Limpa só as tarefas concluídas do período/filtro atual em tela
-  async function handleClearCompleted() {
-    const ids = tasks.filter((t) => t.completed).map((t) => t.id)
-    if (ids.length === 0) return
-    const ok = await confirm({
-      title: 'Limpar concluídas',
-      message: `Apagar ${ids.length} tarefa${ids.length !== 1 ? 's' : ''} concluída${ids.length !== 1 ? 's' : ''} de "${periodLabel}"? Essa ação não pode ser desfeita.`,
-      confirmLabel: 'Apagar concluídas',
-      danger: true,
-    })
-    if (ok) removeMany.mutate(ids)
-  }
+  const idsConcluidas = tasks.filter((t) => t.completed).map((t) => t.id)
+  const idsAlvo = limpando === 'todas' ? tasks.map((t) => t.id) : idsConcluidas
 
-  // Limpa TODAS as tarefas do período/filtro atual (feitas ou não)
-  async function handleClearAll() {
-    if (tasks.length === 0) return
-    const ok = await confirm({
-      title: 'Limpar tudo',
-      message: `Apagar TODAS as ${tasks.length} tarefas de "${periodLabel}", incluindo as pendentes? Essa ação não pode ser desfeita.`,
-      confirmLabel: 'Apagar tudo',
-      danger: true,
-    })
-    if (ok) removeMany.mutate(tasks.map((t) => t.id))
+  async function confirmarLimpeza() {
+    setErroLimpar(null)
+    try {
+      await removeMany.mutateAsync(idsAlvo)
+      setLimpando(null)
+    } catch (e) {
+      setErroLimpar(e instanceof Error ? e.message : 'Não foi possível apagar.')
+    }
   }
 
   const periodLabel = useMemo(() => {
@@ -197,7 +195,7 @@ export function TasksPage() {
           </div>
 
           {/* Limpar */}
-          <button onClick={handleClearCompleted} title="Apagar tarefas concluídas deste período"
+          <button onClick={() => idsConcluidas.length > 0 && setLimpando('concluidas')} title="Apagar tarefas concluídas deste período"
             disabled={removeMany.isPending}
             className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-40"
             style={{ border: '1px solid #2a2a2a', color: '#888' }}
@@ -205,7 +203,8 @@ export function TasksPage() {
             onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#888' }}>
             <Eraser size={13} /> Limpar concluídas
           </button>
-          <button onClick={handleClearAll} title="Apagar TODAS as tarefas deste período"
+          {podeLimparTudo && (
+          <button onClick={() => tasks.length > 0 && setLimpando('todas')} title="Apagar TODAS as tarefas deste período"
             disabled={removeMany.isPending}
             className="flex items-center justify-center h-8 w-8 rounded-lg transition-colors disabled:opacity-40"
             style={{ border: '1px solid rgba(255,68,68,0.25)', color: '#ff5555' }}
@@ -213,6 +212,7 @@ export function TasksPage() {
             onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
             <Trash2 size={13} />
           </button>
+          )}
 
           {/* Novo */}
           <button onClick={() => { setEditing(null); setShowForm(true) }}
@@ -246,6 +246,17 @@ export function TasksPage() {
         <WeekView tasks={tasks} startDate={range.startDate} onSelectTask={setViewing} />
       ) : (
         <ListView tasks={tasks} onSelectTask={(t) => { setEditing(t); setShowForm(true) }} />
+      )}
+
+      {limpando && (
+        <BulkDeleteConfirm
+          count={idsAlvo.length}
+          label="tarefa"
+          erro={erroLimpar}
+          loading={removeMany.isPending}
+          onCancel={() => { setLimpando(null); setErroLimpar(null) }}
+          onConfirm={confirmarLimpeza}
+        />
       )}
 
       <TaskForm open={showForm} onClose={() => { setShowForm(false); setEditing(null) }} task={editing} />
