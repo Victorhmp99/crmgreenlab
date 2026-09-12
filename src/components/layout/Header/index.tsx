@@ -134,8 +134,22 @@ function BellDropdown({ anchorRect, notifications, onClose }: {
 }) {
   const { read, readAll, remove, clearAll } = useNotificationMutations()
   const navigate = useNavigate()
+  const tenantAtual       = useAuthStore((s) => s.tenant)
+  const empresasDaPessoa  = useAuthStore((s) => s.availableTenants)
+  const switchTenant      = useAuthStore((s) => s.switchTenant)
   const top  = anchorRect.bottom + 6
   const left = Math.max(8, anchorRect.right - 360)
+
+  // O sino e da PESSOA, nao da empresa: quem cuida de tres empresas ve os avisos
+  // das tres misturados. Sem dizer de qual empresa e cada um, e sem trocar de
+  // empresa ao abrir, o aviso "3 tarefas atrasadas" levava pra /tasks da empresa
+  // selecionada no momento — que nao era a do aviso — e a tela dizia "nenhuma
+  // tarefa". A pessoa clicava de novo, e de novo, e nada.
+  const mostrarEmpresa = empresasDaPessoa.length > 1
+  function nomeDaEmpresa(n: AppNotification): string | null {
+    if (!n.tenant_id) return null
+    return empresasDaPessoa.find((o) => o.tenant.id === n.tenant_id)?.tenant.name ?? null
+  }
 
   // "Abrir" da notificação: link interno (ex: /tasks) navega na mesma aba pelo
   // roteador (o app usa HashRouter — um <a href="/tasks"> comum abriria a URL
@@ -146,9 +160,19 @@ function BellDropdown({ anchorRect, notifications, onClose }: {
     onClose()
     if (/^https?:\/\//i.test(n.link)) {
       window.open(n.link, '_blank', 'noopener,noreferrer')
-    } else {
-      navigate(n.link)
+      return
     }
+    // Aviso de outra empresa: troca ANTES de navegar. As consultas de tarefa
+    // levam o tenant na chave, entao a tela ja abre com os dados certos.
+    if (n.tenant_id && n.tenant_id !== tenantAtual?.id) {
+      const destino = empresasDaPessoa.find((o) => o.tenant.id === n.tenant_id)
+      if (!destino) {
+        window.alert('Este aviso é de uma empresa à qual você não tem mais acesso.')
+        return
+      }
+      switchTenant(destino)
+    }
+    navigate(n.link)
   }
 
   return createPortal(
@@ -217,6 +241,15 @@ function BellDropdown({ anchorRect, notifications, onClose }: {
                     style={{ background: 'var(--tenant-primary)' }} />
                 )}
                 <div className="flex-1 min-w-0">
+                  {mostrarEmpresa && nomeDaEmpresa(n) && (
+                    <span className="inline-block text-[10px] font-medium rounded-full px-1.5 py-0.5 mb-1 truncate max-w-full"
+                      style={{
+                        background: n.tenant_id === tenantAtual?.id ? 'rgba(0,230,118,0.10)' : '#1e1e1e',
+                        color:      n.tenant_id === tenantAtual?.id ? '#00e676' : '#888',
+                      }}>
+                      {nomeDaEmpresa(n)}
+                    </span>
+                  )}
                   <div className="flex items-baseline justify-between gap-2">
                     <p className="text-sm font-semibold" style={{ color: '#e8e8e8' }}>
                       {n.title}

@@ -19,11 +19,20 @@ type ViewMode = 'month' | 'week' | 'list'
 type ScopeFilter = 'all' | 'me'
 
 export function TasksPage() {
-  const [searchParams] = useSearchParams()
-  // Vindo do aviso "Tarefas atrasadas" (?atrasadas=1): abre focado nas atrasadas
-  const [overdueOnly, setOverdueOnly] = useState(searchParams.get('atrasadas') === '1')
+  const [searchParams, setSearchParams] = useSearchParams()
+  // Vindo do aviso "Tarefas atrasadas" (?atrasadas=1): abre focado nas atrasadas.
+  // A URL e a fonte da verdade, nao um estado copiado dela na montagem: se a
+  // pessoa JA esta em /tasks e clica um aviso do sino, a pagina nao remonta —
+  // com estado copiado ela ficava no mes atual e tarefa atrasada de mes passado
+  // nao aparecia. "Nenhuma tarefa" de novo, por outro motivo.
+  const overdueOnly = searchParams.get('atrasadas') === '1'
+  function setOverdueOnly(ligado: boolean) {
+    const p = new URLSearchParams(searchParams)
+    if (ligado) p.set('atrasadas', '1'); else p.delete('atrasadas')
+    setSearchParams(p, { replace: true })
+  }
 
-  const [viewMode,    setViewMode]    = useState<ViewMode>(overdueOnly ? 'list' : 'month')
+  const [viewMode,    setViewMode]    = useState<ViewMode>('month')
   const [anchorDate,  setAnchorDate]  = useState<Date>(new Date())
   const [scope,       setScope]       = useState<ScopeFilter>('all')
   const [showForm,    setShowForm]    = useState(false)
