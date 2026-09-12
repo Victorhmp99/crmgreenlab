@@ -194,6 +194,8 @@ export interface Goal {
   end_date: string
   leads_target: number | null
   calls_target: number | null
+  /** Agendamentos: leads distintos com reunião registrada no período. */
+  meetings_target?: number | null
   deals_target: number | null
   revenue_target: number | null
   created_by: string | null
@@ -202,7 +204,7 @@ export interface Goal {
   renovar?: boolean
   /** Preenchido quando a rotina fechou o período; o realizado fica congelado. */
   encerrada_em?: string | null
-  resultado_final?: { leads: number; contatos: number; vendas: number; faturamento: number; percentual: number } | null
+  resultado_final?: { leads: number; contatos: number; agendamentos?: number; vendas: number; faturamento: number; percentual: number } | null
 }
 
 // Tipo genérico para as respostas do Supabase

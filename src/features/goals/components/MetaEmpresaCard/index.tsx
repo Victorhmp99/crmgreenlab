@@ -32,6 +32,7 @@ export function MetaEmpresaCard({ meta, individuais, inicio, fim }: {
   const [form, setForm] = useState<SalvarMetaEmpresa>(() => ({
     period: 'monthly', start_date: inicio, end_date: fim,
     leads_target: meta?.leads_target ?? null, calls_target: meta?.calls_target ?? null,
+    meetings_target: meta?.meetings_target ?? null,
     deals_target: meta?.deals_target ?? null, revenue_target: meta?.revenue_target ?? null,
     renovar: meta?.renovar ?? true,
   }))
@@ -43,39 +44,43 @@ export function MetaEmpresaCard({ meta, individuais, inicio, fim }: {
   // no alvo e no realizado. Com meta própria, o realizado é da empresa inteira
   // (vem do banco, inclui lead sem dono) e a soma fica só como referência.
   const somaIndividuais = individuais.reduce((acc, g) => ({
-    leads:   acc.leads   + (g.leads_target   ?? 0),
-    calls:   acc.calls   + (g.calls_target   ?? 0),
-    deals:   acc.deals   + (g.deals_target   ?? 0),
-    revenue: acc.revenue + Number(g.revenue_target ?? 0),
-  }), { leads: 0, calls: 0, deals: 0, revenue: 0 })
+    leads:    acc.leads    + (g.leads_target    ?? 0),
+    calls:    acc.calls    + (g.calls_target    ?? 0),
+    meetings: acc.meetings + (g.meetings_target ?? 0),
+    deals:    acc.deals    + (g.deals_target    ?? 0),
+    revenue:  acc.revenue  + Number(g.revenue_target ?? 0),
+  }), { leads: 0, calls: 0, meetings: 0, deals: 0, revenue: 0 })
   const realizadoIndividuais: GoalProgress = individuais.reduce((acc, g) => ({
     ...acc,
-    leadsActual:   acc.leadsActual   + g.progress.leadsActual,
-    callsActual:   acc.callsActual   + g.progress.callsActual,
-    dealsActual:   acc.dealsActual   + g.progress.dealsActual,
-    revenueActual: acc.revenueActual + g.progress.revenueActual,
-  }), { leadsActual: 0, callsActual: 0, dealsActual: 0, revenueActual: 0,
-        leadsPercent: 0, callsPercent: 0, dealsPercent: 0, revenuePercent: 0, overallPercent: 0 })
+    leadsActual:    acc.leadsActual    + g.progress.leadsActual,
+    callsActual:    acc.callsActual    + g.progress.callsActual,
+    meetingsActual: acc.meetingsActual + g.progress.meetingsActual,
+    dealsActual:    acc.dealsActual    + g.progress.dealsActual,
+    revenueActual:  acc.revenueActual  + g.progress.revenueActual,
+  }), { leadsActual: 0, callsActual: 0, meetingsActual: 0, dealsActual: 0, revenueActual: 0,
+        leadsPercent: 0, callsPercent: 0, meetingsPercent: 0, dealsPercent: 0, revenuePercent: 0, overallPercent: 0 })
 
   const p         = meta ? meta.progress : (individuais.length ? realizadoIndividuais : null)
   const soma      = meta?.somaIndividual ?? somaIndividuais
 
   // alvo efetivo: o próprio, ou a soma das individuais quando não definiu
   const alvo = {
-    leads:   meta?.leads_target   ?? (soma?.leads   || null),
-    calls:   meta?.calls_target   ?? (soma?.calls   || null),
-    deals:   meta?.deals_target   ?? (soma?.deals   || null),
-    revenue: meta?.revenue_target ?? (soma?.revenue || null),
+    leads:    meta?.leads_target    ?? (soma?.leads    || null),
+    calls:    meta?.calls_target    ?? (soma?.calls    || null),
+    meetings: meta?.meetings_target ?? (soma?.meetings || null),
+    deals:    meta?.deals_target    ?? (soma?.deals    || null),
+    revenue:  meta?.revenue_target  ?? (soma?.revenue  || null),
   }
-  const temAlvo = !!(alvo.leads || alvo.calls || alvo.deals || alvo.revenue)
+  const temAlvo = !!(alvo.leads || alvo.calls || alvo.meetings || alvo.deals || alvo.revenue)
   const pct = (a: number, t: number | null) => t ? Math.min(100, Math.round((a / t) * 100)) : 0
 
   // Percentual geral contra o alvo EFETIVO (próprio ou soma): média dos itens
   // definidos, igual ao card individual e à rotina do banco.
   const itens = p ? [
-    alvo.leads   ? pct(p.leadsActual,   alvo.leads)   : null,
-    alvo.calls   ? pct(p.callsActual,   alvo.calls)   : null,
-    alvo.deals   ? pct(p.dealsActual,   alvo.deals)   : null,
+    alvo.leads    ? pct(p.leadsActual,    alvo.leads)    : null,
+    alvo.calls    ? pct(p.callsActual,    alvo.calls)    : null,
+    alvo.meetings ? pct(p.meetingsActual, alvo.meetings) : null,
+    alvo.deals    ? pct(p.dealsActual,    alvo.deals)    : null,
     alvo.revenue ? pct(p.revenueActual, alvo.revenue) : null,
   ].filter((x): x is number => x != null) : []
   const geral    = itens.length ? Math.round(itens.reduce((a, b) => a + b, 0) / itens.length) : 0
@@ -154,13 +159,15 @@ export function MetaEmpresaCard({ meta, individuais, inicio, fim }: {
         <div className="flex flex-col gap-3 rounded-xl p-3" style={{ background: '#0d0d0d', border: '1px solid #1e1e1e' }}>
           <p className="text-[11px]" style={{ color: '#666' }}>
             Em branco = usa a soma das metas individuais daquele item.
-            {soma && ` Soma hoje: ${soma.leads} leads · ${soma.calls} contatos · ${soma.deals} vendas · ${formatCurrency(soma.revenue)}.`}
+            {soma && ` Soma hoje: ${soma.leads} leads · ${soma.calls} contatos · ${soma.meetings} agendamentos · ${soma.deals} vendas · ${formatCurrency(soma.revenue)}.`}
           </p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             <Input label="Leads" type="number" min={0} placeholder="—" value={form.leads_target ?? ''}
               onChange={(e) => setForm({ ...form, leads_target: num(e.target.value) })} />
             <Input label="Contatos" type="number" min={0} placeholder="—" value={form.calls_target ?? ''}
               onChange={(e) => setForm({ ...form, calls_target: num(e.target.value) })} />
+            <Input label="Agendamentos" type="number" min={0} placeholder="—" value={form.meetings_target ?? ''}
+              onChange={(e) => setForm({ ...form, meetings_target: num(e.target.value) })} />
             <Input label="Vendas" type="number" min={0} placeholder="—" value={form.deals_target ?? ''}
               onChange={(e) => setForm({ ...form, deals_target: num(e.target.value) })} />
             <Input label="Faturamento (R$)" type="number" min={0} step="0.01" placeholder="—" value={form.revenue_target ?? ''}
@@ -206,14 +213,15 @@ export function MetaEmpresaCard({ meta, individuais, inicio, fim }: {
           {p && (
             <div className="flex flex-col gap-3 pt-1" style={{ borderTop: '1px solid #1a2a1f' }}>
               {alvo.leads   && <ProgressBar label="Leads captados" actual={p.leadsActual}   target={alvo.leads}   percent={pct(p.leadsActual, alvo.leads)}     color="#40a0ff" />}
-              {alvo.calls   && <ProgressBar label="Contatos"       actual={p.callsActual}   target={alvo.calls}   percent={pct(p.callsActual, alvo.calls)}     color="#fbbf24" />}
+              {alvo.calls    && <ProgressBar label="Contatos"     actual={p.callsActual}    target={alvo.calls}    percent={pct(p.callsActual, alvo.calls)}       color="#fbbf24" />}
+              {alvo.meetings && <ProgressBar label="Agendamentos" actual={p.meetingsActual} target={alvo.meetings} percent={pct(p.meetingsActual, alvo.meetings)} color="#f472b6" />}
               {alvo.deals   && <ProgressBar label="Vendas"         actual={p.dealsActual}   target={alvo.deals}   percent={pct(p.dealsActual, alvo.deals)}     color="#00e676" />}
               {alvo.revenue && <ProgressBar label="Faturamento"    actual={p.revenueActual} target={alvo.revenue} percent={pct(p.revenueActual, alvo.revenue)} color="#a78bfa" moeda />}
             </div>
           )}
-          {meta && soma && (soma.leads || soma.calls || soma.deals || soma.revenue) ? (
+          {meta && soma && (soma.leads || soma.calls || soma.meetings || soma.deals || soma.revenue) ? (
             <p className="text-[10px]" style={{ color: '#555' }}>
-              Soma das individuais: {soma.leads} leads · {soma.calls} contatos · {soma.deals} vendas · {formatCurrency(soma.revenue)}
+              Soma das individuais: {soma.leads} leads · {soma.calls} contatos · {soma.meetings} agendamentos · {soma.deals} vendas · {formatCurrency(soma.revenue)}
             </p>
           ) : null}
         </>

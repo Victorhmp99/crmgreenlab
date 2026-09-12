@@ -1,4 +1,4 @@
-import { Users, Zap, CheckCircle, Cpu, Hand } from 'lucide-react'
+import { Users, Zap, CheckCircle, Cpu, Hand, CalendarCheck } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Spinner } from '@/components/ui/Spinner'
 import { formatCurrency, formatDate } from '@/lib/utils'
@@ -27,7 +27,7 @@ export function DetalheMetaModal({ goal, onClose }: { goal: GoalWithProgress | n
           {error ? <p className="text-sm" style={{ color: '#ff4444' }}>{(error as Error).message}</p> : <Spinner size="md" />}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
           <Coluna icone={Users} cor="#40a0ff" titulo="Leads captados" total={data.leads.length}>
             {data.leads.map((l) => (
               <Linha key={l.id} principal={l.nome} secundario={formatDate(l.em)} />
@@ -41,6 +41,12 @@ export function DetalheMetaModal({ goal, onClose }: { goal: GoalWithProgress | n
                 etiqueta={c.origem === 'sistema'
                   ? { texto: 'sistema', cor: '#00e676', Icone: Cpu }
                   : { texto: 'manual',  cor: '#888',    Icone: Hand }} />
+            ))}
+          </Coluna>
+
+          <Coluna icone={CalendarCheck} cor="#f472b6" titulo="Agendamentos" total={(data.agendamentos ?? []).length}>
+            {(data.agendamentos ?? []).map((a) => (
+              <Linha key={a.lead_id} principal={a.nome} secundario={`${a.vezes}× · ${formatDate(a.em)}`} />
             ))}
           </Coluna>
 

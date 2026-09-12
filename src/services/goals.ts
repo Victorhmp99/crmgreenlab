@@ -4,14 +4,16 @@ import type { Goal, GoalPeriod } from '@/types'
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
 export interface GoalProgress {
-  leadsActual:    number
-  callsActual:    number
-  dealsActual:    number
-  revenueActual:  number
-  leadsPercent:   number
-  callsPercent:   number
-  dealsPercent:   number
-  revenuePercent: number
+  leadsActual:     number
+  callsActual:     number
+  meetingsActual:  number
+  dealsActual:     number
+  revenueActual:   number
+  leadsPercent:    number
+  callsPercent:    number
+  meetingsPercent: number
+  dealsPercent:    number
+  revenuePercent:  number
   overallPercent: number  // média dos itens com meta definida
 }
 
@@ -26,11 +28,12 @@ export interface CreateGoalData {
   period:         GoalPeriod
   start_date:     string
   end_date:       string
-  leads_target?:   number | null
-  calls_target?:   number | null
-  deals_target?:   number | null
-  revenue_target?: number | null
-  renovar?:        boolean
+  leads_target?:    number | null
+  calls_target?:    number | null
+  meetings_target?: number | null
+  deals_target?:    number | null
+  revenue_target?:  number | null
+  renovar?:         boolean
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -40,13 +43,14 @@ function pct(actual: number, target: number | null): number {
   return Math.min(Math.round((actual / target) * 100), 100)
 }
 
-type Realizado = Pick<GoalProgress, 'leadsActual' | 'callsActual' | 'dealsActual' | 'revenueActual'>
+type Realizado = Pick<GoalProgress, 'leadsActual' | 'callsActual' | 'meetingsActual' | 'dealsActual' | 'revenueActual'>
 
 function overall(g: Goal, r: Realizado): number {
   const items: number[] = []
-  if (g.leads_target)   items.push(pct(r.leadsActual,   g.leads_target))
-  if (g.calls_target)   items.push(pct(r.callsActual,   g.calls_target))
-  if (g.deals_target)   items.push(pct(r.dealsActual,   g.deals_target))
+  if (g.leads_target)    items.push(pct(r.leadsActual,    g.leads_target))
+  if (g.calls_target)    items.push(pct(r.callsActual,    g.calls_target))
+  if (g.meetings_target) items.push(pct(r.meetingsActual, g.meetings_target))
+  if (g.deals_target)    items.push(pct(r.dealsActual,    g.deals_target))
   if (g.revenue_target) items.push(pct(r.revenueActual, Number(g.revenue_target)))
   return items.length ? Math.round(items.reduce((a, b) => a + b, 0) / items.length) : 0
 }
@@ -54,9 +58,10 @@ function overall(g: Goal, r: Realizado): number {
 function montarProgresso(g: Goal, r: Realizado): GoalProgress {
   return {
     ...r,
-    leadsPercent:   pct(r.leadsActual,   g.leads_target),
-    callsPercent:   pct(r.callsActual,   g.calls_target),
-    dealsPercent:   pct(r.dealsActual,   g.deals_target),
+    leadsPercent:    pct(r.leadsActual,    g.leads_target),
+    callsPercent:    pct(r.callsActual,    g.calls_target),
+    meetingsPercent: pct(r.meetingsActual, g.meetings_target ?? null),
+    dealsPercent:    pct(r.dealsActual,    g.deals_target),
     revenuePercent: pct(r.revenueActual, g.revenue_target != null ? Number(g.revenue_target) : null),
     overallPercent: overall(g, r),
   }
@@ -86,7 +91,8 @@ export async function fetchGoalsWithProgress(
   const goals = ((data ?? []) as Array<{
     id: string; tenant_id: string; user_id: string;
     period: string; start_date: string; end_date: string;
-    leads_target: number | null; calls_target: number | null; deals_target: number | null;
+    leads_target: number | null; calls_target: number | null; meetings_target: number | null;
+    deals_target: number | null;
     revenue_target: number | null; created_by: string | null; created_at: string;
     user_email: string | null; user_full_name: string | null;
   }>).map((row) => ({
@@ -96,9 +102,10 @@ export async function fetchGoalsWithProgress(
     period:         row.period as GoalPeriod,
     start_date:     row.start_date,
     end_date:       row.end_date,
-    leads_target:   row.leads_target,
-    calls_target:   row.calls_target,
-    deals_target:   row.deals_target,
+    leads_target:    row.leads_target,
+    calls_target:    row.calls_target,
+    meetings_target: row.meetings_target ?? null,
+    deals_target:    row.deals_target,
     revenue_target: row.revenue_target,
     created_by:     row.created_by,
     created_at:     row.created_at,
@@ -120,17 +127,19 @@ export async function fetchGoalsWithProgress(
 
   const porMeta = new Map<string, Realizado>()
   for (const r of (prog ?? []) as Array<{
-    goal_id: string; leads_actual: number; calls_actual: number; deals_actual: number; revenue_actual: number | string
+    goal_id: string; leads_actual: number; calls_actual: number; meetings_actual: number;
+    deals_actual: number; revenue_actual: number | string
   }>) {
     porMeta.set(r.goal_id, {
-      leadsActual:   r.leads_actual,
-      callsActual:   r.calls_actual,
-      dealsActual:   r.deals_actual,
-      revenueActual: Number(r.revenue_actual ?? 0),
+      leadsActual:    r.leads_actual,
+      callsActual:    r.calls_actual,
+      meetingsActual: r.meetings_actual ?? 0,
+      dealsActual:    r.deals_actual,
+      revenueActual:  Number(r.revenue_actual ?? 0),
     })
   }
 
-  const vazio: Realizado = { leadsActual: 0, callsActual: 0, dealsActual: 0, revenueActual: 0 }
+  const vazio: Realizado = { leadsActual: 0, callsActual: 0, meetingsActual: 0, dealsActual: 0, revenueActual: 0 }
   return goals.map((g) => ({
     ...g,
     progress: montarProgresso(g as Goal, porMeta.get(g.id) ?? vazio),
@@ -175,11 +184,12 @@ export async function createGoal(tenantId: string, createdBy: string, data: Crea
       period:        data.period,
       start_date:    data.start_date,
       end_date:      data.end_date,
-      leads_target:   data.leads_target ?? null,
-      calls_target:   data.calls_target ?? null,
-      deals_target:   data.deals_target ?? null,
-      revenue_target: data.revenue_target ?? null,
-      renovar:        data.renovar ?? false,
+      leads_target:    data.leads_target ?? null,
+      calls_target:    data.calls_target ?? null,
+      meetings_target: data.meetings_target ?? null,
+      deals_target:    data.deals_target ?? null,
+      revenue_target:  data.revenue_target ?? null,
+      renovar:         data.renovar ?? false,
     })
     .select()
     .single()
@@ -212,6 +222,7 @@ export interface LeaderboardEntry {
   fullName:    string | null
   leads:       number
   calls:       number
+  meetings:    number
   deals:       number
   /** Só vem pra gestor. Vendedor recebe null e a tela não mostra a coluna. */
   revenue:     number | null
@@ -235,7 +246,7 @@ export async function fetchLeaderboard(
 
   return ((data ?? []) as Array<{
     user_id: string; email: string; full_name: string | null;
-    leads: number; contatos: number; vendas: number;
+    leads: number; contatos: number; agendamentos: number; vendas: number;
     faturamento: number | string | null; pontos: number
   }>).map((r) => ({
     userId:     r.user_id,
@@ -243,6 +254,7 @@ export async function fetchLeaderboard(
     fullName:   r.full_name,
     leads:      r.leads,
     calls:      r.contatos,
+    meetings:   r.agendamentos ?? 0,
     deals:      r.vendas,
     revenue:    r.faturamento == null ? null : Number(r.faturamento),
     totalScore: r.pontos,
@@ -252,9 +264,10 @@ export async function fetchLeaderboard(
 // ── Auditoria: do que é feito o número ───────────────────────────────────────
 
 export interface DetalheMeta {
-  leads:    Array<{ id: string; nome: string; em: string }>
-  contatos: Array<{ lead_id: string; nome: string; tipo: string; origem: 'sistema' | 'manual'; em: string; vezes: number }>
-  vendas:   Array<{ id: string; nome: string; valor: number | null; em: string }>
+  leads:        Array<{ id: string; nome: string; em: string }>
+  contatos:     Array<{ lead_id: string; nome: string; tipo: string; origem: 'sistema' | 'manual'; em: string; vezes: number }>
+  agendamentos: Array<{ lead_id: string; nome: string; em: string; vezes: number }>
+  vendas:       Array<{ id: string; nome: string; valor: number | null; em: string }>
 }
 
 export async function fetchDetalheMeta(goalId: string): Promise<DetalheMeta> {
@@ -272,13 +285,14 @@ export interface MetaEmpresa {
   end_date:        string
   leads_target:    number | null
   calls_target:    number | null
+  meetings_target: number | null
   deals_target:    number | null
   revenue_target:  number | null
   renovar:         boolean
   encerrada_em:    string | null
   progress:        GoalProgress
   /** Soma dos alvos individuais do mesmo período — referência ao lado do número próprio. */
-  somaIndividual:  { leads: number; calls: number; deals: number; revenue: number }
+  somaIndividual:  { leads: number; calls: number; meetings: number; deals: number; revenue: number }
 }
 
 export async function fetchMetasEmpresa(tenantId: string, onlyActive = false): Promise<MetaEmpresa[]> {
@@ -288,16 +302,18 @@ export async function fetchMetasEmpresa(tenantId: string, onlyActive = false): P
   if (error) throw error
   return ((data ?? []) as Array<Record<string, unknown>>).map((r) => {
     const alvo = {
-      leads_target:   r.leads_target as number | null,
-      calls_target:   r.calls_target as number | null,
-      deals_target:   r.deals_target as number | null,
-      revenue_target: r.revenue_target == null ? null : Number(r.revenue_target),
+      leads_target:    r.leads_target as number | null,
+      calls_target:    r.calls_target as number | null,
+      meetings_target: r.meetings_target as number | null,
+      deals_target:    r.deals_target as number | null,
+      revenue_target:  r.revenue_target == null ? null : Number(r.revenue_target),
     }
     const realizado: Realizado = {
-      leadsActual:   Number(r.leads_actual ?? 0),
-      callsActual:   Number(r.calls_actual ?? 0),
-      dealsActual:   Number(r.deals_actual ?? 0),
-      revenueActual: Number(r.revenue_actual ?? 0),
+      leadsActual:    Number(r.leads_actual ?? 0),
+      callsActual:    Number(r.calls_actual ?? 0),
+      meetingsActual: Number(r.meetings_actual ?? 0),
+      dealsActual:    Number(r.deals_actual ?? 0),
+      revenueActual:  Number(r.revenue_actual ?? 0),
     }
     return {
       id:           r.id as string,
@@ -309,9 +325,10 @@ export async function fetchMetasEmpresa(tenantId: string, onlyActive = false): P
       encerrada_em: (r.encerrada_em as string | null) ?? null,
       progress:     montarProgresso(alvo as Goal, realizado),
       somaIndividual: {
-        leads:   Number(r.soma_leads_target ?? 0),
-        calls:   Number(r.soma_calls_target ?? 0),
-        deals:   Number(r.soma_deals_target ?? 0),
+        leads:    Number(r.soma_leads_target ?? 0),
+        calls:    Number(r.soma_calls_target ?? 0),
+        meetings: Number(r.soma_meetings_target ?? 0),
+        deals:    Number(r.soma_deals_target ?? 0),
         revenue: Number(r.soma_revenue_target ?? 0),
       },
     }
@@ -319,12 +336,13 @@ export async function fetchMetasEmpresa(tenantId: string, onlyActive = false): P
 }
 
 export interface SalvarMetaEmpresa {
-  period:          GoalPeriod
-  start_date:      string
-  end_date:        string
-  leads_target?:   number | null
-  calls_target?:   number | null
-  deals_target?:   number | null
+  period:           GoalPeriod
+  start_date:       string
+  end_date:         string
+  leads_target?:    number | null
+  calls_target?:    number | null
+  meetings_target?: number | null
+  deals_target?:    number | null
   revenue_target?: number | null
   renovar?:        boolean
 }

@@ -1,4 +1,4 @@
-import { Trophy, Zap, Users, CheckCircle, DollarSign } from 'lucide-react'
+import { Trophy, Zap, Users, CheckCircle, DollarSign, CalendarCheck } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { Spinner } from '@/components/ui/Spinner'
 import { useLeaderboard } from '../../hooks/useGoals'
@@ -74,9 +74,10 @@ export function Leaderboard({ startDate, endDate }: LeaderboardProps) {
             {/* Métricas */}
             {/* Faturamento so vem pra gestor (o banco manda null pra vendedor):
                 numero em reais do colega e assunto de gestao. */}
-            <div className={`grid ${entry.revenue != null ? 'grid-cols-4' : 'grid-cols-3'} gap-2 text-center`}>
-              <StatMini icon={Users}       label="Leads"    value={entry.leads} />
-              <StatMini icon={Zap}         label="Contatos" value={entry.calls} />
+            <div className={`grid ${entry.revenue != null ? 'grid-cols-5' : 'grid-cols-4'} gap-2 text-center`}>
+              <StatMini icon={Users}         label="Leads"    value={entry.leads} />
+              <StatMini icon={Zap}           label="Contatos" value={entry.calls} />
+              <StatMini icon={CalendarCheck} label="Agend."   value={entry.meetings} color="#f472b6" />
               <StatMini icon={CheckCircle} label="Vendas"   value={entry.deals} color="#00e676" />
               {entry.revenue != null && (
                 <StatMini icon={DollarSign} label="Faturado" value={formatCurrency(entry.revenue)} color="#a78bfa" />

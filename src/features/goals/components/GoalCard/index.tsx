@@ -43,7 +43,7 @@ export function GoalCard({ goal, onEdit, onDelete, onDetalhe }: GoalCardProps) {
   const ritmo          = ritmoDaMeta(goal.start_date, goal.end_date)
   const situacao       = situacaoDaMeta(progress.overallPercent, ritmo.esperadoPct)
   const displayName    = goal.userFullName ?? goal.userEmail ?? '—'
-  const hasAnyTarget   = !!(goal.leads_target || goal.calls_target || goal.deals_target || goal.revenue_target)
+  const hasAnyTarget   = !!(goal.leads_target || goal.calls_target || goal.meetings_target || goal.deals_target || goal.revenue_target)
 
   return (
     <div
@@ -193,6 +193,10 @@ export function GoalCard({ goal, onEdit, onDelete, onDetalhe }: GoalCardProps) {
           {goal.calls_target && (
             <ProgressBar label="Contatos" actual={progress.callsActual}
               target={goal.calls_target} percent={progress.callsPercent} color="#fbbf24" />
+          )}
+          {goal.meetings_target && (
+            <ProgressBar label="Agendamentos" actual={progress.meetingsActual}
+              target={goal.meetings_target} percent={progress.meetingsPercent} color="#f472b6" />
           )}
           {goal.deals_target && (
             <ProgressBar label="Vendas" actual={progress.dealsActual}

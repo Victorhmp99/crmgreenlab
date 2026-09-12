@@ -24,6 +24,7 @@ const schema = z.object({
   end_date:     z.string().min(1, 'Data de término obrigatória'),
   leads_target:   numOrNull,
   calls_target:   numOrNull,
+  meetings_target: numOrNull,
   deals_target:   numOrNull,
   revenue_target: numOrNull,
   renovar:        z.boolean().optional(),
@@ -36,6 +37,7 @@ interface FormData {
   end_date:     string
   leads_target:   number | null | undefined
   calls_target:   number | null | undefined
+  meetings_target: number | null | undefined
   deals_target:   number | null | undefined
   revenue_target: number | null | undefined
   renovar?:       boolean
@@ -107,13 +109,14 @@ export function GoalForm({ open, onClose, goal }: GoalFormProps) {
         user_id: goal.user_id, period: goal.period,
         start_date: goal.start_date, end_date: goal.end_date,
         leads_target: goal.leads_target, calls_target: goal.calls_target, deals_target: goal.deals_target,
+        meetings_target: goal.meetings_target ?? null,
         revenue_target: goal.revenue_target != null ? Number(goal.revenue_target) : null,
         renovar: goal.renovar ?? false,
       })
     } else if (open && !goal) {
       const p: GoalPeriod = 'monthly'
       const start = suggestStartDate(p)
-      reset({ period: p, start_date: start, end_date: autoEndDate(p, start), leads_target: null, calls_target: null, deals_target: null, revenue_target: null, renovar: true })
+      reset({ period: p, start_date: start, end_date: autoEndDate(p, start), leads_target: null, calls_target: null, meetings_target: null, deals_target: null, revenue_target: null, renovar: true })
     }
   }, [open, goal, reset])
 
@@ -123,6 +126,7 @@ export function GoalForm({ open, onClose, goal }: GoalFormProps) {
       start_date: data.start_date, end_date: data.end_date,
       leads_target:   data.leads_target || null,
       calls_target:   data.calls_target || null,
+      meetings_target: data.meetings_target || null,
       deals_target:   data.deals_target || null,
       revenue_target: data.revenue_target || null,
       renovar:        !!data.renovar,
@@ -190,9 +194,11 @@ export function GoalForm({ open, onClose, goal }: GoalFormProps) {
           <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#555' }}>
             Metas (deixe em branco para não monitorar)
           </p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {/* Cada alvo e opcional: SDR leva so contatos + agendamentos, closer so vendas. */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             <Input label="Leads" type="number" min={0} placeholder="—" hint="Captados" {...register('leads_target')} />
             <Input label="Contatos" type="number" min={0} placeholder="—" hint="Leads tocados" {...register('calls_target')} />
+            <Input label="Agendamentos" type="number" min={0} placeholder="—" hint="Reuniões marcadas" {...register('meetings_target')} />
             <Input label="Vendas" type="number" min={0} placeholder="—" hint="Fechamentos" {...register('deals_target')} />
             {/* Existia na tabela desde o inicio e nunca teve campo nem calculo. */}
             <Input label="Faturamento (R$)" type="number" min={0} step="0.01" placeholder="—" hint="Valor vendido" {...register('revenue_target')} />
