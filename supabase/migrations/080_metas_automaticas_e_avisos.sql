@@ -283,6 +283,18 @@ as $$
 $$;
 revoke all on function public.proximo_periodo(goal_period, date) from public, anon, authenticated;
 
+-- ── Reais em formato brasileiro ────────────────────────────────────────────
+-- to_char com G/D obedece o locale do servidor (americano): "5,000.00".
+-- Formata na mão: milhar com ponto, decimal com vírgula.
+create or replace function public.reais(p numeric)
+returns text
+language sql
+immutable
+as $$
+  select 'R$ ' || replace(replace(replace(to_char(coalesce(p,0), 'FM999G999G999G990D00'), ',', '#'), '.', ','), '#', '.');
+$$;
+revoke all on function public.reais(numeric) from public, anon, authenticated;
+
 -- ── Aviso pelo sino, uma vez só ────────────────────────────────────────────
 create or replace function public.avisar_meta(
   p_tenant_id uuid, p_recipient uuid, p_title text, p_body text
@@ -339,9 +351,9 @@ begin
 
     perform avisar_meta(g.tenant_id, g.user_id,
       case when v_pct >= 100 then 'Meta batida! 🎯' else 'Meta encerrada' end,
-      format('Período %s a %s fechou em %s%% — %s leads, %s contatos, %s vendas, R$ %s.',
+      format('Período %s a %s fechou em %s%% — %s leads, %s contatos, %s vendas, %s.',
         to_char(g.start_date,'DD/MM'), to_char(g.end_date,'DD/MM'), v_pct,
-        r.leads, r.contatos, r.vendas, to_char(r.faturamento,'FM999G999G990D00')));
+        r.leads, r.contatos, r.vendas, reais(r.faturamento)));
     v_avisos := v_avisos + 1;
 
     -- Renova: só se pediu e ainda não existe a próxima (idempotente — a rotina
@@ -377,9 +389,9 @@ begin
     loop
       perform avisar_meta(m.tenant_id, v_gestor.user_id,
         case when v_pct >= 100 then 'Empresa bateu a meta! 🏆' else 'Meta da empresa encerrada' end,
-        format('Período %s a %s fechou em %s%% — %s leads, %s contatos, %s vendas, R$ %s.',
+        format('Período %s a %s fechou em %s%% — %s leads, %s contatos, %s vendas, %s.',
           to_char(m.start_date,'DD/MM'), to_char(m.end_date,'DD/MM'), v_pct,
-          r.leads, r.contatos, r.vendas, to_char(r.faturamento,'FM999G999G990D00')));
+          r.leads, r.contatos, r.vendas, reais(r.faturamento)));
       v_avisos := v_avisos + 1;
     end loop;
 
