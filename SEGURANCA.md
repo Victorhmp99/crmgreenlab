@@ -45,7 +45,7 @@ poderes que nem outro admin tem — excluir a empresa, por exemplo.
 | Carteira do Dashboard | só os leads dele | empresa (com botão "Meus") | idem gestor | idem | idem |
 | Receita (caixa) | não | sim | sim | sim | sim |
 | Relatório por vendedor | **não** | sim | sim | sim | sim |
-| Metas | só a dele | todas | todas | todas | todas |
+| Metas | só a dele | só as que criou | todas | todas | — (não tem cargo) |
 | Financeiro / Meta Ads | não (menu e rota) | sim | sim | sim | sim |
 
 O menu esconde, a rota redireciona **e** a função do banco recusa. As três
@@ -102,6 +102,7 @@ segunda trava, a primeira se contornava em dois passos.
 | `075_lead_sem_dono_fica_com_o_dono_da_empresa` | Histórico órfão atribuído; lead de rotina nasce com dono. |
 | `076_cargo_na_empresa_decide` | Cargo na empresa decide — super admin não sobrepõe. |
 | `077_quem_pode_apagar_lead` | Cota de exclusão por cargo, com rastro em `leads_excluidos`. |
+| `079`–`081` (metas) | Régua única no banco; renovação e congelamento; avisos pelo sino; meta visível só para quem criou, quem cumpre e admin; uma meta por pessoa por período. |
 
 ---
 
