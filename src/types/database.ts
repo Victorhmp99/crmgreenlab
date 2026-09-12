@@ -198,6 +198,11 @@ export interface Goal {
   revenue_target: number | null
   created_by: string | null
   created_at: string
+  /** Renova sozinha no período seguinte (rotina diária). */
+  renovar?: boolean
+  /** Preenchido quando a rotina fechou o período; o realizado fica congelado. */
+  encerrada_em?: string | null
+  resultado_final?: { leads: number; contatos: number; vendas: number; faturamento: number; percentual: number } | null
 }
 
 // Tipo genérico para as respostas do Supabase

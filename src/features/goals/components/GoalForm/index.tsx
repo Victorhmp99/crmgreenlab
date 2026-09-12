@@ -26,6 +26,7 @@ const schema = z.object({
   calls_target:   numOrNull,
   deals_target:   numOrNull,
   revenue_target: numOrNull,
+  renovar:        z.boolean().optional(),
 })
 
 interface FormData {
@@ -37,6 +38,7 @@ interface FormData {
   calls_target:   number | null | undefined
   deals_target:   number | null | undefined
   revenue_target: number | null | undefined
+  renovar?:       boolean
 }
 
 const PERIOD_OPTIONS: { value: GoalPeriod; label: string }[] = [
@@ -106,11 +108,12 @@ export function GoalForm({ open, onClose, goal }: GoalFormProps) {
         start_date: goal.start_date, end_date: goal.end_date,
         leads_target: goal.leads_target, calls_target: goal.calls_target, deals_target: goal.deals_target,
         revenue_target: goal.revenue_target != null ? Number(goal.revenue_target) : null,
+        renovar: goal.renovar ?? false,
       })
     } else if (open && !goal) {
       const p: GoalPeriod = 'monthly'
       const start = suggestStartDate(p)
-      reset({ period: p, start_date: start, end_date: autoEndDate(p, start), leads_target: null, calls_target: null, deals_target: null, revenue_target: null })
+      reset({ period: p, start_date: start, end_date: autoEndDate(p, start), leads_target: null, calls_target: null, deals_target: null, revenue_target: null, renovar: true })
     }
   }, [open, goal, reset])
 
@@ -122,6 +125,7 @@ export function GoalForm({ open, onClose, goal }: GoalFormProps) {
       calls_target:   data.calls_target || null,
       deals_target:   data.deals_target || null,
       revenue_target: data.revenue_target || null,
+      renovar:        !!data.renovar,
     }
     if (isEditing) await update.mutateAsync({ id: goal.id, data: payload })
     else await create.mutateAsync(payload)
@@ -193,6 +197,11 @@ export function GoalForm({ open, onClose, goal }: GoalFormProps) {
             {/* Existia na tabela desde o inicio e nunca teve campo nem calculo. */}
             <Input label="Faturamento (R$)" type="number" min={0} step="0.01" placeholder="—" hint="Valor vendido" {...register('revenue_target')} />
           </div>
+          {/* Sem isto o gestor recriava cada meta, pra cada pessoa, todo mes. */}
+          <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: '#aaa' }}>
+            <input type="checkbox" {...register('renovar')} />
+            Renovar automaticamente no período seguinte, com os mesmos números
+          </label>
         </div>
 
         {(create.error || update.error) && (

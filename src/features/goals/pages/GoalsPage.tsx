@@ -6,7 +6,9 @@ import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { GoalCard } from '../components/GoalCard'
 import { GoalForm } from '../components/GoalForm'
 import { Leaderboard } from '../components/Leaderboard'
-import { useAllGoals, useMyGoals } from '../hooks/useGoals'
+import { DetalheMetaModal } from '../components/DetalheMetaModal'
+import { MetaEmpresaCard } from '../components/MetaEmpresaCard'
+import { useAllGoals, useMyGoals, useMetasEmpresa } from '../hooks/useGoals'
 import { useGoalMutations } from '../hooks/useGoalMutations'
 import { usePermissions } from '@/hooks/usePermissions'
 import type { GoalWithProgress } from '@/services/goals'
@@ -16,8 +18,11 @@ type Tab = 'mine' | 'team' | 'leaderboard'
 // Primeiro e último dia do mês corrente
 function currentMonthRange() {
   const now   = new Date()
-  const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
-  const end   = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10)
+  // Sem toISOString: em UTC-3, das 21h a meia-noite ele devolve o dia SEGUINTE
+  // (armadilha que ja deu bug duas vezes neste projeto).
+  const iso   = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  const start = iso(new Date(now.getFullYear(), now.getMonth(), 1))
+  const end   = iso(new Date(now.getFullYear(), now.getMonth() + 1, 0))
   return { start, end }
 }
 
@@ -26,6 +31,9 @@ export function GoalsPage() {
   const confirm = useConfirm()
   const [tab, setTab]             = useState<Tab>('mine')
   const [editingGoal, setEditingGoal] = useState<GoalWithProgress | null | undefined>(undefined)
+  const [detalhe, setDetalhe] = useState<GoalWithProgress | null>(null)
+  const [mostrarEncerradas, setMostrarEncerradas] = useState(false)
+  const { data: metasEmpresa = [] } = useMetasEmpresa(false)
 
   const { data: myGoals  = [], isLoading: myLoading,  refetch: refetchMine, error: myError }  = useMyGoals()
   const { data: allGoals = [], isLoading: allLoading, refetch: refetchAll, error: allError }  = useAllGoals()
@@ -43,18 +51,25 @@ export function GoalsPage() {
     if (ok) remove.mutate(goal.id)
   }
 
+  // Ranking e pra todo mundo olhar — o banco ja esconde os reais de quem nao
+  // e gestor (migration 079). Equipe continua so pra gestor.
   const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
     { id: 'mine',        label: 'Minhas Metas', icon: Target },
-    ...(isManager ? [
-      { id: 'team'        as Tab, label: 'Equipe',  icon: Target },
-      { id: 'leaderboard' as Tab, label: 'Ranking', icon: Trophy },
-    ] : []),
+    ...(isManager ? [{ id: 'team' as Tab, label: 'Equipe', icon: Target }] : []),
+    { id: 'leaderboard', label: 'Ranking', icon: Trophy },
   ]
 
-  const activeGoals = tab === 'mine'
-    ? myGoals.filter((g) => new Date().toISOString().slice(0, 10) <= g.end_date)
-    : allGoals
+  const fonte = tab === 'mine' ? myGoals : allGoals
+  // Encerrada = a rotina fechou (resultado congelado). Fica num bloco a parte,
+  // recolhido: e historico, nao trabalho do dia.
+  const activeGoals   = fonte.filter((g) => !g.encerrada_em)
+  const encerradas    = fonte.filter((g) => !!g.encerrada_em)
   const isLoading = tab === 'mine' ? myLoading : allLoading
+
+  // Meta da empresa do mes corrente (uma linha por periodo) e as individuais
+  // do mesmo periodo, que viram a referencia quando nao ha numero proprio.
+  const metaEmpresaAtual = metasEmpresa.find((m) => m.start_date === start && m.end_date === end) ?? null
+  const individuaisDoMes = allGoals.filter((g) => g.start_date === start && g.end_date === end && !g.encerrada_em)
 
   return (
     <div className="flex flex-col gap-5">
@@ -146,6 +161,10 @@ export function GoalsPage() {
           <Spinner size="lg" />
         </div>
       ) : activeGoals.length === 0 ? (
+        <>
+        {tab === 'team' && (
+          <MetaEmpresaCard meta={metaEmpresaAtual} individuais={individuaisDoMes} inicio={start} fim={end} />
+        )}
         <div className="flex flex-col items-center gap-4 py-16 text-center">
           <div className="h-16 w-16 rounded-2xl flex items-center justify-center"
             style={{ background: '#1a1a1a' }}>
@@ -166,18 +185,44 @@ export function GoalsPage() {
             </Button>
           )}
         </div>
+        </>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-          {activeGoals.map((goal) => (
-            <GoalCard
-              key={goal.id}
-              goal={goal}
-              onEdit={setEditingGoal}
-              onDelete={handleDelete}
-            />
-          ))}
+        <>
+          {tab === 'team' && (
+            <MetaEmpresaCard meta={metaEmpresaAtual} individuais={individuaisDoMes} inicio={start} fim={end} />
+          )}
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+            {activeGoals.map((goal) => (
+              <GoalCard
+                key={goal.id}
+                goal={goal}
+                onEdit={setEditingGoal}
+                onDelete={handleDelete}
+                onDetalhe={setDetalhe}
+              />
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Historico: metas que a rotina ja fechou */}
+      {tab !== 'leaderboard' && encerradas.length > 0 && (
+        <div className="flex flex-col gap-3">
+          <button onClick={() => setMostrarEncerradas((v) => !v)}
+            className="self-start text-xs font-medium" style={{ color: '#666' }}>
+            {mostrarEncerradas ? 'Ocultar' : 'Mostrar'} encerradas ({encerradas.length})
+          </button>
+          {mostrarEncerradas && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+              {encerradas.map((goal) => (
+                <GoalCard key={goal.id} goal={goal} onEdit={setEditingGoal} onDelete={handleDelete} onDetalhe={setDetalhe} />
+              ))}
+            </div>
+          )}
         </div>
       )}
+
+      <DetalheMetaModal goal={detalhe} onClose={() => setDetalhe(null)} />
 
       {/* Modal criar/editar */}
       <GoalForm
