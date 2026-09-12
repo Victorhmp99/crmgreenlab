@@ -161,7 +161,7 @@ export function MetaEmpresaCard({ meta, individuais, inicio, fim }: {
             Em branco = usa a soma das metas individuais daquele item.
             {soma && ` Soma hoje: ${soma.leads} leads · ${soma.calls} contatos · ${soma.meetings} agendamentos · ${soma.deals} vendas · ${formatCurrency(soma.revenue)}.`}
           </p>
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <Input label="Leads" type="number" min={0} placeholder="—" value={form.leads_target ?? ''}
               onChange={(e) => setForm({ ...form, leads_target: num(e.target.value) })} />
             <Input label="Contatos" type="number" min={0} placeholder="—" value={form.calls_target ?? ''}
@@ -170,7 +170,7 @@ export function MetaEmpresaCard({ meta, individuais, inicio, fim }: {
               onChange={(e) => setForm({ ...form, meetings_target: num(e.target.value) })} />
             <Input label="Vendas" type="number" min={0} placeholder="—" value={form.deals_target ?? ''}
               onChange={(e) => setForm({ ...form, deals_target: num(e.target.value) })} />
-            <Input label="Faturamento (R$)" type="number" min={0} step="0.01" placeholder="—" value={form.revenue_target ?? ''}
+            <Input label="Faturamento" type="number" min={0} step="0.01" placeholder="—" value={form.revenue_target ?? ''}
               onChange={(e) => setForm({ ...form, revenue_target: num(e.target.value) })} />
           </div>
           <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: '#aaa' }}>

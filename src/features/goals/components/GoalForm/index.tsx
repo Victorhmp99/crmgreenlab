@@ -195,13 +195,13 @@ export function GoalForm({ open, onClose, goal }: GoalFormProps) {
             Metas (deixe em branco para não monitorar)
           </p>
           {/* Cada alvo e opcional: SDR leva so contatos + agendamentos, closer so vendas. */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <Input label="Leads" type="number" min={0} placeholder="—" hint="Captados" {...register('leads_target')} />
             <Input label="Contatos" type="number" min={0} placeholder="—" hint="Leads tocados" {...register('calls_target')} />
             <Input label="Agendamentos" type="number" min={0} placeholder="—" hint="Reuniões marcadas" {...register('meetings_target')} />
             <Input label="Vendas" type="number" min={0} placeholder="—" hint="Fechamentos" {...register('deals_target')} />
             {/* Existia na tabela desde o inicio e nunca teve campo nem calculo. */}
-            <Input label="Faturamento (R$)" type="number" min={0} step="0.01" placeholder="—" hint="Valor vendido" {...register('revenue_target')} />
+            <Input label="Faturamento" type="number" min={0} step="0.01" placeholder="—" hint="R$ vendido" {...register('revenue_target')} />
           </div>
           {/* Sem isto o gestor recriava cada meta, pra cada pessoa, todo mes. */}
           <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: '#aaa' }}>
