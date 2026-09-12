@@ -123,6 +123,10 @@ export function GoalCard({ goal, onEdit, onDelete, onDetalhe }: GoalCardProps) {
           </div>
           {isManager && (
             <div className="flex items-center gap-0.5">
+              {/* Meta encerrada tem o resultado congelado: editar o alvo depois
+                  faria o "percentual" gravado nao bater com o alvo novo. Fica
+                  so excluir. */}
+              {!encerrada && (
               <button
                 onClick={() => onEdit(goal)}
                 className="h-7 w-7 rounded-lg flex items-center justify-center transition-colors"
@@ -139,6 +143,7 @@ export function GoalCard({ goal, onEdit, onDelete, onDetalhe }: GoalCardProps) {
               >
                 <Pencil size={13} />
               </button>
+              )}
               <button
                 onClick={() => onDelete(goal)}
                 className="h-7 w-7 rounded-lg flex items-center justify-center transition-colors"
