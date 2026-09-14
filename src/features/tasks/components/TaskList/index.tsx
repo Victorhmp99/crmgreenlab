@@ -43,7 +43,7 @@ export function TaskList({ leadId }: TaskListProps) {
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
         <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: '#555' }}>
-          Tarefas
+          Agenda
         </p>
         <button onClick={() => { setEditing(null); setShowForm(true) }}
           className="flex items-center gap-1 text-xs rounded-md px-2 py-1 transition-colors"
@@ -57,7 +57,7 @@ export function TaskList({ leadId }: TaskListProps) {
       {isLoading ? (
         <div className="flex justify-center py-6"><Spinner /></div>
       ) : tasks.length === 0 ? (
-        <p className="text-xs text-center py-3" style={{ color: '#555' }}>Nenhuma tarefa</p>
+        <p className="text-xs text-center py-3" style={{ color: '#555' }}>Nada na agenda deste lead</p>
       ) : (
         <div className="flex flex-col gap-1.5">
           {tasks.map((task) => <TaskItem key={task.id} task={task}
