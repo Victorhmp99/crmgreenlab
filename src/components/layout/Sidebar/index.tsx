@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, Kanban, History, Target,
   UserCog, LogOut, ChevronLeft, ChevronRight,
   DollarSign, BarChart2, Megaphone, Settings, Globe,
-  Code2, ExternalLink, Sun, Moon, CheckSquare, MessageSquare, Radar, BookOpen, HelpCircle,
+  Code2, ExternalLink, Sun, Moon, MessageSquare, Radar, BookOpen, HelpCircle, CalendarClock, SquareKanban,
 } from 'lucide-react'
 import { useThemeStore } from '@/store/themeStore'
 import { cn } from '@/lib/utils'
@@ -27,7 +27,8 @@ const NAV_ITEMS = [
   { to: '/leads',      label: 'Leads',     icon: Users           },
   { to: '/pipeline',   label: 'Pipeline',  icon: Kanban          },
   { to: '/activities', label: 'Movimentações', icon: History      },
-  { to: '/tasks',      label: 'Tarefas',   icon: CheckSquare     },
+  { to: '/tasks',      label: 'Agenda',    icon: CalendarClock   },
+  { to: '/boards',     label: 'Tarefas',   icon: SquareKanban    },
   { to: '/goals',      label: 'Metas',     icon: Target          },
 ]
 

@@ -87,7 +87,7 @@ export function AppLayout({ children }: AppLayoutProps) {
                deitado (375px) ele era cortado e nao havia como rolar — nem no
                quadro, nem na lista de pipelines. Mantem a coluna e devolve a
                rolagem: em tela alta nada muda, porque o conteudo cabe. */
-            pathname === '/pipeline' && 'flex flex-col',
+            (pathname === '/pipeline' || pathname.startsWith('/boards/')) && 'flex flex-col',
           )}
           style={{ background: 'var(--bg)' }}
         >

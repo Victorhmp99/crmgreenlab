@@ -25,6 +25,8 @@ import { LeadsPage }      from '@/features/leads/pages/LeadsPage'
 import { PipelinePage }   from '@/features/pipeline/pages/PipelinePage'
 import { ActivitiesPage } from '@/features/activities/pages/ActivitiesPage'
 import { TasksPage }      from '@/features/tasks/pages/TasksPage'
+import { BoardsPage }     from '@/features/boards/pages/BoardsPage'
+import { BoardPage }      from '@/features/boards/pages/BoardPage'
 import { GoalsPage }      from '@/features/goals/pages/GoalsPage'
 import { RevenuePage }    from '@/features/revenue/pages/RevenuePage'
 import { ReportsPage }    from '@/features/reports/pages/ReportsPage'
@@ -80,6 +82,8 @@ export function AppRouter() {
           <Route path="/pipeline"   element={<AppLayout><PipelinePage /></AppLayout>} />
           <Route path="/activities" element={<AppLayout><ActivitiesPage /></AppLayout>} />
           <Route path="/tasks"      element={<AppLayout><TasksPage /></AppLayout>} />
+          <Route path="/boards"     element={<AppLayout><BoardsPage /></AppLayout>} />
+          <Route path="/boards/:boardId" element={<AppLayout><BoardPage /></AppLayout>} />
           <Route path="/goals"      element={<AppLayout><GoalsPage /></AppLayout>} />
           <Route path="/ajuda"          element={<AppLayout><HelpPage /></AppLayout>} />
           <Route path="/ajuda/:slug"    element={<AppLayout><HelpArticlePage /></AppLayout>} />

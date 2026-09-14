@@ -222,3 +222,71 @@ export type Database = {
     }
   }
 }
+
+// ── Quadros de tarefas (estilo Trello) ──────────────────────────────────────
+// Separado da agenda (LeadTask): aqui é trabalho da empresa andando por
+// colunas, sem hora fixa nem lead obrigatório.
+export interface Board {
+  id:          string
+  tenant_id:   string
+  name:        string
+  color:       string | null
+  position:    number
+  created_by:  string | null
+  archived_at: string | null
+  created_at:  string
+  updated_at:  string
+}
+
+export interface BoardColumn {
+  id:         string
+  tenant_id:  string
+  board_id:   string
+  name:       string
+  position:   number
+  /** Cartão que entra aqui está concluído. */
+  is_done:    boolean
+  created_at: string
+}
+
+export interface BoardLabel {
+  id:        string
+  tenant_id: string
+  board_id:  string
+  name:      string
+  color:     string
+}
+
+export interface BoardCard {
+  id:           string
+  tenant_id:    string
+  board_id:     string
+  column_id:    string
+  title:        string
+  description:  string | null
+  color:        string | null
+  lead_id:      string | null
+  due_date:     string | null
+  position:     number
+  created_by:   string | null
+  completed_at: string | null
+  archived_at:  string | null
+  created_at:   string
+  updated_at:   string
+}
+
+export interface BoardChecklistItem {
+  id:       string
+  card_id:  string
+  text:     string
+  done:     boolean
+  position: number
+}
+
+export interface BoardComment {
+  id:         string
+  card_id:    string
+  user_id:    string
+  body:       string
+  created_at: string
+}
