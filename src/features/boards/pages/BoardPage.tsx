@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, UserRound, Trash2, Pencil, Filter, X } from 'lucide-react'
+import { ArrowLeft, UserRound, Trash2, Pencil, Filter, X, Archive } from 'lucide-react'
 import { Spinner } from '@/components/ui/Spinner'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { usePermissions } from '@/hooks/usePermissions'
@@ -12,6 +12,7 @@ import type { Lead } from '@/types'
 import { useBoard, useMembros, useRecarregaQuadro } from '../hooks/useBoards'
 import { BoardKanban } from '../components/BoardKanban'
 import { CardModal } from '../components/CardModal'
+import { ArquivadosModal } from '../components/ArquivadosModal'
 import { Swatches } from '../components/comum'
 
 /**
@@ -37,6 +38,7 @@ export function BoardPage() {
   const [nome,       setNome]       = useState('')
   const [corAberta,  setCorAberta]  = useState(false)
   const [leadAberto, setLeadAberto] = useState<Lead | null>(null)
+  const [arquivados, setArquivados] = useState(false)
 
   const cartaoId = params.get('cartao')
   const cartao   = useMemo(() => data?.cards.find((c) => c.id === cartaoId) ?? null, [data, cartaoId])
@@ -143,6 +145,10 @@ export function BoardPage() {
             </button>
           )}
 
+          <button onClick={() => setArquivados(true)} className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-[#1a1a1a]" style={{ color: '#888' }} title="Cartões arquivados">
+            <Archive size={14} />
+          </button>
+
           {isManager && (
             <button onClick={excluirQuadro} className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-[#2a0a0a]" style={{ color: '#ff4444' }} title="Excluir quadro">
               <Trash2 size={14} />
@@ -160,6 +166,8 @@ export function BoardPage() {
       </div>
 
       <CardModal card={cartao} data={data} membros={membros} onClose={() => abrirCartao(null)} onOpenLead={abrirLead} />
+
+      <ArquivadosModal open={arquivados} data={data} onClose={() => setArquivados(false)} />
 
       <LeadDrawer lead={leadAberto} onClose={() => setLeadAberto(null)} onEdit={() => { setLeadAberto(null); navigate('/leads') }} />
     </div>

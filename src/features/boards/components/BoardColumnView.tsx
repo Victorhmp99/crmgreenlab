@@ -14,6 +14,7 @@ interface Props {
   labels:        BoardLabel[]
   membros:       Membro[]
   onOpenCard:    (card: CardData) => void
+  onToggleCardDone?: (card: CardData) => void
   onAddCard:     (columnId: string, title: string) => Promise<void>
   onRename:      (columnId: string, name: string) => void
   onToggleDone:  (columnId: string, isDone: boolean) => void
@@ -21,7 +22,7 @@ interface Props {
   overlay?:      boolean
 }
 
-export function BoardColumnView({ column, cards, labels, membros, onOpenCard, onAddCard, onRename, onToggleDone, onDelete, overlay = false }: Props) {
+export function BoardColumnView({ column, cards, labels, membros, onOpenCard, onToggleCardDone, onAddCard, onRename, onToggleDone, onDelete, overlay = false }: Props) {
   const [adicionando, setAdicionando] = useState(false)
   const [novoTitulo,  setNovoTitulo]  = useState('')
   const [editando,    setEditando]    = useState(false)
@@ -110,7 +111,7 @@ export function BoardColumnView({ column, cards, labels, membros, onOpenCard, on
         style={{ background: '#101010', border: '1px solid #1c1c1c' }}>
         <SortableContext items={cards.map((c) => c.id)} strategy={verticalListSortingStrategy}>
           {cards.map((card) => (
-            <BoardCardView key={card.id} card={card} labels={labels} membros={membros} onOpen={onOpenCard} />
+            <BoardCardView key={card.id} card={card} labels={labels} membros={membros} onOpen={onOpenCard} onToggleDone={onToggleCardDone} />
           ))}
         </SortableContext>
 

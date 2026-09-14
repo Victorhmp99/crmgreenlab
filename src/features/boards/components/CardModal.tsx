@@ -320,6 +320,11 @@ export function CardModal({ card, data, membros, onClose, onOpenLead }: Props) {
           </div>
 
           <div className="flex flex-col gap-1 pt-2" style={{ borderTop: '1px solid #1e1e1e' }}>
+            <button onClick={() => grava(() => updateCard(card.id, { completed_at: concluido ? null : new Date().toISOString() }))}
+              className="flex items-center gap-2 text-xs font-semibold rounded-md px-2 py-2"
+              style={concluido ? { background: '#1a1a1a', color: '#ccc' } : { background: 'rgba(0,230,118,0.15)', color: '#00e676', border: '1px solid rgba(0,230,118,0.35)' }}>
+              <Check size={13} /> {concluido ? 'Reabrir' : 'Marcar como feito'}
+            </button>
             <button onClick={arquivar} className="flex items-center gap-2 text-xs rounded-md px-2 py-1.5 hover:bg-[#1e1e1e]" style={{ color: '#999' }}><Archive size={13} /> Arquivar</button>
             <button onClick={excluir}  className="flex items-center gap-2 text-xs rounded-md px-2 py-1.5 hover:bg-[#1e1e1e]" style={{ color: '#ff4444' }}><Trash2 size={13} /> Excluir</button>
           </div>

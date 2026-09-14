@@ -136,7 +136,7 @@ export function TasksPage() {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex flex-col">
-            <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: '#555' }}>Tarefas</span>
+            <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: '#555' }}>Agenda</span>
             <h2 className="text-2xl font-bold leading-tight" style={{ color: overdueOnly ? '#ff5555' : 'var(--text)' }}>
               {overdueOnly ? 'Atrasadas' : periodLabelDisplay}
             </h2>
@@ -218,7 +218,7 @@ export function TasksPage() {
           <button onClick={() => { setEditing(null); setShowForm(true) }}
             className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-black text-sm font-medium transition-colors"
             style={{ background: 'var(--tenant-primary)' }}>
-            <Plus size={14} /> Nova tarefa
+            <Plus size={14} /> Nova tarefa na agenda
           </button>
         </div>
       </div>

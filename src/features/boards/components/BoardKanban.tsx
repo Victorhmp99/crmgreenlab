@@ -196,6 +196,7 @@ export function BoardKanban({ data, cards, membros, onOpenCard }: Props) {
           {exibir.map(({ column, cards: cs }) => (
             <BoardColumnView key={column.id} column={column} cards={cs} labels={data.labels} membros={membros}
               onOpenCard={onOpenCard} onAddCard={adicionarCartao}
+              onToggleCardDone={async (c) => { await updateCard(c.id, { completed_at: c.completed_at ? null : new Date().toISOString() }); recarregar() }}
               onRename={async (id, name) => { await updateColumn(id, { name }); recarregar() }}
               onToggleDone={async (id, is_done) => { await updateColumn(id, { is_done }); recarregar() }}
               onDelete={excluirColuna} />

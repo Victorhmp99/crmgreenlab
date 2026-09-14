@@ -161,11 +161,19 @@ export async function createCard(board: Board, columnId: string, title: string, 
   return (data as { id: string }).id
 }
 
-export type CardPatch = Partial<Pick<BoardCard, 'title' | 'description' | 'color' | 'lead_id' | 'due_date' | 'column_id' | 'position' | 'archived_at'>>
+export type CardPatch = Partial<Pick<BoardCard, 'title' | 'description' | 'color' | 'lead_id' | 'due_date' | 'column_id' | 'position' | 'archived_at' | 'completed_at'>>
 
 export async function updateCard(id: string, patch: CardPatch) {
   const { error } = await supabase.from('board_cards').update(patch).eq('id', id)
   falha(error)
+}
+
+/** Arquivados do quadro — somem do quadro, mas dá pra restaurar ou apagar de vez. */
+export async function fetchArchivedCards(boardId: string): Promise<BoardCard[]> {
+  const { data, error } = await supabase.from('board_cards').select('*')
+    .eq('board_id', boardId).not('archived_at', 'is', null).order('archived_at', { ascending: false })
+  falha(error)
+  return (data ?? []) as BoardCard[]
 }
 
 export async function deleteCard(id: string) {

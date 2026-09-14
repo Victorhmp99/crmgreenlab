@@ -167,14 +167,14 @@ export function TaskForm({ open, onClose, task = null, presetLeadId = null }: Ta
     <Modal
       open={open}
       onClose={onClose}
-      title={task ? 'Detalhes da Tarefa' : 'Nova Tarefa'}
-      description={task ? 'Edite os dados ou marque como concluída' : 'Vincule a um lead para acompanhar'}
+      title={task ? 'Compromisso da agenda' : 'Nova tarefa na agenda'}
+      description={task ? 'Edite os dados ou marque como concluída' : 'Follow-up com hora marcada — vincule a um lead para acompanhar'}
       size="md"
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>Cancelar</Button>
           <Button onClick={handleSave} loading={create.isPending || update.isPending}>
-            {task ? 'Salvar alterações' : 'Criar tarefa'}
+            {task ? 'Salvar alterações' : 'Marcar na agenda'}
           </Button>
         </>
       }
