@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { ChevronDown, Check, Plus, Building2 } from 'lucide-react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQueryClient, useQuery } from '@tanstack/react-query'
+import { supabase } from '@/lib/supabase'
 import { useAuthStore, type TenantOption } from '@/store/authStore'
 import { getInitials } from '@/lib/utils'
 
@@ -14,6 +15,7 @@ export function TenantSwitcher({ collapsed, onCreateTenant }: TenantSwitcherProp
   const ref             = useRef<HTMLDivElement>(null)
   const queryClient     = useQueryClient()
 
+  const user             = useAuthStore((s) => s.user)
   const tenant           = useAuthStore((s) => s.tenant)
   const membership       = useAuthStore((s) => s.membership)
   const availableTenants = useAuthStore((s) => s.availableTenants)
@@ -33,14 +35,22 @@ export function TenantSwitcher({ collapsed, onCreateTenant }: TenantSwitcherProp
   // Pode criar empresa se for admin ou manager
   const canCreate = membership?.role === 'admin' || membership?.role === 'manager'
 
-  // Limite: conta TODAS as empresas do usuário (independente de role)
-  // e pega o menor override entre todas as memberships
-  const totalCount = availableTenants.length
-  const overrides  = availableTenants
-    .map((o) => o.membership.max_companies_override)
-    .filter((v): v is number => v != null)
-  const limit   = overrides.length > 0 ? Math.min(...overrides) : null
-  const atLimit = limit !== null && totalCount >= limit
+  // Limite vem do banco: conta só as empresas que a pessoa CRIOU (convite
+  // não conta) e aplica o padrão do cargo — gestor 2, admin 10, super admin
+  // sem limite — ou o ajuste feito pelo super admin.
+  const { data: lim } = useQuery({
+    queryKey: ['meu-limite-empresas', user?.id],
+    queryFn:  async () => {
+      const { data, error } = await supabase.rpc('meu_limite_de_empresas')
+      if (error) throw error
+      return (Array.isArray(data) ? data[0] : data) as { limite: number | null; criadas: number } | undefined
+    },
+    enabled: !!user?.id && canCreate,
+    staleTime: 60_000,
+  })
+  const limit   = lim?.limite ?? null
+  const criadas = lim?.criadas ?? 0
+  const atLimit = limit !== null && criadas >= limit
 
   if (availableTenants.length <= 1 && !canCreate) return null
 
@@ -82,6 +92,7 @@ export function TenantSwitcher({ collapsed, onCreateTenant }: TenantSwitcherProp
             canCreate={canCreate && !atLimit}
             atLimit={atLimit}
             limit={limit}
+            criadas={criadas}
             side="right"
           />
         )}
@@ -133,6 +144,7 @@ export function TenantSwitcher({ collapsed, onCreateTenant }: TenantSwitcherProp
           canCreate={canCreate && !atLimit}
           atLimit={atLimit}
           limit={limit}
+          criadas={criadas}
           side="bottom"
         />
       )}
@@ -150,12 +162,13 @@ interface DropdownProps {
   canCreate:        boolean
   atLimit:          boolean
   limit:            number | null
+  criadas:          number
   side:             'bottom' | 'right'
 }
 
 function TenantDropdown({
   availableTenants, currentTenantId,
-  onSwitch, onCreateTenant, canCreate, atLimit, limit, side,
+  onSwitch, onCreateTenant, canCreate, atLimit, limit, criadas, side,
 }: DropdownProps) {
   const posStyle = side === 'right'
     ? { left: '100%', top: 0, marginLeft: '8px' }
@@ -224,7 +237,7 @@ function TenantDropdown({
               <div>
                 <p className="text-xs" style={{ color: '#ff6666' }}>Limite atingido</p>
                 <p className="text-[10px]" style={{ color: '#555' }}>
-                  Máximo de {limit} empresa{limit !== 1 ? 's' : ''} para esta conta
+                  Você já criou {limit} empresa{limit !== 1 ? 's' : ''} — o máximo desta conta
                 </p>
               </div>
             </div>
@@ -246,7 +259,12 @@ function TenantDropdown({
                 style={{ background: '#1e1e1e', border: '1px dashed #3a3a3a' }}>
                 <Plus size={11} style={{ color: '#666' }} />
               </div>
-              <p className="text-xs">Criar nova empresa</p>
+              <div>
+                <p className="text-xs">Criar nova empresa</p>
+                {limit !== null && (
+                  <p className="text-[10px]" style={{ color: '#555' }}>{criadas} de {limit} criada{limit !== 1 ? 's' : ''}</p>
+                )}
+              </div>
             </button>
           )}
         </>

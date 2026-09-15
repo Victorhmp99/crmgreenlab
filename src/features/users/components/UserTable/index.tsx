@@ -4,6 +4,7 @@ import { RoleBadge } from '../RoleBadge'
 import { Spinner } from '@/components/ui/Spinner'
 import { formatDateTime } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
+import { rotuloLimite } from '@/lib/limiteEmpresas'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useUserMutations } from '../../hooks/useUserMutations'
 import type { TenantUser } from '@/services/users'
@@ -33,17 +34,21 @@ function LimitCell({ user, canEdit }: { user: TenantUser; canEdit: boolean }) {
 
   function save() {
     const parsed = value.trim() === '' ? null : parseInt(value, 10)
-    if (parsed !== null && (isNaN(parsed) || parsed < 1)) { setEditing(false); return }
+    if (parsed !== null && (isNaN(parsed) || parsed < 0)) { setEditing(false); return }
     setLimit.mutate(
       { membershipId: user.membershipId, limit: parsed },
       { onSuccess: () => setEditing(false) },
     )
   }
 
+  // Sem ajuste, vale o padrão do cargo (gestor 2, admin 10). Ajustado fica claro.
+  const rotulo   = rotuloLimite(user.maxCompaniesOverride, user.role)
+  const ajustado = user.maxCompaniesOverride != null
+
   if (!canEdit) {
     return (
-      <span className="text-xs" style={{ color: '#555' }}>
-        {user.maxCompaniesOverride != null ? user.maxCompaniesOverride : '∞'}
+      <span className="text-xs" style={{ color: ajustado ? '#aaa' : '#555' }} title={ajustado ? 'Ajustado pelo super admin' : 'Padrão do cargo'}>
+        {rotulo}
       </span>
     )
   }
@@ -57,7 +62,7 @@ function LimitCell({ user, canEdit }: { user: TenantUser; canEdit: boolean }) {
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setEditing(false) }}
           autoFocus
-          placeholder="∞"
+          placeholder="padrão"
           className="h-7 w-16 rounded px-2 text-xs focus:outline-none"
           style={{ background: '#1a1a1a', border: '1px solid var(--tenant-primary)', color: '#e8e8e8' }}
         />
@@ -74,9 +79,9 @@ function LimitCell({ user, canEdit }: { user: TenantUser; canEdit: boolean }) {
   return (
     <button
       onClick={() => setEditing(true)}
-      title="Clique para definir limite de empresas"
+      title={ajustado ? 'Ajustado — clique para alterar (vazio volta ao padrão do cargo)' : 'Padrão do cargo — clique para ajustar'}
       className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs transition-all group"
-      style={{ background: 'transparent', border: '1px solid transparent', color: user.maxCompaniesOverride != null ? '#e8e8e8' : '#444' }}
+      style={{ background: 'transparent', border: '1px solid transparent', color: ajustado ? '#e8e8e8' : '#666' }}
       onMouseEnter={(e) => {
         ;(e.currentTarget as HTMLButtonElement).style.border = '1px solid #2a2a2a'
         ;(e.currentTarget as HTMLButtonElement).style.background = '#1a1a1a'
@@ -86,8 +91,8 @@ function LimitCell({ user, canEdit }: { user: TenantUser; canEdit: boolean }) {
         ;(e.currentTarget as HTMLButtonElement).style.background = 'transparent'
       }}
     >
-      <Building2 size={11} style={{ color: user.maxCompaniesOverride != null ? 'var(--tenant-primary)' : '#444' }} />
-      {user.maxCompaniesOverride != null ? user.maxCompaniesOverride : '∞'}
+      <Building2 size={11} style={{ color: ajustado ? 'var(--tenant-primary)' : '#444' }} />
+      {rotulo}
     </button>
   )
 }
@@ -97,7 +102,8 @@ export function UserTable({ users, isLoading, onChangeRole }: UserTableProps) {
   const isSuperAdmin             = useAuthStore((s) => s.isSuperAdmin)
   const { isAdmin, isManager }   = usePermissions()
   const { toggleActive, remove } = useUserMutations()
-  const canEditLimit             = isAdmin || isSuperAdmin
+  // Só o super admin ajusta limite: admin poderia se dar "sem limite".
+  const canEditLimit             = isSuperAdmin
   const [confirmRemove, setConfirmRemove] = useState<TenantUser | null>(null)
 
   // Quem pode excluir QUEM:

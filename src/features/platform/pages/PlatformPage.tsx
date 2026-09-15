@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { rotuloLimite } from '@/lib/limiteEmpresas'
 import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -415,15 +416,16 @@ function PlatformInviteModal({ open, onClose, presetTenantId, presetTenantName }
 // ── Célula de limite de empresas (plataforma) ─────────────────────────────────
 
 function PlatformLimitCell({
-  membershipId, current, onSaved,
-}: { membershipId: string; current: number | null; onSaved: () => void }) {
+  membershipId, current, role, isSuperAdmin, onSaved,
+}: { membershipId: string; current: number | null; role: string; isSuperAdmin: boolean; onSaved: () => void }) {
+  const rotulo = rotuloLimite(current, role, isSuperAdmin)
   const [editing, setEditing] = useState(false)
   const [value, setValue]     = useState(current != null ? String(current) : '')
   const [saving, setSaving]   = useState(false)
 
   async function save() {
     const parsed = value.trim() === '' ? null : parseInt(value, 10)
-    if (parsed !== null && (isNaN(parsed) || parsed < 1)) { setEditing(false); return }
+    if (parsed !== null && (isNaN(parsed) || parsed < 0)) { setEditing(false); return }
     setSaving(true)
     try {
       await setUserCompanyLimit(membershipId, parsed)
@@ -440,7 +442,7 @@ function PlatformLimitCell({
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setEditing(false) }}
-          autoFocus placeholder="∞"
+          autoFocus placeholder="padrão"
           className="h-7 w-16 rounded px-2 text-xs focus:outline-none"
           style={{ background: '#1a1a1a', border: '1px solid #a78bfa', color: '#e8e8e8' }}
         />
@@ -456,9 +458,9 @@ function PlatformLimitCell({
 
   return (
     <button onClick={() => setEditing(true)}
-      title="Clique para definir limite"
+      title={current != null ? 'Ajustado — vazio volta ao padrão do cargo' : isSuperAdmin ? 'Super admin: sem limite' : 'Padrão do cargo — clique para ajustar'}
       className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs transition-all"
-      style={{ background: 'transparent', border: '1px solid transparent', color: current != null ? '#e8e8e8' : '#444' }}
+      style={{ background: 'transparent', border: '1px solid transparent', color: current != null ? '#e8e8e8' : '#666' }}
       onMouseEnter={(e) => {
         ;(e.currentTarget as HTMLButtonElement).style.border = '1px solid #2a2a2a'
         ;(e.currentTarget as HTMLButtonElement).style.background = '#1a1a1a'
@@ -469,7 +471,7 @@ function PlatformLimitCell({
       }}
     >
       <Building2 size={11} style={{ color: current != null ? '#a78bfa' : '#444' }} />
-      {current != null ? current : '∞'}
+      {rotulo}
     </button>
   )
 }
@@ -718,6 +720,8 @@ function UsersTab({ isMaster }: { isMaster: boolean }) {
                     <PlatformLimitCell
                       membershipId={u.membership_id}
                       current={u.max_companies_override}
+                      role={u.role}
+                      isSuperAdmin={u.is_super_admin}
                       onSaved={() => queryClient.invalidateQueries({ queryKey: ['platform-users'] })}
                     />
                   </td>
